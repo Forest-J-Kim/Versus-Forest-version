@@ -1,0 +1,50 @@
+.container {
+    padding: 1.5rem;
+    min-height: 80vh;
+}
+
+.title {
+    font-size: 2rem;
+    font-weight: 800;
+    margin-bottom: 2rem;
+    color: var(--foreground);
+}
+
+.highlight {
+    color: var(--primary);
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.card {
+    aspect-ratio: 1;
+    border-radius: 20px;
+    border: 1px solid transparent;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    transition: transform 0.2s;
+    box-shadow: var(--shadow-sm);
+    text-decoration: none;
+}
+
+.card:active {
+    transform: scale(0.96);
+}
+
+.icon {
+    font-size: 3rem;
+}
+
+.label {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--foreground);
+    text-align: center;
+}

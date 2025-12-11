@@ -1,0 +1,36 @@
+.fab {
+    position: fixed;
+    bottom: 80px;
+    /* Above Bottom Nav */
+    right: 20px;
+    width: 56px;
+    height: 56px;
+    background: var(--primary);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4);
+    transition: transform 0.2s;
+    z-index: 900;
+}
+
+.fab:active {
+    transform: scale(0.9);
+}
+
+.icon {
+    color: white;
+    font-size: 2rem;
+    font-weight: 300;
+    line-height: 1;
+    margin-top: -4px;
+}
+
+/* Ensure it stays inside the 480px frame if on desktop */
+@media (min-width: 481px) {
+    .fab {
+        position: absolute;
+        /* absolute relative to mobile container */
+    }
+}

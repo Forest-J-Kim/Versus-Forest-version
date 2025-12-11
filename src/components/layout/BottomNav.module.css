@@ -1,0 +1,50 @@
+.nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    background: white;
+    border-top: 1px solid var(--card-border);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    z-index: 1000;
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Ensure it stays inside the 480px frame on desktop */
+@media (min-width: 481px) {
+    .nav {
+        position: absolute;
+        /* Relative to MobileContainer? No, sticky inside flex? */
+        /* Absolute within relative parent works if parent is the app frame */
+    }
+}
+
+.item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    color: var(--secondary);
+    font-size: 0.75rem;
+    font-weight: 500;
+    width: 100%;
+    height: 100%;
+    justify-content: center;
+    transition: color 0.2s;
+}
+
+.item.active {
+    color: var(--primary);
+}
+
+.icon {
+    font-size: 1.25rem;
+    line-height: 1;
+}
+
+.label {
+    line-height: 1;
+}

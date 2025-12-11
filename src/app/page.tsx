@@ -1,66 +1,34 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+"use client";
+
+import Link from "next/link";
+import styles from "./home.module.css"; // We can reuse or adjust styles
 
 export default function Home() {
-  return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>To get started, edit the page.tsx file.</h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
+    return (
+        <main className={styles.container}>
+            <h1 className={styles.headerTitle}>
+                Who are you<br />playing as?
+            </h1>
+
+            <div className={styles.splitLayout}>
+                {/* Solo Card */}
+                <Link href="/sports?mode=SOLO" className={`${styles.bigCard} ${styles.soloCard}`}>
+                    <div className={styles.bigIcon}>👤</div>
+                    <div className={styles.bigLabel}>
+                        <h2>SOLO</h2>
+                        <p>Individual / Mercenary</p>
+                    </div>
+                </Link>
+
+                {/* Team Card */}
+                <Link href="/sports?mode=TEAM" className={`${styles.bigCard} ${styles.teamCard}`}>
+                    <div className={styles.bigIcon}>🛡️</div>
+                    <div className={styles.bigLabel}>
+                        <h2>TEAM</h2>
+                        <p>Club / Scrimmage</p>
+                    </div>
+                </Link>
+            </div>
+        </main>
+    );
 }

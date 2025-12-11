@@ -1,0 +1,38 @@
+.switcher {
+    background: #F1F5F9;
+    /* Slate-100 */
+    border: 1px solid transparent;
+    border-radius: 9999px;
+    padding: 4px;
+    cursor: pointer;
+    position: relative;
+    width: 140px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.switcher:hover {
+    background: #E2E8F0;
+    /* Slate-200 */
+}
+
+.label {
+    z-index: 10;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--foreground);
+    transition: color 0.3s;
+}
+
+.teamMode {
+    background: #EFF6FF;
+    /* Blue-50 */
+    border-color: #BFDBFE;
+}
+
+.teamMode .label {
+    color: var(--primary);
+}

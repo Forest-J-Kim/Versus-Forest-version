@@ -1,0 +1,38 @@
+.wrapper {
+    width: 100vw;
+    min-height: 100vh;
+    background-color: #111827;
+    /* Dark background for desktop context */
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    /* Align top, or center? */
+}
+
+@media (min-width: 481px) {
+    .wrapper {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+    }
+}
+
+.appFrame {
+    width: 100%;
+    max-width: 480px;
+    min-height: 100vh;
+    background-color: #F9FAFB;
+    /* Light app bg */
+    position: relative;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+}
+
+@media (min-width: 481px) {
+    .appFrame {
+        min-height: calc(100vh - 4rem);
+        border-radius: 24px;
+        overflow: hidden;
+        /* Clip fixed elements if needed */
+    }
+}

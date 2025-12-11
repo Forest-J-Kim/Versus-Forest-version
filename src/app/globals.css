@@ -1,27 +1,39 @@
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  /* Clean Light Mode Base */
+  --background: #F9FAFB;
+  /* Light Grey for depth */
+  --foreground: #1F2937;
+  /* Slate-800 for text */
+  --card-bg: #FFFFFF;
+  --card-border: #E5E7EB;
+  /* Slate-200 */
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+  /* Brand Colors */
+  --primary: #2563EB;
+  /* Royal Blue */
+  --primary-hover: #1D4ED8;
+  --primary-glow: rgba(37, 99, 235, 0.2);
 
-html,
-body {
-  max-width: 100vw;
-  overflow-x: hidden;
-}
+  --secondary: #64748B;
+  /* Slate-500 for secondary text */
+  --accent: #F59E0B;
+  /* Amber for subtle highlights if needed */
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  /* Status Colors */
+  --success-bg: #DCFCE7;
+  --success-text: #166534;
+  --danger-bg: #FEE2E2;
+  --danger-text: #991B1B;
+
+  --font-sans: var(--font-geist-sans), "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  --radius-xl: 16px;
+  --radius-lg: 12px;
+  --radius-md: 8px;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
 * {
@@ -30,13 +42,61 @@ body {
   margin: 0;
 }
 
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  height: 100%;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 a {
   color: inherit;
   text-decoration: none;
 }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
+/* Utilities */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  display: inline-block;
+  /* Fix for text-gradient cutoff */
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+}
+
+.status-badge.matched {
+  background-color: var(--success-bg);
+  color: var(--success-text);
+}
+
+.status-badge.pending {
+  background-color: #FEF3C7;
+  /* Amber-100 */
+  color: #92400E;
+  /* Amber-800 */
 }

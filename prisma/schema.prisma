@@ -1,0 +1,89 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  position  String?
+  tier      String?
+  region    String?
+  createdAt DateTime @default(now())
+
+  ownedTeams    Team[]        @relation("TeamOwner")
+  memberships   TeamMember[]
+  
+  hostedMatches Match[]       @relation("UserHost")
+  guestMatches  Match[]       @relation("UserGuest")
+}
+
+model Team {
+  id           String   @id @default(uuid())
+  name         String
+  emblem       String?
+  region       String?
+  homeStadium  Boolean  @default(false)
+  avgAge       Int?
+  tier         String?
+  uniformColor String?
+  mannerScore  Float    @default(5.0)
+  createdAt    DateTime @default(now())
+
+  leaderId    String
+  leader      User     @relation("TeamOwner", fields: [leaderId], references: [id])
+
+  members     TeamMember[]
+  
+  hostedMatches Match[] @relation("TeamHost")
+  guestMatches  Match[] @relation("TeamGuest")
+}
+
+model TeamMember {
+  id        String   @id @default(uuid())
+  userId    String
+  teamId    String
+  role      String   @default("MEMBER")
+  joinedAt  DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+  team      Team     @relation(fields: [teamId], references: [id])
+
+  @@unique([userId, teamId])
+}
+
+model Match {
+  id          String   @id @default(uuid())
+  type        String // keeping for backward compatibility but will use mode/sport mainly
+  mode        String   @default("SOLO") // SOLO, TEAM
+  sport       String   @default("BOXING") // BOXING, SOCCER, etc.
+  attributes  String   @default("{}") // SQLite doesn't natively support JSON type in Prisma easily without some setup, but for now String is safest for MVP or I can try strictly JSON if I trust sqlite version. Actually Prisma supports JSON in SQLite. Let's try String first for safety or JSON? Prisma 5 supports JSON on SQLite. Let's use String to be safe with the mismatch error I saw earlier, or just standard JSON. Let's use String for now to avoid complexity with JSON parsing in Client if any. Wait, JSON is better. Let's try `String` but treat as JSON, or actual `Json` type. Let's stick to `String` and JSON.parse/stringify manually to avoid "Json" type issues if any.
+  // Actually, I'll use `String` named `attributes` and parse it in app.
+  
+  status      String   @default("PENDING")
+  date        DateTime?
+  location    String?
+  description String?
+
+  hostUserId  String?
+  hostUser    User?    @relation("UserHost", fields: [hostUserId], references: [id])
+  
+  guestUserId String?
+  guestUser   User?    @relation("UserGuest", fields: [guestUserId], references: [id])
+
+  hostTeamId  String?
+  hostTeam    Team?    @relation("TeamHost", fields: [hostTeamId], references: [id])
+
+  guestTeamId String?
+  guestTeam   Team?    @relation("TeamGuest", fields: [guestTeamId], references: [id])
+
+  createdAt   DateTime @default(now())
+}
