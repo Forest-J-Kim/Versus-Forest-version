@@ -1,171 +1,294 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { sportConfig } from "@/lib/sportConfig";
 import styles from "./wizard.module.css";
-
-// Removed matchTypes and tagsList
-
-// Removed mock config
-
-
+import { useToast } from "@/components/providers/ToastProvider";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function NewMatchWizard() {
     const router = useRouter();
-    const searchParams = useSearchParams(); // Added
+    const searchParams = useSearchParams();
+    const { showToast } = useToast();
 
-    const mode = searchParams.get("mode") || "SOLO"; // Added
-    const sportId = searchParams.get("sport") || "BOXING"; // Added
-
-    const sportDef = sportConfig[mode]?.[sportId]; // Added
+    const mode = searchParams.get("mode") || "SOLO";
+    const sportId = searchParams.get("sport") || "BOXING";
+    const sportDef = sportConfig[mode]?.[sportId];
 
     // Generic State
-    const [formData, setFormData] = useState<Record<string, any>>({}); // Changed
-    const [date, setDate] = useState("Today"); // Changed
+    const [formData, setFormData] = useState<Record<string, any>>({});
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-    if (!sportDef) { // Added
-        return <div className={styles.container}>Invalid Sport Configuration</div>; // Added
+    // --- Date/Time Wizard State ---
+    const [dateStep, setDateStep] = useState<"DATE" | "WEEKEND_DETAIL" | "TIME_SLOT" | "HOUR">("DATE");
+    const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+    const [timeSlot, setTimeSlot] = useState<"AM" | "PM" | "EVE" | null>(null);
+    const [finalDateIso, setFinalDateIso] = useState("");
+
+    // --- Location State ---
+    const [locationType, setLocationType] = useState<"HOME" | "AWAY" | "TBD">("HOME");
+
+    // Hardcoded ID per request
+    const TEMP_USER_ID = 'user-1234';
+
+    if (!sportDef) {
+        return <div className={styles.container}>Invalid Sport Configuration</div>;
     }
 
-    const handleCreate = async () => {
-        // Post to API with mode, sport, and stringified JSON attributes
-        const payload = {
-            mode,
-            sport: sportId,
-            date,
-            attributes: JSON.stringify(formData)
-        };
-        console.log("Creating:", payload);
-        // await prisma... (mock)
-        router.push("/matches");
+    // --- Logic for Date Wizard ---
+    const handleDateMain = (choice: "TODAY" | "TOMORROW" | "WEEKEND" | "PICK") => {
+        const now = new Date();
+        if (choice === "TODAY") {
+            setSelectedDate(now);
+            setDateStep("TIME_SLOT"); // Skip to time slot
+        } else if (choice === "TOMORROW") {
+            const tmr = new Date(now);
+            tmr.setDate(tmr.getDate() + 1);
+            setSelectedDate(tmr);
+            setDateStep("TIME_SLOT");
+        } else if (choice === "WEEKEND") {
+            setDateStep("WEEKEND_DETAIL");
+        }
+        // PICK is handled via native input trigger or UI toggle, typically handled separately
     };
 
-    // Helper to update form data
-    const updateField = (key: string, value: any) => { // Added
-        setFormData(prev => ({ ...prev, [key]: value })); // Added
+    const handleLevel2Weekend = (day: "SAT" | "SUN") => {
+        const d = new Date();
+        const currentDay = d.getDay();
+        let addDays = 0;
+
+        // Find next Sat or Sun
+        if (day === "SAT") addDays = (6 - currentDay + 7) % 7;
+        if (day === "SUN") addDays = (0 - currentDay + 7) % 7;
+
+        // If today is match, but late? Assume coming weekend. 
+        if (addDays === 0 && d.getHours() > 20) addDays = 7;
+
+        d.setDate(d.getDate() + addDays);
+        setSelectedDate(d);
+        setDateStep("TIME_SLOT");
+    };
+
+    const handleLevel2Pick = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.value) return;
+        setSelectedDate(new Date(e.target.value));
+        setDateStep("TIME_SLOT");
+    };
+
+    const handleLevel3TimeSlot = (slot: "AM" | "PM" | "EVE") => {
+        setTimeSlot(slot);
+        setDateStep("HOUR");
+    };
+
+    const handleLevel4Hour = (hour: number) => {
+        if (!selectedDate) return;
+        const d = new Date(selectedDate);
+        d.setHours(hour, 0, 0, 0);
+        setFinalDateIso(d.toISOString());
+    };
+
+    // Helper to render hours based on slot
+    const getHoursForSlot = () => {
+        if (timeSlot === "AM") return [9, 10, 11, 12];
+        if (timeSlot === "PM") return [13, 14, 15, 16, 17];
+        if (timeSlot === "EVE") return [18, 19, 20, 21, 22]; // Extended Night
+        return [];
+    };
+
+    const handleCreate = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault(); // Prevent default if called from form
+
+        alert('등록을 시작합니다..'); // Immediate feedback per user request
+        setIsSubmitting(true);
+
+        try {
+            if (!finalDateIso) {
+                alert("날짜와 시간을 완료해주세요.");
+                setIsSubmitting(false);
+                return;
+            }
+
+            // Determine Location String
+            let locString = "장소 미정";
+            if (locationType === "HOME") locString = "서울 복싱 (Home)";
+            if (locationType === "AWAY") locString = "상대 체육관 희망";
+
+            const cleanAttributes = Object.fromEntries(
+                Object.entries(formData).map(([k, v]) => [k, v ?? ""])
+            );
+
+            const payload = {
+                mode,
+                sport: sportId,
+                author_id: TEMP_USER_ID,
+                target_date: finalDateIso,
+                location: locString, // Added column in schema
+                attributes: cleanAttributes,
+                status: 'OPEN'
+            };
+
+            console.log("Payload:", payload);
+
+            const { error } = await supabase.from('matches').insert([payload]);
+
+            if (error) {
+                console.error("Supabase Error:", error);
+                throw error;
+            }
+
+            alert("매칭이 성공적으로 등록되었습니다! (목록으로 이동)");
+            // Force redirect to ensure no freeze
+            window.location.href = "/matches";
+
+        } catch (error: any) {
+            console.error(error);
+            const msg = error.message || JSON.stringify(error);
+            alert(`등록 실패: ${msg}`);
+            setIsSubmitting(false); // Only re-enable on error
+        }
+    };
+
+    const updateField = (key: string, value: any) => {
+        setFormData(prev => ({ ...prev, [key]: value }));
     };
 
     return (
         <main className={styles.container}>
-            {/* Header */}
             <h1 style={{ marginBottom: '1rem', fontSize: '1.5rem' }}>{sportDef.icon} {sportDef.name}</h1>
 
-            {/* Dynamic Preview */}
-            <section className={styles.previewSection}>
-                <div className={styles.card}>
-                    <div className={styles.cardHeader}>
-                        <div className={styles.badge}>{mode}</div>
-                        <div className={styles.dateBadge}>{date}</div>
-                    </div>
-                    <div className={styles.cardTitle}>
-                        {/* Try to display some meaningful summary */}
-                        {Object.entries(formData).slice(0, 2).map(([k, v]) => `${v}`).join(' • ') || "New Match"}
-                    </div>
-                    <div className={styles.tags}>
-                        {formData['tags']?.map((t: string) => <span key={t} className={styles.tag}>{t}</span>)}
-                    </div>
+            {/* Preview Card */}
+            <div style={{ background: 'white', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', border: '1px solid #E5E7EB' }}>
+                <div style={{ fontSize: '0.85rem', color: '#6B7280', marginBottom: '4px' }}>SUMMARY</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>
+                    {finalDateIso ? new Date(finalDateIso).toLocaleString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit' }) : "일시를 선택해주세요"}
                 </div>
-            </section>
+                <div style={{ fontSize: '0.9rem', color: '#374151' }}>
+                    {locationType === 'HOME' ? '🏠 내 체육관 (Home)' : locationType === 'AWAY' ? '✈️ 원정 (Away)' : '🤝 장소 협의'}
+                </div>
+            </div>
 
             <div className={styles.form}>
 
-                {/* Date (Common) */}
+                {/* --- Wizard Section --- */}
                 <div className={styles.section}>
-                    <h3>When?</h3>
-                    <div className={styles.grid4}>
-                        {["Today", "Tomorrow", "Weekend", "Pick"].map((d) => (
-                            <button
-                                key={d}
-                                className={`${styles.dateBtn} ${date === d ? styles.active : ""}`}
-                                onClick={() => setDate(d)}
-                            >
-                                {d}
-                            </button>
-                        ))}
+                    <h3>Step 1: 날짜 (Date)</h3>
+
+                    {/* Level 1: Main Chips */}
+                    <div className={styles.grid4} style={{ marginBottom: '8px' }}>
+                        <button className={`${styles.dateBtn} ${dateStep !== 'DATE' && selectedDate?.getDate() === new Date().getDate() ? styles.active : ''}`} onClick={() => handleDateMain("TODAY")}>오늘</button>
+                        <button className={`${styles.dateBtn} ${dateStep !== 'DATE' && selectedDate?.getDate() === new Date().getDate() + 1 ? styles.active : ''}`} onClick={() => handleDateMain("TOMORROW")}>내일</button>
+                        <button className={`${styles.dateBtn}`} onClick={() => handleDateMain("WEEKEND")}>주말</button>
+                        <input type="date" className={styles.dateInput} onChange={handleLevel2Pick} style={{ height: '100%', border: '1px solid #E5E7EB', borderRadius: '8px', padding: '0 8px' }} />
+                    </div>
+
+                    {/* Level 2: Weekend Detail */}
+                    {dateStep === "WEEKEND_DETAIL" && (
+                        <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                            <button className={styles.subBtn} onClick={() => handleLevel2Weekend("SAT")}>토요일 (Sat)</button>
+                            <button className={styles.subBtn} onClick={() => handleLevel2Weekend("SUN")}>일요일 (Sun)</button>
+                        </div>
+                    )}
+
+                    {/* Level 3: Time Slot */}
+                    {(dateStep === "TIME_SLOT" || dateStep === "HOUR" || finalDateIso) && (
+                        <div style={{ marginTop: '1rem' }}>
+                            <h3>Step 2: 시간대 (Time)</h3>
+                            <div className={styles.grid3}>
+                                <button className={`${styles.slotBtn} ${timeSlot === 'AM' ? styles.active : ''}`} onClick={() => handleLevel3TimeSlot("AM")}>오전 (09-12)</button>
+                                <button className={`${styles.slotBtn} ${timeSlot === 'PM' ? styles.active : ''}`} onClick={() => handleLevel3TimeSlot("PM")}>오후 (13-17)</button>
+                                <button className={`${styles.slotBtn} ${timeSlot === 'EVE' ? styles.active : ''}`} onClick={() => handleLevel3TimeSlot("EVE")}>저녁 (18-22)</button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Level 4: Hour Picker */}
+                    {(dateStep === "HOUR" || finalDateIso) && timeSlot && (
+                        <div style={{ marginTop: '1rem' }}>
+                            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
+                                {getHoursForSlot().map(h => (
+                                    <button
+                                        key={h}
+                                        className={`${styles.hourBtn} ${finalDateIso && new Date(finalDateIso).getHours() === h ? styles.active : ''}`}
+                                        onClick={() => handleLevel4Hour(h)}
+                                    >
+                                        {h}:00
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* --- Location Toggle --- */}
+                <div className={styles.section}>
+                    <h3>Location (장소)</h3>
+                    <div className={styles.grid3}>
+                        <button className={`${styles.locBtn} ${locationType === 'HOME' ? styles.active : ''}`} onClick={() => setLocationType("HOME")}>
+                            🏠 홈 (오세요)
+                        </button>
+                        <button className={`${styles.locBtn} ${locationType === 'AWAY' ? styles.active : ''}`} onClick={() => setLocationType("AWAY")}>
+                            ✈️ 원정 (갈게요)
+                        </button>
+                        <button className={`${styles.locBtn} ${locationType === 'TBD' ? styles.active : ''}`} onClick={() => setLocationType("TBD")}>
+                            🤝 장소 미정
+                        </button>
                     </div>
                 </div>
 
                 {/* Dynamic Fields */}
                 {sportDef.fields.map((field) => {
                     const val = formData[field.key];
-
                     return (
                         <div key={field.key} className={styles.section}>
-                            <h3>{field.label}: {val} {field.unit}</h3>
-
-                            {/* Slider Type */}
+                            <h3>{field.label}</h3>
+                            {/* ... Simple implementation for other fields ... */}
                             {field.type === 'slider' && (
-                                <input
-                                    type="range"
-                                    min={field.min}
-                                    max={field.max}
-                                    value={val || field.min}
-                                    onChange={(e) => updateField(field.key, Number(e.target.value))}
-                                    className={styles.slider}
-                                />
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <input type="range" min={field.min} max={field.max} value={val || field.min} onChange={(e) => updateField(field.key, Number(e.target.value))} style={{ flex: 1 }} />
+                                    <span>{val || field.min} {field.unit}</span>
+                                </div>
                             )}
-
-                            {/* Chips Type */}
+                            {/* Reusing Config Logic Simplified for brevity */}
                             {field.type === 'chips' && (
                                 <div className={styles.chips}>
                                     {field.options?.map(opt => (
-                                        <button
-                                            key={opt}
-                                            className={`${styles.chip} ${val === opt ? styles.active : ""}`}
-                                            onClick={() => updateField(field.key, opt)}
-                                        >
-                                            {opt}
-                                        </button>
+                                        <button key={opt} className={`${styles.chip} ${val === opt ? styles.active : ""}`} onClick={() => updateField(field.key, opt)}>{opt}</button>
                                     ))}
                                 </div>
                             )}
-
-                            {/* Toggle Type */}
                             {field.type === 'toggle' && (
                                 <div className={styles.toggleGroup}>
                                     {field.options?.map(opt => (
-                                        <button
-                                            key={opt}
-                                            className={`${styles.toggle} ${val === opt ? styles.active : ""}`}
-                                            onClick={() => updateField(field.key, opt)}
-                                        >
-                                            {opt}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-
-                            {/* Tags Type */}
-                            {field.type === 'tags' && (
-                                <div className={styles.tagsGrid}>
-                                    {field.tags?.map(tag => (
-                                        <button
-                                            key={tag}
-                                            className={`${styles.tagBtn} ${val?.includes(tag) ? styles.active : ""}`}
-                                            onClick={() => {
-                                                const currentTags = val || [];
-                                                const newTags = currentTags.includes(tag)
-                                                    ? currentTags.filter((t: string) => t !== tag)
-                                                    : [...currentTags, tag];
-                                                updateField(field.key, newTags);
-                                            }}
-                                        >
-                                            {tag}
-                                        </button>
+                                        <button key={opt} className={`${styles.toggle} ${val === opt ? styles.active : ""}`} onClick={() => updateField(field.key, opt)}>{opt}</button>
                                     ))}
                                 </div>
                             )}
                         </div>
-                    );
+                    )
                 })}
 
             </div>
 
-            <button className={styles.submitBtn} onClick={handleCreate}>
-                Post Match
+            <button className={styles.submitBtn} onClick={handleCreate} disabled={isSubmitting || !finalDateIso}>
+                {isSubmitting ? "등록 중..." : "매칭 등록 (Post)"}
             </button>
 
+            <style jsx>{`
+                .active { background: #2563EB !important; color: white !important; border-color: #2563EB !important; }
+                .subBtn { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #E5E7EB; background: white; font-weight: bold; }
+                .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+                .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+                .dateBtn { padding: 12px 0; border-radius: 8px; border: 1px solid #E5E7EB; background: white; font-size: 0.9rem; font-weight: 500; }
+                .slotBtn { padding: 12px; border-radius: 10px; border: 1px solid #E5E7EB; background: white; font-weight: 500; }
+                .hourBtn { padding: 8px 16px; border-radius: 20px; border: 1px solid #E5E7EB; background: white; white-space: nowrap; }
+                .locBtn { padding: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border-radius: 12px; border: 1px solid #E5E7EB; background: white; font-size: 0.9rem; font-weight: bold; }
+                .chip { padding: 8px 12px; border-radius: 20px; border: 1px solid #E5E7EB; background: white; margin-right: 8px; margin-bottom: 8px; }
+                .toggleGroup { display: flex; gap: 8px; }
+                .toggle { padding: 8px 16px; border-radius: 8px; border: 1px solid #E5E7EB; background: white; }
+                .tagsGrid { display: flex; flex-wrap: wrap; gap: 8px; }
+                .tagBtn { padding: 6px 12px; border-radius: 6px; border: 1px solid #E5E7EB; background: white; font-size: 0.85rem; }
+            `}</style>
         </main>
     );
 }

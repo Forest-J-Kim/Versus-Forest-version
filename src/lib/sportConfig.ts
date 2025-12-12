@@ -24,57 +24,42 @@ export const sportConfig: Record<string, Record<string, SportDef>> = {
     SOLO: {
         BOXING: {
             id: 'BOXING',
-            name: 'Boxing / MMA',
+            name: '복싱 / 킥복싱',
             icon: '🥊',
-            color: '#FEF2F2',
-            border: '#FECACA',
+            color: '#EFF6FF',
+            border: '#BFDBFE',
             fields: [
                 {
                     key: 'weight',
-                    label: 'Weight Class',
+                    label: '체급 (Weight)',
                     type: 'slider',
-                    min: 40,
+                    min: 45,
                     max: 120,
                     unit: 'kg'
                 },
                 {
                     key: 'type',
-                    label: 'Sparring Type',
+                    label: '스파링 강도',
                     type: 'chips',
-                    options: ['Light', 'Hard', 'Technical', 'Drill']
+                    options: ['매스', '라이트', '하드', '풀스파링'] // Localized chips
+                },
+                {
+                    key: 'rounds',
+                    label: '라운드 수',
+                    type: 'chips',
+                    options: ['3R', '4R', '6R', '8R', '10R'] // Pro Feature
+                },
+                {
+                    key: 'gear',
+                    label: '보호구 착용',
+                    type: 'toggle',
+                    options: ['풀기어 (헤드기어O)', '오픈 (헤드기어X)']
                 },
                 {
                     key: 'tags',
-                    label: 'Tags',
+                    label: '추가 조건',
                     type: 'tags',
-                    tags: ['#SafetyGear', '#NoEgo', '#ProOnly', '#Beginner']
-                }
-            ]
-        },
-        TENNIS: {
-            id: 'TENNIS',
-            name: 'Tennis / Badminton',
-            icon: '🎾',
-            color: '#EFF6FF',
-            border: '#BFDBFE',
-            fields: [
-                {
-                    key: 'mode',
-                    label: 'Game Mode',
-                    type: 'chips',
-                    options: ['Single (1:1)', 'Double (2:2)']
-                },
-                {
-                    key: 'court',
-                    label: 'Court Type',
-                    type: 'chips',
-                    options: ['Hard', 'Clay', 'Grass', 'Indoor']
-                },
-                {
-                    key: 'tags',
-                    label: 'Tags',
-                    type: 'tags',
-                    tags: ['#Rally', '#Match', '#Lesson', '#Fun']
+                    tags: ['#프로지망', '#생활체육', '#쉐도우만', '#지도자환영', '#초보가능']
                 }
             ]
         }
@@ -82,57 +67,34 @@ export const sportConfig: Record<string, Record<string, SportDef>> = {
     TEAM: {
         SOCCER: {
             id: 'SOCCER',
-            name: 'Soccer / Futsal',
+            name: '축구 / 풋살',
             icon: '⚽',
             color: '#F0FDF4',
             border: '#BBF7D0',
             fields: [
                 {
                     key: 'format',
-                    label: 'Format',
+                    label: '경기 방식',
                     type: 'chips',
                     options: ['5vs5', '6vs6', '11vs11']
                 },
                 {
                     key: 'location',
-                    label: 'Pitch Status',
+                    label: '구장 확보 여부',
                     type: 'toggle',
-                    options: ['Reserving', 'Secured (Home)', 'Looking (Away)']
-                },
-                {
-                    key: 'tags',
-                    label: 'Team Vibe',
-                    type: 'tags',
-                    tags: ['#Friendly', '#Competitive', '#Uniform', '#RefIncluded']
-                }
-            ]
-        },
-        BASKETBALL: {
-            id: 'BASKETBALL',
-            name: 'Basketball',
-            icon: '🏀',
-            color: '#FFFAF0',
-            border: '#FED7AA',
-            fields: [
-                {
-                    key: 'format',
-                    label: 'Format',
-                    type: 'chips',
-                    options: ['3on3', '5on5']
+                    options: ['구장확보', '원정가능']
                 },
                 {
                     key: 'level',
-                    label: 'Team Level',
-                    type: 'slider',
-                    min: 1,
-                    max: 5,
-                    unit: 'Lv'
+                    label: '팀 수준',
+                    type: 'chips',
+                    options: ['선수출신 다수', '아마추어 중수', '친목/초보']
                 },
                 {
                     key: 'tags',
-                    label: 'Tags',
+                    label: '매너/규칙',
                     type: 'tags',
-                    tags: ['#HalfCourt', '#FullCourt', '#Guest', '#LeagueRule']
+                    tags: ['#선출환영', '#매너필수', '#자체심판', '#유니폼착용', '#음료지원']
                 }
             ]
         }

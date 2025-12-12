@@ -4,6 +4,7 @@ import Header from "@/components/layout/Header";
 import BottomNav from "@/components/layout/BottomNav";
 import MobileContainer from "@/components/layout/MobileContainer";
 import { ModeProvider } from "@/components/providers/ModeProvider";
+import { ToastProvider } from "@/components/providers/ToastProvider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -30,13 +31,15 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <ModeProvider>
-          <MobileContainer>
-            <Header />
-            <div style={{ flex: 1, overflowY: 'auto', paddingBottom: '64px' }}>
-              {children}
-            </div>
-            <BottomNav />
-          </MobileContainer>
+          <ToastProvider>
+            <MobileContainer>
+              <Header />
+              <div style={{ flex: 1, overflowY: 'auto', paddingBottom: '64px' }}>
+                {children}
+              </div>
+              <BottomNav />
+            </MobileContainer>
+          </ToastProvider>
         </ModeProvider>
       </body>
     </html>

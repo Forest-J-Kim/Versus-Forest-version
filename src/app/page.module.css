@@ -1,48 +1,97 @@
-.main {
-  padding-top: 2rem;
-  padding-bottom: 2rem;
-  min-height: calc(100vh - 64px);
-}
-
-.header {
-  text-align: center;
-  margin-bottom: 3rem;
-}
-
-.header h1 {
-  font-size: 3rem;
-  font-weight: 800;
-  margin-bottom: 1rem;
-}
-
-.subtitle {
-  color: #888;
-  font-size: 1.2rem;
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 1.5rem;
-}
-
-.card {
+.container {
+  display: flex;
+  flex-direction: column;
   padding: 1.5rem;
-  min-height: 200px;
+  gap: 1.5rem;
+  height: 100%;
 }
 
-.card h2 {
+.intro {
   margin-bottom: 1rem;
-  font-size: 1.2rem;
-  color: var(--foreground);
 }
 
-.emptyState {
+.intro h1 {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--foreground);
+  margin-bottom: 0.5rem;
+  line-height: 1.2;
+}
+
+.intro p {
+  color: var(--secondary);
+  font-size: 1rem;
+}
+
+.cardGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  flex: 1;
+}
+
+.entryCard {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+  border-radius: var(--radius-xl);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.entryCard:active {
+  transform: scale(0.98);
+}
+
+.entryCard.solo {
+  background: linear-gradient(135deg, #EFF6FF 0%, #FFFFFF 100%);
+  border-color: var(--primary-light);
+}
+
+.entryCard.solo .icon {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+.entryCard.team {
+  background: linear-gradient(135deg, #F8FAFC 0%, #FFFFFF 100%);
+  border-color: var(--card-border);
+}
+
+.entryCard.team .icon {
+  background: #F1F5F9;
+  color: #475569;
+}
+
+.icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100px;
-  color: #666;
-  border: 1px dashed #333;
-  border-radius: 8px;
+  font-size: 32px;
+  margin-bottom: 1rem;
+}
+
+.cardTitle {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  color: var(--foreground);
+}
+
+.cardDesc {
+  font-size: 0.95rem;
+  color: var(--secondary);
+  line-height: 1.4;
 }

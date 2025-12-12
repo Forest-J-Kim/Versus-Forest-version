@@ -1,7 +1,7 @@
 .wrapper {
     width: 100vw;
     min-height: 100vh;
-    background-color: #111827;
+    background-color: #1a1a1a;
     /* Dark background for desktop context */
     display: flex;
     justify-content: center;
