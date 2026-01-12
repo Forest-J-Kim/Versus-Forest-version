@@ -27,23 +27,51 @@ export default function SelectSportPage() {
 
             {mode === 'SOLO' ? (
                 <>
-                    {/* Section 1: Combat Sports */}
-                    <h3 style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '1rem', color: '#DC2626' }}>🔥 격투 스포츠 (Combat)</h3>
+                    {/* Hero Section: The King of Sports */}
+                    <div style={{ marginBottom: '2rem' }}>
+                        <div style={{ fontSize: '0.9rem', color: '#DC2626', fontWeight: 'bold', marginBottom: '8px' }}>👑 가장 인기 있는 종목</div>
+                        <button onClick={() => handleSportSelect('BOXING')} style={{ width: '100%', padding: '2rem', borderRadius: '20px', background: 'linear-gradient(135deg, #EF4444 0%, #B91C1C 100%)', color: 'white', textAlign: 'left', border: 'none', boxShadow: '0 10px 15px -3px rgba(239, 68, 68, 0.4)', cursor: 'pointer', position: 'relative', overflow: 'hidden' }}>
+                            <div style={{ position: 'relative', zIndex: 10 }}>
+                                <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>🥊</div>
+                                <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>복싱 (Boxing)</div>
+                                <div style={{ fontSize: '0.9rem', opacity: 0.9 }}>정통 스파링 / 생활체육 대회 준비</div>
+                            </div>
+                            {/* Deco Circle */}
+                            <div style={{ position: 'absolute', right: '-20px', bottom: '-20px', width: '150px', height: '150px', borderRadius: '50%', background: 'rgba(255,255,255,0.2)' }}></div>
+                        </button>
+                    </div>
+
+                    {/* Group A: Striking */}
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '1rem', display: 'flex', alignItems: 'center' }}>
+                        👊 타격 (Striking)
+                        <div style={{ flex: 1, height: '1px', background: '#E5E7EB', marginLeft: '1rem' }}></div>
+                    </h3>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
-                        <SportButton icon="🥊" title="복싱" sub="Boxing" onClick={() => handleSportSelect('BOXING')} />
                         <SportButton icon="🦵" title="킥복싱/MT" sub="Kickboxing" onClick={() => handleSportSelect('KICKBOXING')} />
                         <SportButton icon="🤼" title="MMA" sub="Mixed Martial Arts" onClick={() => handleSportSelect('MMA')} />
-                        <SportButton icon="🥋" title="유도/주짓수" sub="Grappling" onClick={() => handleSportSelect('JIUJITSU')} />
                         <SportButton icon="🥋" title="태권도" sub="Taekwondo" onClick={() => handleSportSelect('TAEKWONDO')} />
                     </div>
 
-                    {/* Section 2: Individual Sports */}
-                    <h3 style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '1rem', color: '#2563EB' }}>🏃 개인 스포츠 (Individual)</h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
-                        <SportButton icon="🎾" title="테니스" sub="Tennis" onClick={() => handleSportSelect('TENNIS')} />
-                        <SportButton icon="🏸" title="배드민턴" sub="Badminton" onClick={() => handleSportSelect('BADMINTON')} />
-                        <SportButton icon="🏓" title="탁구" sub="Table Tennis" onClick={() => handleSportSelect('PINGPONG')} />
-                        <SportButton icon="🏋️" title="헬스/크로스핏" sub="Fitness" onClick={() => handleSportSelect('FITNESS')} />
+                    {/* Group B: Grappling */}
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '1rem', display: 'flex', alignItems: 'center' }}>
+                        🥋 그래플링 (Grappling)
+                        <div style={{ flex: 1, height: '1px', background: '#E5E7EB', marginLeft: '1rem' }}></div>
+                    </h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+                        <SportButton icon="🥋" title="유도/주짓수" sub="Jiu-Jitsu / Judo" onClick={() => handleSportSelect('JIUJITSU')} />
+                        <SportButton icon="🤼‍♂️" title="레슬링" sub="Wrestling" onClick={() => handleSportSelect('WRESTLING')} />
+                    </div>
+
+                    {/* Group C: Individual */}
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '1rem', display: 'flex', alignItems: 'center' }}>
+                        🏃 개인 스포츠
+                        <div style={{ flex: 1, height: '1px', background: '#E5E7EB', marginLeft: '1rem' }}></div>
+                    </h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.8rem' }}>
+                        <MiniSportButton icon="🎾" title="테니스" onClick={() => handleSportSelect('TENNIS')} />
+                        <MiniSportButton icon="🏸" title="배드민턴" onClick={() => handleSportSelect('BADMINTON')} />
+                        <MiniSportButton icon="🏓" title="탁구" onClick={() => handleSportSelect('PINGPONG')} />
+                        <MiniSportButton icon="🏋️" title="헬스" onClick={() => handleSportSelect('FITNESS')} />
                     </div>
                 </>
             ) : (
@@ -75,6 +103,15 @@ function SportButton({ icon, title, sub, onClick }: { icon: string, title: strin
             <div style={{ fontSize: '2rem', marginBottom: '0.2rem' }}>{icon}</div>
             <div style={{ fontWeight: 'bold', fontSize: '0.95rem' }}>{title}</div>
             <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>{sub}</div>
+        </button>
+    )
+}
+
+function MiniSportButton({ icon, title, onClick }: { icon: string, title: string, onClick: () => void }) {
+    return (
+        <button onClick={onClick} style={{ padding: '1rem', borderRadius: '12px', background: 'white', border: '1px solid #E5E7EB', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', gap: '4px' }}>
+            <div style={{ fontSize: '1.5rem' }}>{icon}</div>
+            <div style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>{title}</div>
         </button>
     )
 }

@@ -97,55 +97,55 @@ export default function NewMatchWizard() {
     };
 
     const handleCreate = async (e?: React.FormEvent) => {
-        if (e) e.preventDefault(); // Prevent default if called from form
+        // Step 1: Immediate confirmation
+        if (e) e.preventDefault();
 
-        alert('등록을 시작합니다..'); // Immediate feedback per user request
-        setIsSubmitting(true);
+        console.log("🔥 [Emergency] handleCreate triggered");
+        alert("통신 시작: 데이터를 보냅니다...");
 
         try {
-            if (!finalDateIso) {
-                alert("날짜와 시간을 완료해주세요.");
-                setIsSubmitting(false);
-                return;
-            }
+            // Step 2: Payload Construction & Logging
+            const finalDate = finalDateIso || new Date().toISOString(); // Fallback to NOW if missing
 
-            // Determine Location String
+            // Hardcoded Auth for consistency
+            const AUTHOR_ID = 'anon-user';
+
             let locString = "장소 미정";
             if (locationType === "HOME") locString = "서울 복싱 (Home)";
-            if (locationType === "AWAY") locString = "상대 체육관 희망";
+            if (locationType === "AWAY") locString = "상대 체육관 희망 (Away)";
 
-            const cleanAttributes = Object.fromEntries(
-                Object.entries(formData).map(([k, v]) => [k, v ?? ""])
-            );
-
-            const payload = {
-                mode,
+            const matchData = {
+                mode: mode,
                 sport: sportId,
-                author_id: TEMP_USER_ID,
-                target_date: finalDateIso,
-                location: locString, // Added column in schema
-                attributes: cleanAttributes,
+                author_id: AUTHOR_ID,
+                target_date: finalDate,
+                location: locString,
+                attributes: formData,
                 status: 'OPEN'
             };
 
-            console.log("Payload:", payload);
+            console.log("📦 [Emergency] Sending Payload:", matchData);
 
-            const { error } = await supabase.from('matches').insert([payload]);
+            // Step 3: Supabase Insert (Direct)
+            const { data, error } = await supabase
+                .from('matches')
+                .insert([matchData])
+                .select();
 
             if (error) {
-                console.error("Supabase Error:", error);
+                console.error("❌ [Emergency] Supabase Error:", error);
                 throw error;
             }
 
-            alert("매칭이 성공적으로 등록되었습니다! (목록으로 이동)");
-            // Force redirect to ensure no freeze
+            console.log("✅ [Emergency] Success:", data);
+            alert("✅ 등록 성공! DB 확인해보세요.");
+
+            // Step 4: Force Redirect
             window.location.href = "/matches";
 
-        } catch (error: any) {
-            console.error(error);
-            const msg = error.message || JSON.stringify(error);
-            alert(`등록 실패: ${msg}`);
-            setIsSubmitting(false); // Only re-enable on error
+        } catch (err: any) {
+            console.error("❌ [Emergency] Catch Block:", err);
+            alert("❌ 에러 발생: " + (err.message || JSON.stringify(err)));
         }
     };
 
