@@ -3,27 +3,28 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import styles from "./BottomNav.module.css";
-import { useMode } from "@/components/providers/ModeProvider";
 
 export default function BottomNav() {
     const pathname = usePathname();
-    const { isManagerMode } = useMode();
 
-    const isActive = (path: string) => pathname === path || pathname.startsWith(path + "/");
+    // Standardized Items: Home, Message, MyInfo
+    const isAuthPage = ['/welcome', '/login', '/signup'].some(path => pathname.startsWith(path));
+
+    if (isAuthPage) return null;
 
     return (
         <nav className={styles.nav}>
             <Link href="/" className={`${styles.item} ${pathname === "/" ? styles.active : ""}`}>
-                <span className={styles.icon}>{isManagerMode ? "📊" : "🏠"}</span>
-                <span className={styles.label}>{isManagerMode ? "대시보드" : "홈"}</span>
+                <span className={styles.icon}>🏠</span>
+                <span className={styles.label}>홈</span>
             </Link>
-            <Link href="/matches" className={`${styles.item} ${isActive("/matches") ? styles.active : ""}`}>
-                <span className={styles.icon}>{isManagerMode ? "📩" : "🥊"}</span>
-                <span className={styles.label}>{isManagerMode ? "시합 수락" : "매칭 찾기"}</span>
+            <Link href="/messages" className={`${styles.item} ${pathname.startsWith("/messages") ? styles.active : ""}`}>
+                <span className={styles.icon}>💬</span>
+                <span className={styles.label}>메세지</span>
             </Link>
-            <Link href="/profile" className={styles.item}>
+            <Link href="/profile" className={`${styles.item} ${pathname.startsWith("/profile") ? styles.active : ""}`}>
                 <span className={styles.icon}>👤</span>
-                <span className={styles.label}>{isManagerMode ? "선수 등록" : "내 정보"}</span>
+                <span className={styles.label}>내 정보</span>
             </Link>
         </nav>
     );

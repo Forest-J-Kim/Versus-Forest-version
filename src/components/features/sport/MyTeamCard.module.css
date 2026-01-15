@@ -1,0 +1,109 @@
+.card {
+    background: white;
+    border-radius: 1rem;
+    padding: 1.25rem;
+    border: 1px solid #E5E7EB;
+    margin-bottom: 1rem;
+    position: relative;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.headerRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+}
+
+.sectionTitle {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #374151;
+}
+
+.moreLink {
+    font-size: 0.875rem;
+    color: #6B7280;
+    text-decoration: none;
+}
+
+.teamContent {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    margin-bottom: 1.25rem;
+}
+
+.emblem {
+    width: 60px;
+    height: 60px;
+    background-color: #F3F4F6;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    border: 1px solid #E5E7EB;
+    flex-shrink: 0;
+}
+
+.info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.teamName {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #111827;
+}
+
+.teamMeta {
+    font-size: 0.875rem;
+    color: #4B5563;
+}
+
+.stars {
+    color: #FBBF24;
+    font-size: 0.875rem;
+}
+
+.historyTitle {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #4B5563;
+    margin-bottom: 0.5rem;
+}
+
+.historyRow {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.badge {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.875rem;
+    color: white;
+}
+
+.win {
+    background-color: #10B981;
+    /* Green */
+}
+
+.draw {
+    background-color: #9CA3AF;
+    /* Gray */
+}
+
+.loss {
+    background-color: #EF4444;
+    /* Red */
+}

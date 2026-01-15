@@ -1,0 +1,238 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    padding: 1.5rem;
+    padding-bottom: 5rem;
+    /* Space for bottom nav */
+    gap: 1rem;
+    background-color: #F3F4F6;
+    /* Light gray full bg */
+    min-height: 100vh;
+}
+
+/* Header */
+.header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.headerIcon {
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: white;
+    border-radius: 50%;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.headerTitle {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #111827;
+}
+
+/* Toggle Switch Styles */
+.toggleLabel {
+    position: relative;
+    display: inline-block;
+    width: 36px;
+    height: 20px;
+}
+
+.toggleInput {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggleSlider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #CBD5E1;
+    transition: .2s;
+    border-radius: 20px;
+}
+
+.toggleSlider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: .2s;
+    border-radius: 50%;
+}
+
+.toggleInput:checked+.toggleSlider {
+    background-color: #3B82F6;
+}
+
+.toggleInput:checked+.toggleSlider:before {
+    transform: translateX(16px);
+}
+
+/* Captain Section Animation */
+.captainSection {
+    animation: slideDown 0.3s ease-out;
+}
+
+/* Action Section */
+.actionSection {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.actionCard {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 1rem;
+    border: 1px solid #E5E7EB;
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.actionCard:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.actionIcon {
+    width: 48px;
+    height: 48px;
+    background: #EFF6FF;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+}
+
+.actionInfo {
+    flex: 1;
+}
+
+.actionTitle {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 0.25rem;
+}
+
+.actionDesc {
+    font-size: 0.85rem;
+    color: #6B7280;
+}
+
+/* Community Section */
+.communitySection {
+    background: white;
+    border-radius: 1rem;
+    padding: 1.5rem;
+    border: 1px solid #E5E7EB;
+    margin-top: 0.5rem;
+}
+
+.sectionHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.sectionTitle {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #1F2937;
+}
+
+.moreLink {
+    font-size: 0.85rem;
+    color: #6B7280;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.postList {
+    display: flex;
+    flex-direction: column;
+    gap: 0px;
+}
+
+.postItem {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #F3F4F6;
+    cursor: pointer;
+}
+
+.postItem:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.postTitle {
+    font-size: 0.95rem;
+    color: #374151;
+    margin-bottom: 0.25rem;
+    font-weight: 500;
+}
+
+.postMeta {
+    font-size: 0.75rem;
+    color: #9CA3AF;
+}
+
+/* Bottom Nav */
+.bottomNav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    border-top: 1px solid #E5E7EB;
+    display: flex;
+    justify-content: space-around;
+    padding: 0.75rem 0;
+    z-index: 100;
+}
+
+.navItem {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    color: #6B7280;
+    cursor: pointer;
+}
+
+.navItem span:first-child {
+    font-size: 1.25rem;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

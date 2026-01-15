@@ -1,0 +1,66 @@
+.card {
+    background-color: white;
+    border-radius: 1rem;
+    padding: 1rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    border: 1px solid #E5E7EB;
+    margin-bottom: 0.75rem;
+    /* Smaller margin than TeamCard */
+}
+
+.headerRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.sectionTitle {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #6B7280;
+}
+
+.editLink {
+    font-size: 0.8rem;
+    color: #9CA3AF;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.contentRow {
+    display: flex;
+    align-items: center;
+}
+
+.profileImage {
+    width: 50px;
+    /* Smaller than full profile */
+    height: 50px;
+    border-radius: 50%;
+    background-color: #F3F4F6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    margin-right: 1rem;
+    border: 1px solid #E5E7EB;
+}
+
+.infoCol {
+    display: flex;
+    flex-direction: column;
+}
+
+.name {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #111827;
+    margin-bottom: 0.1rem;
+}
+
+.position {
+    font-size: 0.9rem;
+    color: #4B5563;
+    font-weight: 500;
+}

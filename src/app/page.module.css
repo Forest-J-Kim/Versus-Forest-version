@@ -3,95 +3,110 @@
   flex-direction: column;
   padding: 1.5rem;
   gap: 1.5rem;
-  height: 100%;
+  min-height: 100vh;
+  background-color: #F9FAFB;
 }
 
 .intro {
-  margin-bottom: 1rem;
-}
-
-.intro h1 {
-  font-size: 1.75rem;
-  font-weight: 800;
-  color: var(--foreground);
   margin-bottom: 0.5rem;
-  line-height: 1.2;
 }
 
-.intro p {
-  color: var(--secondary);
-  font-size: 1rem;
+/* New Intro Layout */
+.introHeaderRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.5rem;
 }
 
-.cardGrid {
+.introTitle {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #111827;
+  line-height: 1.3;
+}
+
+.introSub {
+  color: #6B7280;
+  font-size: 0.95rem;
+}
+
+/* Captain Badge Box */
+.captainBadgeBox {
+  background-color: white;
+  border: 1px solid #E5E7EB;
+  border-radius: 1rem;
+  padding: 0.6rem;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  flex: 1;
+  align-items: center;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  min-width: 80px;
 }
 
-.entryCard {
-  flex: 1;
+.captainLabel {
+  font-size: 0.75rem;
+  color: #6B7280;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.captainIcons {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: center;
+  align-items: center;
+}
+
+.miniIcon {
+  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Grid */
+.sportGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  padding-bottom: 2rem;
+}
+
+.sportCard {
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  padding: 2rem;
-  border-radius: var(--radius-xl);
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  box-shadow: var(--shadow-sm);
+  padding: 1.5rem;
+  border-radius: 1rem;
+  background: white;
+  border: 1px solid transparent;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   transition: all 0.2s ease;
   cursor: pointer;
   text-align: center;
-  position: relative;
-  overflow: hidden;
+  aspect-ratio: 1 / 1;
 }
 
-.entryCard:active {
-  transform: scale(0.98);
+.sportCard:active {
+  transform: scale(0.96);
 }
 
-.entryCard.solo {
-  background: linear-gradient(135deg, #EFF6FF 0%, #FFFFFF 100%);
-  border-color: var(--primary-light);
-}
-
-.entryCard.solo .icon {
-  background: var(--primary-light);
-  color: var(--primary);
-}
-
-.entryCard.team {
-  background: linear-gradient(135deg, #F8FAFC 0%, #FFFFFF 100%);
-  border-color: var(--card-border);
-}
-
-.entryCard.team .icon {
-  background: #F1F5F9;
-  color: #475569;
-}
-
-.icon {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
+.sportIcon {
+  font-size: 3rem;
+  margin-bottom: 0.75rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 32px;
-  margin-bottom: 1rem;
 }
 
-.cardTitle {
-  font-size: 1.5rem;
+.sportName {
+  font-size: 1.1rem;
   font-weight: 700;
-  margin-bottom: 0.5rem;
-  color: var(--foreground);
+  color: #1F2937;
 }
 
-.cardDesc {
-  font-size: 0.95rem;
-  color: var(--secondary);
-  line-height: 1.4;
+.sportCard:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
