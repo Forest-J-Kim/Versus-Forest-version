@@ -1,10 +1,11 @@
 "use client";
 
+import { Suspense } from 'react';
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 
-export default function SelectSportPage() {
+function SelectSportContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const mode = searchParams.get('mode') || 'SOLO';
@@ -94,6 +95,14 @@ export default function SelectSportPage() {
                 </p>
             </div>
         </main>
+    );
+}
+
+export default function SelectSportPage() {
+    return (
+        <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>}>
+            <SelectSportContent />
+        </Suspense>
     );
 }
 
