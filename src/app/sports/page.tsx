@@ -1,11 +1,12 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { sportConfig } from "@/lib/sportConfig";
 import styles from "./sport.module.css";
 
-export default function SportSelection() {
+function SportSelectionContent() {
     const searchParams = useSearchParams();
     const mode = searchParams.get("mode") || "SOLO"; // Default to SOLO if missing
 
@@ -32,5 +33,13 @@ export default function SportSelection() {
                 ))}
             </div>
         </main>
+    );
+}
+
+export default function SportSelectionPage() {
+    return (
+        <Suspense fallback={<div className={styles.container}>Loading...</div>}>
+            <SportSelectionContent />
+        </Suspense>
     );
 }
