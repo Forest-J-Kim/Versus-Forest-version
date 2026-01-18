@@ -20,6 +20,12 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "VERSUS - Mobile Sports Platform",
   description: "Find your rival, join a team, or recruit mercenaries.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Versus",
+  },
 };
 
 export default function RootLayout({

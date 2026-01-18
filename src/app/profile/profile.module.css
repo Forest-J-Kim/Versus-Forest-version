@@ -31,11 +31,13 @@
 .avatarContainer {
     position: relative;
     margin-bottom: 0.75rem;
+    width: 6rem;
+    height: 6rem;
 }
 
 .avatar {
-    width: 80px;
-    height: 80px;
+    width: 100%;
+    height: 100%;
     border-radius: 50%;
     background-color: #EDE9FE;
     /* Light purple tint */

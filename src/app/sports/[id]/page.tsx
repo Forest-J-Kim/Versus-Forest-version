@@ -4,11 +4,9 @@ import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./sport.module.css";
 import { SPORTS, Sport } from "@/app/page";
-import MyTeamCard from "@/components/features/sport/MyTeamCard";
 import CaptainActions from "@/components/features/sport/CaptainActions";
-import MyPlayerCard from "@/components/features/sport/MyPlayerCard";
+import MySportSummaryCard from "@/components/features/sport/MySportSummaryCard";
 import MyGymCard from "@/components/features/sport/MyGymCard";
-import TeamPlayerCard from "@/components/features/sport/TeamPlayerCard";
 import EmptyProfileCard from "@/components/features/sport/EmptyProfileCard";
 import { createClient } from "@/utils/supabase/client";
 
@@ -26,7 +24,9 @@ export default function SportDashboard({ params }: PageProps) {
     const [loading, setLoading] = useState(true);
     const [isManagerMode, setIsManagerMode] = useState(false);
     const [playerProfile, setPlayerProfile] = useState<any>(null);
-    const [hasRole, setHasRole] = useState(false); // Can be captain?
+    const [teamProfile, setTeamProfile] = useState<any>(null); // New state for team
+    const [hasRole, setHasRole] = useState(false);
+    const [userAvatarUrl, setUserAvatarUrl] = useState<string | undefined>(undefined);
 
     const supabase = createClient();
 
@@ -36,29 +36,42 @@ export default function SportDashboard({ params }: PageProps) {
             const { data: { user } } = await supabase.auth.getUser();
 
             if (user) {
-                // 1. Check Roles for Captain Status (for this sport)
+                // 1. Check Roles
                 const { data: profile } = await supabase
                     .from('profiles')
-                    .select('roles')
+                    .select('roles, avatar_url')
                     .eq('id', user.id)
                     .single();
 
+                if (profile?.avatar_url) setUserAvatarUrl(profile.avatar_url);
+
                 if (profile?.roles && profile.roles[sportId.toLowerCase()] === 'captain') {
                     setHasRole(true);
-                    setIsManagerMode(true); // Default to manager mode if captain
+                    setIsManagerMode(true);
                 }
 
-                // 2. Mock Fetch from 'players' table as requested
-                // (We assume this table exists or will exist. If not, it returns error or empty)
-                const { data: playerData, error } = await supabase
+                // 2. Fetch Player Data
+                const { data: playerData } = await supabase
                     .from('players')
                     .select('*')
                     .eq('user_id', user.id)
-                    .eq('sport_type', sportId)
-                    .single();
+                    .eq('sport_type', sportId.toLowerCase()) // Ensure case match
+                    .maybeSingle(); // Use maybeSingle to avoid error if not found
 
                 if (playerData) {
                     setPlayerProfile(playerData);
+                }
+
+                // 3. Fetch Team Data (if captain or member - simplistic for now: only if captain)
+                const { data: teamData } = await supabase
+                    .from('teams')
+                    .select('*')
+                    .eq('captain_id', user.id)
+                    .eq('sport_type', sportId.toLowerCase())
+                    .maybeSingle();
+
+                if (teamData) {
+                    setTeamProfile(teamData);
                 }
             }
             setLoading(false);
@@ -84,7 +97,7 @@ export default function SportDashboard({ params }: PageProps) {
                 </div>
                 <h1 className={styles.headerTitle}>{sport.name}</h1>
 
-                {/* Mode Toggle: Show only if user IS a captain/manager for this sport */}
+                {/* Mode Toggle */}
                 {!isHealthSport && hasRole && (
                     <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <span style={{ fontSize: '0.8rem', color: '#6B7280' }}>
@@ -105,73 +118,22 @@ export default function SportDashboard({ params }: PageProps) {
 
             {/* 2. My Info / Team Section */}
             <section>
-                {/* 
-                    Logic:
-                    1. If Loading -> Skeleton (omitted for brevity, just null)
-                    2. If No Player Profile -> EmptyProfileCard
-                    3. If Player Profile -> Show Cards
-                */}
-
                 {loading ? (
                     <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>정보 불러오는 중...</div>
                 ) : !playerProfile ? (
-                    <EmptyProfileCard sportName={sport.name} onClick={() => alert('프로필 등록 화면으로 이동 (준비중)')} />
+                    <EmptyProfileCard sportName={sport.name} onClick={() => router.push(`/profile/register/${sportId.toLowerCase()}`)} />
                 ) : (
                     <>
-                        {/* Render Real Data Logic Here */}
-                        {/* Note: Since we are fetching from a unified 'players' table example, 
-                            we map fields dynamically. Assuming generic fields for now to avoid TS errors 
-                            or extensive interface definitions. 
-                        */}
-
-                        {/* Case A: Boxing/Combat */}
-                        {isCombatSport && (
-                            <>
-                                <MyPlayerCard
-                                    name={playerProfile.name || "이름 없음"}
-                                    gymName={playerProfile.gym_name || "소속 없음"}
-                                    style={playerProfile.style || "-"}
-                                    level={playerProfile.level || "초심자"}
-                                />
-                                {/* Optional: Only show Gym Card if manager or if gym info exists */}
-                                {playerProfile.gym_name && (
-                                    <MyGymCard
-                                        gymName={playerProfile.gym_name}
-                                        location={playerProfile.location || "위치 미등록"}
-                                        proCount={playerProfile.pro_count || 0}
-                                        amateurCount={playerProfile.amateur_count || 0}
-                                    />
-                                )}
-                            </>
-                        )}
-
-                        {/* Case B: Soccer/Team */}
-                        {isTeamSport && (
-                            <>
-                                <TeamPlayerCard
-                                    name={playerProfile.name}
-                                    position={playerProfile.position}
-                                />
-                                {playerProfile.team_name && (
-                                    <MyTeamCard
-                                        teamName={playerProfile.team_name}
-                                        captainName={playerProfile.captain_name || playerProfile.name} // fallback
-                                        rating={playerProfile.rating || 0}
-                                        history={playerProfile.history || []}
-                                    />
-                                )}
-                            </>
-                        )}
-
-                        {/* Case C: Health */}
-                        {isHealthSport && (
-                            <MyPlayerCard
-                                name={playerProfile.name}
-                                gymName={playerProfile.gym_name || "홈트"}
-                                style={playerProfile.style || "일반"}
-                                level={playerProfile.level || "헬린이"}
-                            />
-                        )}
+                        <MySportSummaryCard
+                            sportName={sport.name}
+                            sportIcon={sport.icon}
+                            playerData={playerProfile}
+                            teamData={teamProfile}
+                            userAvatarUrl={playerProfile?.avatar_url || userAvatarUrl}
+                            hideHeader={true}
+                            onRegisterTeam={() => router.push(`/profile/register/${sportId.toLowerCase()}`)}
+                            onEditProfile={() => router.push(`/profile/edit/${sportId.toLowerCase()}`)}
+                        />
                     </>
                 )}
             </section>

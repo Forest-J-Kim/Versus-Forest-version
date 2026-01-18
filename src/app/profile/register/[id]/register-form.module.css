@@ -1,0 +1,212 @@
+.container {
+    padding: 1.5rem;
+    padding-bottom: 6rem;
+    min-height: 100vh;
+    background-color: #F9FAFB;
+}
+
+.titleSection {
+    margin-bottom: 2rem;
+}
+
+.title {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #111827;
+    margin-bottom: 0.5rem;
+}
+
+.subtitle {
+    color: #6B7280;
+    font-size: 0.95rem;
+}
+
+.formSection {
+    background-color: white;
+    padding: 1.5rem;
+    border-radius: 1rem;
+    border: 1px solid #E5E7EB;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    margin-bottom: 1.5rem;
+}
+
+.sectionLabel {
+    display: block;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #374151;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid #F3F4F6;
+    padding-bottom: 0.5rem;
+}
+
+.fieldGroup {
+    margin-bottom: 1.25rem;
+}
+
+.label {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #4B5563;
+    margin-bottom: 0.5rem;
+}
+
+.input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #D1D5DB;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.input:focus {
+    border-color: #3B82F6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #D1D5DB;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    outline: none;
+    background-color: white;
+}
+
+.captainSection {
+    background-color: #EFF6FF;
+    /* Light Blue */
+    border: 1px solid #BFDBFE;
+}
+
+.captainToggle {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    cursor: pointer;
+}
+
+.checkbox {
+    width: 1.5rem;
+    height: 1.5rem;
+    cursor: pointer;
+}
+
+.toggleLabel {
+    font-weight: 700;
+    color: #1E40AF;
+    font-size: 1rem;
+}
+
+.expandedForm {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #BFDBFE;
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.emblemUpload {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.emblemPreview {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    overflow: hidden;
+    background-color: #DBEAFE;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.uploadButton {
+    padding: 0.4rem 0.8rem;
+    background-color: white;
+    border: 1px solid #D1D5DB;
+    border-radius: 0.5rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.submitButton {
+    width: 100%;
+    padding: 1rem;
+    background-color: #2563EB;
+    color: white;
+    font-weight: 700;
+    font-size: 1.1rem;
+    border-radius: 0.75rem;
+    margin-top: 2rem;
+    cursor: pointer;
+    transition: background 0.2s;
+    border: none;
+    /* Removed Fixed Positioning */
+}
+
+.submitButton:disabled {
+    background-color: #9CA3AF;
+    cursor: not-allowed;
+}
+
+/* Profile Avatar Upload Styles */
+.avatarUploadSection {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.avatarPreview {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    overflow: hidden;
+    background-color: #E5E7EB;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 3px solid white;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    margin-bottom: 0.5rem;
+}
+
+.avatarUploadButton {
+    padding: 0.4rem 0.8rem;
+    background-color: white;
+    border: 1px solid #D1D5DB;
+    border-radius: 0.5rem;
+    font-size: 0.85rem;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.avatarUploadButton:hover {
+    background-color: #F9FAFB;
+    border-color: #9CA3AF;
+}

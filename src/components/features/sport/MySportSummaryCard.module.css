@@ -1,0 +1,55 @@
+.card {
+    background: white;
+    border: 1px solid #E5E7EB;
+    border-radius: 1rem;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.header {
+    background-color: #F9FAFB;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #E5E7EB;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.sportIcon {
+    font-size: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    background: white;
+    border-radius: 50%;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.sportName {
+    font-weight: 700;
+    color: #111827;
+    font-size: 1rem;
+}
+
+.body {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.sectionTitle {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #6B7280;
+    margin-left: 0.25rem;
+}
