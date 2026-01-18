@@ -7,7 +7,7 @@ import styles from './edit-form.module.css';
 import Cropper from 'react-easy-crop';
 import getCroppedImg from '@/utils/canvasUtils';
 
-import { SPORTS } from "@/app/page";
+import { SPORTS } from "@/constants/sports";
 
 // Sport ID Map for display
 const SPORT_NAMES: { [key: string]: string } = {

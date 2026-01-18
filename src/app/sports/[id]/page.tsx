@@ -3,7 +3,7 @@
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./sport.module.css";
-import { SPORTS, Sport } from "@/app/page";
+import { SPORTS, Sport } from "@/constants/sports";
 import CaptainActions from "@/components/features/sport/CaptainActions";
 import MySportSummaryCard from "@/components/features/sport/MySportSummaryCard";
 import MyGymCard from "@/components/features/sport/MyGymCard";

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import styles from './profile.module.css';
-import { SPORTS, Sport } from "@/app/page";
+import { SPORTS } from "@/constants/sports";
 import { createClient } from "@/utils/supabase/client";
 
 import { useRouter } from 'next/navigation';

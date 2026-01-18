@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { SPORTS, Sport } from "@/app/page";
+import { SPORTS, Sport } from "@/constants/sports";
 import { createClient } from "@/utils/supabase/client";
 
 interface Props {
