@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { sportConfig } from "@/lib/sportConfig";
 import styles from "./wizard.module.css";
 import { useToast } from "@/components/providers/ToastProvider";
 import { supabase } from "@/lib/supabaseClient";
 
-export default function NewMatchWizard() {
+function MatchRegisterForm() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { showToast } = useToast();
@@ -290,5 +290,13 @@ export default function NewMatchWizard() {
                 .tagBtn { padding: 6px 12px; border-radius: 6px; border: 1px solid #E5E7EB; background: white; font-size: 0.85rem; }
             `}</style>
         </main>
+    );
+}
+
+export default function NewMatchWizard() {
+    return (
+        <Suspense fallback={<div className={styles.container}>Loading wizard...</div>}>
+            <MatchRegisterForm />
+        </Suspense>
     );
 }
