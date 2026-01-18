@@ -279,7 +279,7 @@ export default function ProfilePage() {
                                             sportIcon={sportIcon}
                                             playerData={group.player}
                                             teamData={group.team}
-                                            userAvatarUrl={group.player?.avatar_url || userProfile.avatarUrl}
+                                            userAvatarUrl={group.player?.avatar_url || group.player?.photo_url || userProfile.avatarUrl}
                                             onRegisterTeam={() => router.push(`/profile/register/${sportKey}`)} // Or open modal
                                             onEditProfile={() => router.push(`/profile/edit/${sportKey}`)}
                                         />

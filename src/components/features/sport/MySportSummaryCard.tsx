@@ -107,6 +107,7 @@ export default function MySportSummaryCard({
                             rating={5}
                             history={['WIN']} // Mock
                             isRegistered={true}
+                            emblemUrl={teamData.emblem_url}
                         />
                     ) : (
                         // Optional: Show "Join/Create Team" placeholder or nothing? 

@@ -21,7 +21,7 @@ export default function MyPlayerCard({ name, gymName, tags, imageUrl, onEdit }: 
 
             <div className={styles.contentRow}>
                 <div className={styles.profileImage}>
-                    {imageUrl ? <img src={imageUrl} alt={name} /> : '👤'}
+                    {imageUrl ? <img src={imageUrl} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '👤'}
                 </div>
                 <div className={styles.infoCol}>
                     <div className={styles.name}>{name}</div>

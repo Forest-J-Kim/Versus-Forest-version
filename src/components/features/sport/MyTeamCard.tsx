@@ -10,9 +10,10 @@ interface MyTeamCardProps {
     rating: number; // 0-5
     history: ('WIN' | 'DRAW' | 'LOSS')[];
     isRegistered?: boolean; // If false, show 'Register Team' prompt
+    emblemUrl?: string;
 }
 
-export default function MyTeamCard({ teamName, captainName, description, rating, history, isRegistered = true }: MyTeamCardProps) {
+export default function MyTeamCard({ teamName, captainName, description, rating, history, isRegistered = true, emblemUrl }: MyTeamCardProps) {
     if (!isRegistered) {
         return (
             <div className={styles.card} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '150px', background: '#F9FAFB' }}>
@@ -35,7 +36,16 @@ export default function MyTeamCard({ teamName, captainName, description, rating,
             </div>
 
             <div className={styles.teamContent}>
-                <div className={styles.emblem}>🛡️</div>
+                <div className={styles.emblem} style={{ overflow: 'hidden' }}>
+                    {emblemUrl ? (
+                        <img
+                            src={emblemUrl}
+                            alt={teamName}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement!.innerText = '🛡️'; }}
+                        />
+                    ) : '🛡️'}
+                </div>
                 <div className={styles.info}>
                     <div className={styles.teamName}>{teamName}</div>
                     {description && <div className={styles.teamDesc} style={{ fontSize: '0.85rem', color: '#6B7280', marginBottom: '0.25rem' }}>{description}</div>}
