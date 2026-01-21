@@ -1,0 +1,198 @@
+.container {
+    min-height: 100vh;
+    background: white;
+    display: flex;
+    flex-direction: column;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    border-bottom: 1px solid #E5E7EB;
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 10;
+}
+
+.backButton {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    margin-right: 1rem;
+    cursor: pointer;
+    color: #111827;
+}
+
+.title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin: 0;
+}
+
+.content {
+    flex: 1;
+    padding: 1.5rem;
+    overflow-y: auto;
+}
+
+.section {
+    margin-bottom: 2rem;
+}
+
+.sectionHeaderRow {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.sectionTitle {
+    font-size: 1rem;
+    font-weight: 500;
+    color: #374151;
+    white-space: nowrap;
+}
+
+.divider {
+    flex: 1;
+    height: 1px;
+    background: #E5E7EB;
+}
+
+.list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.emptyState {
+    text-align: center;
+    padding: 2rem;
+    color: #9CA3AF;
+    font-size: 0.875rem;
+    background: #F9FAFB;
+    border-radius: 8px;
+}
+
+.card {
+    border: 1px solid #2563EB;
+    /* Blue border for new requests as per image hint */
+    border-radius: 4px;
+    padding: 1rem;
+    background: white;
+    display: flex;
+    flex-direction: column;
+}
+
+.pastCard {
+    border: 1px solid #374151;
+    /* Dark border for past as per image hint */
+}
+
+.cardInner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.playerInfo {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 8px;
+    background: #F3F4F6;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: 1px solid #E5E7EB;
+}
+
+.avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.infoText {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #111827;
+}
+
+.meta {
+    font-size: 0.85rem;
+    color: #6B7280;
+}
+
+.actionButtons {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.approveBtn {
+    background: #4ADE80;
+    /* Green */
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    font-weight: 700;
+    cursor: pointer;
+    min-width: 60px;
+}
+
+.rejectBtn {
+    background: #DC2626;
+    /* Red */
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    font-weight: 700;
+    cursor: pointer;
+    min-width: 60px;
+}
+
+.timestamp {
+    align-self: flex-end;
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+    color: #4B5563;
+}
+
+.footerRow {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.5rem;
+    align-items: center;
+}
+
+.fullDate {
+    font-size: 0.8rem;
+    color: #6B7280;
+}
+
+.statusApproved {
+    font-weight: 700;
+    color: #16A34A;
+}
+
+.statusRejected {
+    font-weight: 700;
+    color: #DC2626;
+}

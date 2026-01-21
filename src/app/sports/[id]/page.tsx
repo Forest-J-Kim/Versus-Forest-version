@@ -50,19 +50,25 @@ export default function SportDashboard({ params }: PageProps) {
                     setIsManagerMode(true);
                 }
 
-                // 2. Fetch Player Data
+                // 2. Fetch Player Data with Team Info
                 const { data: playerData } = await supabase
                     .from('players')
-                    .select('*')
+                    .select('*, teams(*)')
                     .eq('user_id', user.id)
                     .eq('sport_type', sportId.toLowerCase()) // Ensure case match
                     .maybeSingle(); // Use maybeSingle to avoid error if not found
 
                 if (playerData) {
                     setPlayerProfile(playerData);
+
+                    // If player is joined a team, use it
+                    if (playerData.teams) {
+                        setTeamProfile(playerData.teams);
+                    }
                 }
 
-                // 3. Fetch Team Data (if captain or member - simplistic for now: only if captain)
+                // 3. Fetch Team Data (if captain) - Prioritize Captain Team over Joined Team if needed
+                // Or just overwrite if captain
                 const { data: teamData } = await supabase
                     .from('teams')
                     .select('*')

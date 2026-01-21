@@ -49,8 +49,8 @@ export default function ProfilePage() {
                 avatarUrl: profile?.avatar_url
             });
 
-            // Fetch My Players and Teams
-            const { data: players } = await supabase.from('players').select('*').eq('user_id', user.id);
+            // Fetch My Players and Joined Teams
+            const { data: players } = await supabase.from('players').select('*, teams(*)').eq('user_id', user.id);
             const { data: teams } = await supabase.from('teams').select('*').eq('captain_id', user.id);
 
             const combined = [
@@ -258,7 +258,13 @@ export default function ProfilePage() {
                                 mySports.forEach(item => {
                                     const key = item.sport_type.toLowerCase();
                                     if (!grouped[key]) grouped[key] = {};
-                                    if (item.type === 'PLAYER') grouped[key].player = item;
+                                    if (item.type === 'PLAYER') {
+                                        grouped[key].player = item;
+                                        // If player has joined a team (via join query), use it if no captain team exists
+                                        if (item.teams && !grouped[key].team) {
+                                            grouped[key].team = item.teams;
+                                        }
+                                    }
                                     if (item.type === 'TEAM') grouped[key].team = item;
                                 });
 

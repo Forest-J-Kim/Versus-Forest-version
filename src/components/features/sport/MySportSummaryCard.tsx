@@ -16,6 +16,10 @@ interface MySportSummaryCardProps {
     hideHeader?: boolean;
 }
 
+import { createClient } from "@/utils/supabase/client";
+import { useEffect, useState } from "react";
+import JoinTeamModal from "./JoinTeamModal";
+
 export default function MySportSummaryCard({
     sportName,
     sportIcon,
@@ -26,6 +30,32 @@ export default function MySportSummaryCard({
     onEditProfile,
     hideHeader = false
 }: MySportSummaryCardProps) {
+    const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
+    const [requestStatus, setRequestStatus] = useState<string | null>(null);
+    const supabase = createClient();
+
+    // Check for pending requests if no team
+    const checkRequests = async () => {
+        if (teamData || !playerData?.id) return;
+
+        const { data } = await supabase
+            .from('team_requests')
+            .select('status')
+            .eq('player_id', playerData.id)
+            .eq('status', 'pending')
+            .limit(1)
+            .single();
+
+        if (data) {
+            setRequestStatus(data.status);
+        } else {
+            setRequestStatus(null);
+        }
+    };
+
+    useEffect(() => {
+        checkRequests();
+    }, [playerData, teamData]);
 
     // Parse Player Skills for Display
     const skills = playerData?.skills || {};
@@ -71,6 +101,11 @@ export default function MySportSummaryCard({
 
     const location = playerData.location || "지역 미설정";
 
+    // Calculate sport_type for modal (using from playerData if available or inferring?)
+    // Actually we don't have sport_type string easily in props, but sportName is localized.
+    // Ideally we should pass sport_type code prop, but playerData has sport_type.
+    const sportTypeInternal = playerData.sport_type;
+
     return (
         <div className={styles.card}>
             {/* Outer Header */}
@@ -93,21 +128,30 @@ export default function MySportSummaryCard({
                         tags={tags}
                         imageUrl={userAvatarUrl}
                         onEdit={onEditProfile}
+                        hasTeam={!!teamData}
+                        requestStatus={requestStatus}
+                        onFindTeam={() => setIsJoinModalOpen(true)}
                     />
                 </div>
 
                 {/* 2. Team Section */}
                 <div className={styles.section}>
-                    <span className={styles.sectionTitle}>나의 팀 / 소속</span>
+                    <span className={styles.sectionTitle}>
+                        {sportName.includes('복싱') || sportName.includes('BOXING') || sportName.includes('주짓수') || sportName.includes('유도') || sportName.includes('MMA') || sportName.includes('킥복싱') ? "내 체육관 / 소속" : "나의 팀 / 소속"}
+                    </span>
                     {teamData ? (
                         <MyTeamCard
+                            teamId={teamData.id}
                             teamName={teamData.team_name}
                             captainName={playerData.name} // Assuming player is captain if this card exists? Or fetched captain name.
                             description={teamData.description}
-                            rating={5}
-                            history={['WIN']} // Mock
                             isRegistered={true}
                             emblemUrl={teamData.emblem_url}
+                            title={sportName.includes('복싱') || sportName.includes('BOXING') || sportName.includes('주짓수') || sportName.includes('유도') || sportName.includes('MMA') || sportName.includes('킥복싱') ? "내 체육관" : "나의 팀"}
+                            sportType={playerData.sport_type}
+                            rating={5.0} // Mock
+                            history={['WIN', 'DRAW', 'WIN', 'LOSS', 'WIN']} // Mock
+                            isCaptain={teamData.captain_id === playerData.user_id}
                         />
                     ) : (
                         // Optional: Show "Join/Create Team" placeholder or nothing? 
@@ -119,6 +163,15 @@ export default function MySportSummaryCard({
                     )}
                 </div>
             </div>
+
+            {/* Join Team Modal */}
+            <JoinTeamModal
+                isOpen={isJoinModalOpen}
+                onClose={() => setIsJoinModalOpen(false)}
+                sportType={sportTypeInternal}
+                playerId={playerData.id}
+                onJoinRequestSent={checkRequests}
+            />
         </div>
     );
 }

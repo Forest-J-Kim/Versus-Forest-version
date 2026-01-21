@@ -9,8 +9,9 @@ export default function BottomNav() {
 
     // Standardized Items: Home, Message, MyInfo
     const isAuthPage = ['/welcome', '/login', '/signup'].some(path => pathname.startsWith(path));
+    const isEditPage = pathname.includes('/team/edit/');
 
-    if (isAuthPage) return null;
+    if (isAuthPage || isEditPage) return null;
 
     return (
         <nav className={styles.nav}>

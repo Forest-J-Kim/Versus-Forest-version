@@ -9,9 +9,12 @@ interface MyPlayerCardProps {
     tags: string[];
     imageUrl?: string;
     onEdit?: () => void;
+    hasTeam?: boolean;
+    requestStatus?: string | null;
+    onFindTeam?: () => void;
 }
 
-export default function MyPlayerCard({ name, gymName, tags, imageUrl, onEdit }: MyPlayerCardProps) {
+export default function MyPlayerCard({ name, gymName, tags, imageUrl, onEdit, hasTeam = false, requestStatus = null, onFindTeam }: MyPlayerCardProps) {
     return (
         <div className={styles.card}>
             <div className={styles.headerRow}>
@@ -33,6 +36,33 @@ export default function MyPlayerCard({ name, gymName, tags, imageUrl, onEdit }: 
                     </div>
                 </div>
             </div>
+
+            {/* Join Team / Request Status Section */}
+            {!hasTeam && onFindTeam && (
+                <div style={{ marginTop: '1rem', borderTop: '1px solid #F3F4F6', paddingTop: '0.75rem' }}>
+                    {requestStatus === 'pending' ? (
+                        <div style={{
+                            width: '100%', padding: '0.75rem', borderRadius: '0.5rem',
+                            backgroundColor: '#FEF3C7', color: '#92400E', fontSize: '0.875rem',
+                            textAlign: 'center', fontWeight: 'bold'
+                        }}>
+                            🕒 승인 대기 중...
+                        </div>
+                    ) : (
+                        <button
+                            onClick={onFindTeam}
+                            style={{
+                                width: '100%', padding: '0.75rem', borderRadius: '0.5rem',
+                                border: '1px solid #D1D5DB', backgroundColor: 'white',
+                                color: '#374151', fontSize: '0.875rem', fontWeight: '600',
+                                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem'
+                            }}
+                        >
+                            🔍 소속팀/체육관 찾기
+                        </button>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
