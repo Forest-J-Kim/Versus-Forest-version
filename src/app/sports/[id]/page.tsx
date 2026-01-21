@@ -147,7 +147,7 @@ export default function SportDashboard({ params }: PageProps) {
             {/* 3. Captain/Manager Actions (Only visible in Manager/Captain Mode) */}
             {isManagerMode && !isHealthSport && (
                 <section className={styles.captainSection}>
-                    <CaptainActions />
+                    <CaptainActions teamId={teamProfile?.id} />
                 </section>
             )}
 

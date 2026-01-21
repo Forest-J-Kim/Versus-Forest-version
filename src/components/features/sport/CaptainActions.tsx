@@ -35,14 +35,26 @@ const styles = {
     }
 };
 
-export default function CaptainActions() {
+import { useRouter } from 'next/navigation';
+
+export default function CaptainActions({ teamId }: { teamId?: string }) {
+    const router = useRouter();
+
+    const handleTeamManage = () => {
+        if (teamId) {
+            router.push(`/team/${teamId}`);
+        } else {
+            alert("팀 정보를 찾을 수 없습니다.");
+        }
+    };
+
     return (
         <div style={styles.grid}>
-            <div style={styles.button}>
+            <div style={styles.button} onClick={handleTeamManage}>
                 <span style={styles.icon}>📋</span>
                 <span style={styles.title}>팀 관리</span>
             </div>
-            <div style={styles.button}>
+            <div style={styles.button} onClick={() => alert("준비중입니다.")}>
                 <span style={styles.icon}>📝</span>
                 <span style={styles.title}>경기 등록</span>
             </div>
