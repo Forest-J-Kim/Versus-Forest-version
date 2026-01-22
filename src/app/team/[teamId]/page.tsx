@@ -88,6 +88,8 @@ export default function TeamDetailPage({ params }: PageProps) {
             setTeam(teamData);
             setPlayers(allPlayers);
             setLoading(false);
+
+            console.log("DEBUG_PLAYERS:", allPlayers);
         };
 
         fetchData();
@@ -102,7 +104,6 @@ export default function TeamDetailPage({ params }: PageProps) {
 
     // Parse JSONB fields (defensively)
     const matchHistory = Array.isArray(team.match_history) ? team.match_history : [];
-    const coachesInfo = Array.isArray(team.coaches_info) ? team.coaches_info : [];
 
     // Placeholder data for demo if empty
     const displayMatchHistory = matchHistory.length > 0 ? matchHistory : [
@@ -110,9 +111,29 @@ export default function TeamDetailPage({ params }: PageProps) {
         { date: '2026-01-21', opponent: '상대팀', score: '2 : 4', result: 'LOSS' }
     ];
 
-    const displayCoaches = coachesInfo.length > 0 ? coachesInfo : [
-        { name: '강펀치', style: '인파이터', career: '현 리엔케이 복싱클럽 코치\n전 ㅇㅇㅇ 복싱짐 코치', photoUrl: null }
-    ];
+    // Coach Logic: Use Captain if no explicit coach info
+    // 1. Find Captain Data from players list
+    const captainData = players.find(p => p.user_id === team.captain_id);
+
+    // 2. Determine displayCoaches
+    let displayCoaches = (team.coaches_info && team.coaches_info.length > 0)
+        ? team.coaches_info.map((c: any) => {
+            // Re-map to display object, ensuring fallbacks
+            const matchedPlayer = c.user_id ? players.find(p => p.user_id === c.user_id) : null;
+            return {
+                name: matchedPlayer?.name || c.name || '정보 없음',
+                // Priority: Explicit Role -> Player Position -> Default '코치'
+                style: c.role || matchedPlayer?.skills?.position || '코치',
+                career: c.career || '등록된 소개가 없습니다.',
+                photoUrl: matchedPlayer?.avatar_url || matchedPlayer?.photo_url || c.photoUrl || null
+            };
+        })
+        : [{
+            name: captainData?.name || team.captain_name || '정보 없음',
+            style: '메인 관장', // Default for captain fallback
+            career: team.description || '베테랑 지도자',
+            photoUrl: captainData?.avatar_url || captainData?.photo_url || null
+        }];
 
     return (
         <main className={styles.container}>
@@ -162,11 +183,11 @@ export default function TeamDetailPage({ params }: PageProps) {
 
             {/* Team Introduction Section (Detailed) */}
             <section className={styles.section}>
-                <h3 className={styles.subTitle}>팀 소개</h3>
+                <h3 className={styles.subTitle}>{isTeamSport ? '팀 소개' : '체육관 소개'}</h3>
                 <div className={styles.descriptionBox}>
                     {team.introduction ? team.introduction : (
                         <span style={{ color: '#9CA3AF', fontStyle: 'italic' }}>
-                            {isCaptain ? "팀 소개글을 작성해주세요." : "아직 팀 소개글이 없습니다."}
+                            {isCaptain ? (isTeamSport ? "팀 소개글을 작성해주세요." : "체육관 소개글을 작성해주세요.") : (isTeamSport ? "아직 팀 소개글이 없습니다." : "아직 체육관 소개글이 없습니다.")}
                         </span>
                     )}
                 </div>
@@ -263,19 +284,69 @@ export default function TeamDetailPage({ params }: PageProps) {
                 /* TYPE B: Gym/Individual Sport */
                 <>
                     <section className={styles.section}>
-                        <h2 className={styles.sectionTitle}>코치진 정보</h2>
+                        <h2 className={styles.sectionTitle}>코치진(지도자) 소개</h2>
                         {displayCoaches.map((coach: any, idx: number) => (
-                            <div key={idx} className={styles.coachCard}>
-                                <div className={styles.coachImage}>
-                                    {coach.photoUrl ? <img src={coach.photoUrl} alt={coach.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '👤'}
+                            <div key={idx} className={styles.boxingCoachCard}>
+                                <div style={{ flexShrink: 0 }}>
+                                    {coach.photoUrl ? (
+                                        <img src={coach.photoUrl} alt={coach.name} className={styles.coachPhoto} />
+                                    ) : (
+                                        <div className={styles.coachPhoto} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', background: '#F3F4F6', color: '#9CA3AF', fontWeight: 'bold' }}>
+                                            {coach.name ? coach.name[0] : '🥊'}
+                                        </div>
+                                    )}
                                 </div>
                                 <div className={styles.coachInfo}>
-                                    <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>{coach.name} <span style={{ fontSize: '0.8rem', color: '#666', fontWeight: 'normal' }}>{coach.style}</span></div>
-                                    <div style={{ fontSize: '0.85rem', color: '#555', whiteSpace: 'pre-line' }}>{coach.career}</div>
+                                    <div className={styles.coachHeader}>
+                                        <span className={styles.coachName}>{coach.name}</span>
+                                        <span className={styles.coachBadge}>{coach.style || '코치'}</span>
+                                    </div>
+                                    <div className={styles.coachCareer}>{coach.career}</div>
                                 </div>
                             </div>
                         ))}
                     </section>
+
+                    {/* Representative Players Section */}
+                    {team.representative_players && Array.isArray(team.representative_players) && team.representative_players.some((id: string) => id) && (
+                        <section className={styles.section}>
+                            <h2 className={styles.sectionTitle}>대표 선수</h2>
+                            <div className={styles.repGrid}>
+                                {[0, 1, 2, 3].map(idx => {
+                                    const playerId = team.representative_players[idx];
+                                    const player = playerId ? players.find(p => p.id === playerId) : null;
+
+                                    return (
+                                        <div key={idx} className={styles.repCard} style={{ cursor: 'default' }}>
+                                            {/* Cursor default since detail page isn't interactive */}
+                                            {player ? (
+                                                <>
+                                                    <img
+                                                        src={player.avatar_url || player.photo_url || 'https://via.placeholder.com/60'}
+                                                        alt={player.name}
+                                                        className={styles.repAvatar}
+                                                    />
+                                                    <div className={styles.repName}>{player.name}</div>
+                                                    <div className={styles.repInfo}>
+                                                        <span>{player.skills?.weightClass || player.weight_class || '-'}</span>
+                                                        <span>{player.skills?.stance || player.skills?.style || player.skills?.position || '-'}</span>
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <div className={styles.repEmpty}>
+                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style={{ width: '50%', height: '50%', color: '#D1D5DB' }}>
+                                                            <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clipRule="evenodd" />
+                                                        </svg>
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </section>
+                    )}
 
                     <section className={styles.section}>
                         <h2 className={styles.sectionTitle}>회원 목록 ({players.length})</h2>

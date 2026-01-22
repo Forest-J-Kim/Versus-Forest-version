@@ -430,7 +430,138 @@
     text-align: center;
 }
 
-.memberMeta {
-    font-size: 0.65rem;
+
+/* Boxing Specific Styles */
+.boxingCoachCard {
+    display: flex;
+    gap: 1.25rem;
+    background: white;
+    border: 1px solid #E5E7EB;
+    border-radius: 1rem;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    align-items: flex-start;
+}
+
+.coachPhoto {
+    width: 80px;
+    height: 80px;
+    border-radius: 1rem;
+    background: #F3F4F6;
+    object-fit: cover;
+    border: 1px solid #E5E7EB;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.coachInfo {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.coachHeader {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.25rem;
+}
+
+.coachName {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #111827;
+}
+
+.coachBadge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #991B1B;
+    /* Red-800 for better contrast */
+    background: #FEE2E2;
+    /* Red-100 */
+    padding: 0.25rem 0.6rem;
+    border-radius: 6px;
+    letter-spacing: -0.01em;
+    min-width: 40px;
+    /* Minimum width */
+    height: fit-content;
+    white-space: nowrap;
+}
+
+.coachCareer {
+    font-size: 0.9rem;
+    color: #4B5563;
+    line-height: 1.5;
+    white-space: pre-line;
+}
+
+/* Representative Players Section */
+.repGrid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.repCard {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+.repCard:hover {
+    transform: translateY(-2px);
+}
+
+.repAvatar {
+    width: 100%;
+    aspect-ratio: 1/1;
+    border-radius: 12px;
+    background: #F3F4F6;
+    object-fit: cover;
+    border: 1px solid #E5E7EB;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.repEmpty {
+    width: 100%;
+    aspect-ratio: 1/1;
+    border-radius: 12px;
+    background: #F9FAFB;
+    border: 1px dashed #D1D5DB;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     color: #9CA3AF;
+    font-size: 2rem;
+}
+
+.repName {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #111827;
+    text-align: center;
+    width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 0.1rem;
+}
+
+.repInfo {
+    font-size: 0.75rem;
+    color: #6B7280;
+    text-align: center;
+    line-height: 1.2;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }

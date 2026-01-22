@@ -152,6 +152,7 @@ export default function MySportSummaryCard({
                             rating={5.0} // Mock
                             history={['WIN', 'DRAW', 'WIN', 'LOSS', 'WIN']} // Mock
                             isCaptain={teamData.captain_id === playerData.user_id}
+                            representativePlayers={teamData.representative_players}
                         />
                     ) : (
                         // Optional: Show "Join/Create Team" placeholder or nothing? 

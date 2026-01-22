@@ -5,12 +5,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { sportConfig } from "@/lib/sportConfig";
 import styles from "./wizard.module.css";
 import { useToast } from "@/components/providers/ToastProvider";
-import { supabase } from "@/lib/supabaseClient";
+import { createClient } from "@/utils/supabase/client";
 
 function MatchRegisterForm() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { showToast } = useToast();
+    const supabase = createClient();
 
     const mode = searchParams.get("mode") || "SOLO";
     const sportId = searchParams.get("sport") || "BOXING";
@@ -20,11 +21,25 @@ function MatchRegisterForm() {
     const [formData, setFormData] = useState<Record<string, any>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // --- Date/Time Wizard State ---
-    const [dateStep, setDateStep] = useState<"DATE" | "WEEKEND_DETAIL" | "TIME_SLOT" | "HOUR">("DATE");
+    // --- Independent Date State ---
+    const [dateStep, setDateStep] = useState<"DATE" | "WEEKEND_DETAIL">("DATE");
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+
+    // --- Independent Time State ---
     const [timeSlot, setTimeSlot] = useState<"AM" | "PM" | "EVE" | null>(null);
-    const [finalDateIso, setFinalDateIso] = useState("");
+    const [selectedHour, setSelectedHour] = useState<number | null>(null);
+
+    // --- User State ---
+    const [user, setUser] = useState<any>(null);
+
+    useEffect(() => {
+        const fetchUser = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            console.log("Current User Info (Mount):", user);
+            setUser(user);
+        };
+        fetchUser();
+    }, []);
 
     // --- Location State ---
     const [locationType, setLocationType] = useState<"HOME" | "AWAY" | "TBD">("HOME");
@@ -36,116 +51,139 @@ function MatchRegisterForm() {
         return <div className={styles.container}>Invalid Sport Configuration</div>;
     }
 
-    // --- Logic for Date Wizard ---
-    const handleDateMain = (choice: "TODAY" | "TOMORROW" | "WEEKEND" | "PICK") => {
+    // --- Logic for Date ---
+    const handleDateMain = (choice: "TODAY" | "TOMORROW" | "WEEKEND") => {
         const now = new Date();
         if (choice === "TODAY") {
-            setSelectedDate(now);
-            setDateStep("TIME_SLOT"); // Skip to time slot
+            const today = new Date();
+            setSelectedDate(today);
+            setDateStep("DATE");
         } else if (choice === "TOMORROW") {
             const tmr = new Date(now);
             tmr.setDate(tmr.getDate() + 1);
             setSelectedDate(tmr);
-            setDateStep("TIME_SLOT");
+            setDateStep("DATE");
         } else if (choice === "WEEKEND") {
             setDateStep("WEEKEND_DETAIL");
         }
-        // PICK is handled via native input trigger or UI toggle, typically handled separately
     };
 
-    const handleLevel2Weekend = (day: "SAT" | "SUN") => {
+    const handleWeekendPick = (day: "SAT" | "SUN") => {
         const d = new Date();
         const currentDay = d.getDay();
         let addDays = 0;
-
-        // Find next Sat or Sun
         if (day === "SAT") addDays = (6 - currentDay + 7) % 7;
         if (day === "SUN") addDays = (0 - currentDay + 7) % 7;
-
-        // If today is match, but late? Assume coming weekend. 
         if (addDays === 0 && d.getHours() > 20) addDays = 7;
-
         d.setDate(d.getDate() + addDays);
         setSelectedDate(d);
-        setDateStep("TIME_SLOT");
+        // Optional: Reset to main view or keep detail? 
+        // Keeping it simple as user wants persistent view usually, but let's stick to simple selection.
     };
 
-    const handleLevel2Pick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleDateInput = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.value) return;
         setSelectedDate(new Date(e.target.value));
-        setDateStep("TIME_SLOT");
+        setDateStep("DATE");
     };
 
-    const handleLevel3TimeSlot = (slot: "AM" | "PM" | "EVE") => {
+    // --- Logic for Time ---
+    const handleTimeSlot = (slot: "AM" | "PM" | "EVE") => {
         setTimeSlot(slot);
-        setDateStep("HOUR");
+        setSelectedHour(null); // Reset hour if slot changes
     };
 
-    const handleLevel4Hour = (hour: number) => {
-        if (!selectedDate) return;
-        const d = new Date(selectedDate);
-        d.setHours(hour, 0, 0, 0);
-        setFinalDateIso(d.toISOString());
+    const handleHourPick = (hour: number) => {
+        setSelectedHour(hour);
     };
 
-    // Helper to render hours based on slot
     const getHoursForSlot = () => {
         if (timeSlot === "AM") return [9, 10, 11, 12];
         if (timeSlot === "PM") return [13, 14, 15, 16, 17];
-        if (timeSlot === "EVE") return [18, 19, 20, 21, 22]; // Extended Night
+        if (timeSlot === "EVE") return [18, 19, 20, 21, 22];
         return [];
     };
 
+    // --- Create Match ---
     const handleCreate = async (e?: React.FormEvent) => {
-        // Step 1: Immediate confirmation
         if (e) e.preventDefault();
 
-        console.log("🔥 [Emergency] handleCreate triggered");
-        alert("통신 시작: 데이터를 보냅니다...");
+        // 1. Auth Check (Robust Session)
+        const { data: { session } } = await supabase.auth.getSession();
+        const currentUser = session?.user;
+
+        if (!currentUser) {
+            console.error("세션 없음");
+            alert("로그인 세션을 찾을 수 없습니다. 다시 로그인해주세요.");
+            return;
+        }
+
+        // 2. Validation
+        if (!selectedDate && !timeSlot) {
+            alert("최소한 날짜나 시간대는 선택해주세요.");
+            return;
+        }
+
+        // 3. Date Construction
+        // Logic: Combine date + hour if available, else default/now.
+        // If critical parts missing, ask confirmation.
+        if (!selectedDate || selectedHour === null) {
+            if (!confirm("날짜 또는 정확한 시간이 선택되지 않았습니다. 현재 설정된 값(혹은 현재 시간)으로 등록하시겠습니까?")) {
+                return;
+            }
+        }
+
+        let finalTargetDate = new Date();
+        if (selectedDate) {
+            finalTargetDate = new Date(selectedDate);
+            finalTargetDate.setHours(0, 0, 0, 0); // Reset time
+            if (selectedHour !== null) {
+                finalTargetDate.setHours(selectedHour, 0, 0, 0);
+            }
+        }
+        // If no selectedDate, finalTargetDate stays as 'now'
+
+        console.log("🔥 handleCreate triggered");
 
         try {
-            // Step 2: Payload Construction & Logging
-            const finalDate = finalDateIso || new Date().toISOString(); // Fallback to NOW if missing
-
-            // Hardcoded Auth for consistency
-            const AUTHOR_ID = 'anon-user';
+            setIsSubmitting(true);
 
             let locString = "장소 미정";
             if (locationType === "HOME") locString = "서울 복싱 (Home)";
             if (locationType === "AWAY") locString = "상대 체육관 희망 (Away)";
+            if (locationType === "TBD") locString = "장소 협의";
 
             const matchData = {
-                mode: mode,
-                sport: sportId,
-                author_id: AUTHOR_ID,
-                target_date: finalDate,
+                hostUserId: currentUser.id,
+                date: finalTargetDate.toISOString(),
                 location: locString,
-                attributes: formData,
-                status: 'OPEN'
+                sport: sportId,
+                mode: mode,
+                status: 'OPEN',
+                type: 'MATCH',
+                attributes: JSON.stringify(formData)
             };
 
-            console.log("📦 [Emergency] Sending Payload:", matchData);
+            console.log("📦 Sending Payload:", matchData);
 
-            // Step 3: Supabase Insert (Direct)
             const { data, error } = await supabase
                 .from('matches')
                 .insert([matchData])
                 .select();
 
-            if (error) {
-                console.error("❌ [Emergency] Supabase Error:", error);
-                throw error;
-            }
+            if (error) throw error;
 
-            console.log("✅ [Emergency] Success:", data);
-            alert("✅ 등록 성공! DB 확인해보세요.");
-
-            // Step 4: Force Redirect
-            window.location.href = "/matches";
+            console.log("✅ Success:", data);
+            alert("✅ 매칭이 등록되었습니다!");
+            router.push("/matches"); // Next.js routing
 
         } catch (err: any) {
-            console.error("❌ [Emergency] Catch Block:", err);
-            alert("❌ 에러 발생: " + (err.message || JSON.stringify(err)));
+            console.error(err);
+            alert(`❌ 등록 실패: ${err.message}\n` +
+                (err.hint ? `Hint: ${err.hint}\n` : '') +
+                (err.details ? `Details: ${err.details}` : ''));
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -153,64 +191,77 @@ function MatchRegisterForm() {
         setFormData(prev => ({ ...prev, [key]: value }));
     };
 
+    // --- Derived Summary ---
+    let summaryText = "일시를 선택해주세요";
+
+    // Calculate Date Part
+    const dateText = selectedDate
+        ? selectedDate.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })
+        : "날짜 미정";
+
+    // Calculate Time Part
+    let timeText = "시간 미정";
+    if (selectedHour !== null) {
+        timeText = `${selectedHour}:00`;
+    } else if (timeSlot) {
+        timeText = timeSlot === 'AM' ? '오전' : timeSlot === 'PM' ? '오후' : '저녁';
+    }
+
+    // Combine
+    if (selectedDate || timeSlot) {
+        summaryText = `${dateText} ${timeText}`;
+    }
+
+    const summaryDetails = sportDef.fields
+        .filter(f => formData[f.key])
+        .map(f => `${formData[f.key]}${f.unit || ''}`)
+        .join(' · ');
+
     return (
         <main className={styles.container}>
             <h1 style={{ marginBottom: '1rem', fontSize: '1.5rem' }}>{sportDef.icon} {sportDef.name}</h1>
 
-            {/* Preview Card */}
-            <div style={{ background: 'white', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', border: '1px solid #E5E7EB' }}>
-                <div style={{ fontSize: '0.85rem', color: '#6B7280', marginBottom: '4px' }}>SUMMARY</div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>
-                    {finalDateIso ? new Date(finalDateIso).toLocaleString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit' }) : "일시를 선택해주세요"}
-                </div>
-                <div style={{ fontSize: '0.9rem', color: '#374151' }}>
-                    {locationType === 'HOME' ? '🏠 내 체육관 (Home)' : locationType === 'AWAY' ? '✈️ 원정 (Away)' : '🤝 장소 협의'}
-                </div>
-            </div>
-
             <div className={styles.form}>
 
-                {/* --- Wizard Section --- */}
+                {/* --- Section 1: Date --- */}
                 <div className={styles.section}>
-                    <h3>Step 1: 날짜 (Date)</h3>
-
-                    {/* Level 1: Main Chips */}
+                    <h3 style={{ marginBottom: '0.5rem' }}>날짜 (Date)</h3>
                     <div className={styles.grid4} style={{ marginBottom: '8px' }}>
-                        <button className={`${styles.dateBtn} ${dateStep !== 'DATE' && selectedDate?.getDate() === new Date().getDate() ? styles.active : ''}`} onClick={() => handleDateMain("TODAY")}>오늘</button>
-                        <button className={`${styles.dateBtn} ${dateStep !== 'DATE' && selectedDate?.getDate() === new Date().getDate() + 1 ? styles.active : ''}`} onClick={() => handleDateMain("TOMORROW")}>내일</button>
+                        <button className={`${styles.dateBtn} ${selectedDate?.getDate() === new Date().getDate() ? styles.active : ''}`} onClick={() => handleDateMain("TODAY")}>오늘</button>
+                        <button className={`${styles.dateBtn} ${selectedDate?.getDate() === new Date().getDate() + 1 ? styles.active : ''}`} onClick={() => handleDateMain("TOMORROW")}>내일</button>
                         <button className={`${styles.dateBtn}`} onClick={() => handleDateMain("WEEKEND")}>주말</button>
-                        <input type="date" className={styles.dateInput} onChange={handleLevel2Pick} style={{ height: '100%', border: '1px solid #E5E7EB', borderRadius: '8px', padding: '0 8px' }} />
+                        <input type="date" className={styles.dateInput} onChange={handleDateInput} style={{ height: '100%', border: '1px solid #E5E7EB', borderRadius: '8px', padding: '0 8px' }} />
                     </div>
 
-                    {/* Level 2: Weekend Detail */}
                     {dateStep === "WEEKEND_DETAIL" && (
-                        <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                            <button className={styles.subBtn} onClick={() => handleLevel2Weekend("SAT")}>토요일 (Sat)</button>
-                            <button className={styles.subBtn} onClick={() => handleLevel2Weekend("SUN")}>일요일 (Sun)</button>
-                        </div>
-                    )}
-
-                    {/* Level 3: Time Slot */}
-                    {(dateStep === "TIME_SLOT" || dateStep === "HOUR" || finalDateIso) && (
-                        <div style={{ marginTop: '1rem' }}>
-                            <h3>Step 2: 시간대 (Time)</h3>
-                            <div className={styles.grid3}>
-                                <button className={`${styles.slotBtn} ${timeSlot === 'AM' ? styles.active : ''}`} onClick={() => handleLevel3TimeSlot("AM")}>오전 (09-12)</button>
-                                <button className={`${styles.slotBtn} ${timeSlot === 'PM' ? styles.active : ''}`} onClick={() => handleLevel3TimeSlot("PM")}>오후 (13-17)</button>
-                                <button className={`${styles.slotBtn} ${timeSlot === 'EVE' ? styles.active : ''}`} onClick={() => handleLevel3TimeSlot("EVE")}>저녁 (18-22)</button>
+                        <div className={styles.grid4} style={{ marginBottom: '8px' }}>
+                            <div /> {/* Spacer */}
+                            <div /> {/* Spacer */}
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                                <button className={`subBtn ${selectedDate?.getDay() === 6 ? 'active' : ''}`} style={{ padding: '8px 0', fontSize: '0.8rem' }} onClick={() => handleWeekendPick("SAT")}>토</button>
+                                <button className={`subBtn ${selectedDate?.getDay() === 0 ? 'active' : ''}`} style={{ padding: '8px 0', fontSize: '0.8rem' }} onClick={() => handleWeekendPick("SUN")}>일</button>
                             </div>
                         </div>
                     )}
+                </div>
 
-                    {/* Level 4: Hour Picker */}
-                    {(dateStep === "HOUR" || finalDateIso) && timeSlot && (
+                {/* --- Section 2: Time --- */}
+                <div className={styles.section}>
+                    <h3 style={{ marginBottom: '0.5rem' }}>시간대 (Time)</h3>
+                    <div className={styles.grid3}>
+                        <button className={`slotBtn ${timeSlot === 'AM' ? 'active' : ''}`} onClick={() => handleTimeSlot("AM")}>오전 (09-12)</button>
+                        <button className={`slotBtn ${timeSlot === 'PM' ? 'active' : ''}`} onClick={() => handleTimeSlot("PM")}>오후 (13-17)</button>
+                        <button className={`slotBtn ${timeSlot === 'EVE' ? 'active' : ''}`} onClick={() => handleTimeSlot("EVE")}>저녁 (18-22)</button>
+                    </div>
+
+                    {timeSlot && (
                         <div style={{ marginTop: '1rem' }}>
                             <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
                                 {getHoursForSlot().map(h => (
                                     <button
                                         key={h}
-                                        className={`${styles.hourBtn} ${finalDateIso && new Date(finalDateIso).getHours() === h ? styles.active : ''}`}
-                                        onClick={() => handleLevel4Hour(h)}
+                                        className={`hourBtn ${selectedHour === h ? 'active' : ''}`}
+                                        onClick={() => handleHourPick(h)}
                                     >
                                         {h}:00
                                     </button>
@@ -220,36 +271,37 @@ function MatchRegisterForm() {
                     )}
                 </div>
 
-                {/* --- Location Toggle --- */}
+                {/* --- Section 3: Location --- */}
                 <div className={styles.section}>
-                    <h3>Location (장소)</h3>
+                    <h3 style={{ marginBottom: '0.5rem' }}>장소 (Location)</h3>
                     <div className={styles.grid3}>
-                        <button className={`${styles.locBtn} ${locationType === 'HOME' ? styles.active : ''}`} onClick={() => setLocationType("HOME")}>
-                            🏠 홈 (오세요)
+                        <button className={`locBtn ${locationType === 'HOME' ? 'active' : ''}`} onClick={() => setLocationType("HOME")}>
+                            <span>🏠 홈</span>
+                            <span style={{ fontSize: '0.8em', fontWeight: '400', opacity: 0.9 }}>(와주세요)</span>
                         </button>
-                        <button className={`${styles.locBtn} ${locationType === 'AWAY' ? styles.active : ''}`} onClick={() => setLocationType("AWAY")}>
-                            ✈️ 원정 (갈게요)
+                        <button className={`locBtn ${locationType === 'AWAY' ? 'active' : ''}`} onClick={() => setLocationType("AWAY")}>
+                            <span>✈️ 원정</span>
+                            <span style={{ fontSize: '0.8em', fontWeight: '400', opacity: 0.9 }}>(갈게요)</span>
                         </button>
-                        <button className={`${styles.locBtn} ${locationType === 'TBD' ? styles.active : ''}`} onClick={() => setLocationType("TBD")}>
-                            🤝 장소 미정
+                        <button className={`locBtn ${locationType === 'TBD' ? 'active' : ''}`} onClick={() => setLocationType("TBD")}>
+                            <span>🤝 장소 미정</span>
+                            <span style={{ fontSize: '0.8em', fontWeight: '400', opacity: 0.9 }}>(협의해요)</span>
                         </button>
                     </div>
                 </div>
 
-                {/* Dynamic Fields */}
+                {/* --- Dynamic Fields --- */}
                 {sportDef.fields.map((field) => {
                     const val = formData[field.key];
                     return (
                         <div key={field.key} className={styles.section}>
-                            <h3>{field.label}</h3>
-                            {/* ... Simple implementation for other fields ... */}
+                            <h3 style={{ marginBottom: '0.5rem' }}>{field.label}</h3>
                             {field.type === 'slider' && (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                     <input type="range" min={field.min} max={field.max} value={val || field.min} onChange={(e) => updateField(field.key, Number(e.target.value))} style={{ flex: 1 }} />
                                     <span>{val || field.min} {field.unit}</span>
                                 </div>
                             )}
-                            {/* Reusing Config Logic Simplified for brevity */}
                             {field.type === 'chips' && (
                                 <div className={styles.chips}>
                                     {field.options?.map(opt => (
@@ -267,25 +319,45 @@ function MatchRegisterForm() {
                         </div>
                     )
                 })}
-
             </div>
 
-            <button className={styles.submitBtn} onClick={handleCreate} disabled={isSubmitting || !finalDateIso}>
-                {isSubmitting ? "등록 중..." : "매칭 등록 (Post)"}
+            {/* --- Summary --- */}
+            <div style={{ background: 'white', padding: '1rem', borderRadius: '12px', marginBottom: '1rem', border: '1px solid #E5E7EB', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                        <div style={{ fontSize: '0.85rem', color: '#6B7280', marginBottom: '4px' }}>SUMMARY</div>
+                        <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: (selectedDate || timeSlot) ? '#111827' : '#9CA3AF' }}>
+                            {summaryText}
+                        </div>
+                        <div style={{ fontSize: '0.9rem', color: '#374151', marginTop: '4px' }}>
+                            {locationType === 'HOME' ? '🏠 내 체육관 (Home)' : locationType === 'AWAY' ? '✈️ 원정 (Away)' : '🤝 장소 협의'}
+                        </div>
+                    </div>
+                </div>
+
+                {summaryDetails && (
+                    <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid #F3F4F6', fontSize: '0.85rem', color: '#4B5563' }}>
+                        {summaryDetails}
+                    </div>
+                )}
+            </div>
+
+            <button className={styles.submitBtn} onClick={handleCreate} disabled={isSubmitting || (!selectedDate && !timeSlot)}>
+                {isSubmitting ? "등록 중..." : "매칭 등록"}
             </button>
 
             <style jsx>{`
-                .active { background: #2563EB !important; color: white !important; border-color: #2563EB !important; }
-                .subBtn { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #E5E7EB; background: white; font-weight: bold; }
-                .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+                .active { background: #2563EB !important; color: white !important; border-color: #2563EB !important; box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2); }
+                .subBtn { flex: 1; padding: 8px 12px; border-radius: 12px; border: 1px solid #E5E7EB; background: white; font-weight: 500; font-size: 0.85rem; color: #374151; transition: all 0.2s; }
+                .grid3 { display: flex; flex-wrap: wrap; gap: 8px; }
                 .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-                .dateBtn { padding: 12px 0; border-radius: 8px; border: 1px solid #E5E7EB; background: white; font-size: 0.9rem; font-weight: 500; }
-                .slotBtn { padding: 12px; border-radius: 10px; border: 1px solid #E5E7EB; background: white; font-weight: 500; }
-                .hourBtn { padding: 8px 16px; border-radius: 20px; border: 1px solid #E5E7EB; background: white; white-space: nowrap; }
-                .locBtn { padding: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border-radius: 12px; border: 1px solid #E5E7EB; background: white; font-size: 0.9rem; font-weight: bold; }
-                .chip { padding: 8px 12px; border-radius: 20px; border: 1px solid #E5E7EB; background: white; margin-right: 8px; margin-bottom: 8px; }
+                .dateBtn { padding: 12px 0; border-radius: 12px; border: 1px solid #E5E7EB; background: white; font-size: 0.9rem; font-weight: 500; }
+                .slotBtn { padding: 10px 16px; border-radius: 9999px; border: 1px solid #E5E7EB; background: white; font-weight: 600; font-size: 0.9rem; color: #374151; flex: 1; text-align: center; transition: all 0.2s; }
+                .locBtn { padding: 8px 12px; border-radius: 9999px; border: 1px solid #E5E7EB; background: white; font-weight: 600; font-size: 0.9rem; color: #374151; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; transition: all 0.2s; flex: 1; height: auto; }
+                .hourBtn { padding: 6px 14px; border-radius: 9999px; border: 1px solid #E5E7EB; background: white; white-space: nowrap; font-weight: 600; font-size: 0.8rem; color: #4B5563; transition: all 0.2s; }
+                .chip { padding: 8px 16px; border-radius: 9999px; border: 1px solid #E5E7EB; background: white; margin-right: 8px; margin-bottom: 8px; font-weight: 600; font-size: 0.9rem; color: #374151; }
                 .toggleGroup { display: flex; gap: 8px; }
-                .toggle { padding: 8px 16px; border-radius: 8px; border: 1px solid #E5E7EB; background: white; }
+                .toggle { padding: 8px 16px; border-radius: 9999px; border: 1px solid #E5E7EB; background: #F3F4F6; font-weight: 500; color: #374151; }
                 .tagsGrid { display: flex; flex-wrap: wrap; gap: 8px; }
                 .tagBtn { padding: 6px 12px; border-radius: 6px; border: 1px solid #E5E7EB; background: white; font-size: 0.85rem; }
             `}</style>

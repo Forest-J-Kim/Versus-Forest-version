@@ -16,6 +16,7 @@ interface MyTeamCardProps {
     rating?: number;
     history?: ('WIN' | 'DRAW' | 'LOSS')[];
     isCaptain?: boolean;
+    representativePlayers?: any[];
 }
 
 export default function MyTeamCard({
@@ -29,7 +30,8 @@ export default function MyTeamCard({
     sportType = "",
     rating = 5,
     history = [],
-    isCaptain = false
+    isCaptain = false,
+    representativePlayers
 }: MyTeamCardProps) {
     const router = useRouter();
     const [members, setMembers] = useState<any[]>([]);
@@ -43,10 +45,44 @@ export default function MyTeamCard({
 
     useEffect(() => {
         const fetchMembers = async () => {
-            if (!teamId || isTeamSport) return; // Don't fetch members for Team Sports
+            if (!teamId || isTeamSport) return;
+
+            // Strategy: Use Representative Players if provided and valid
+            if (representativePlayers && Array.isArray(representativePlayers) && representativePlayers.some(id => id)) {
+                const validIds = representativePlayers.filter(id => id); // Remove nulls for query
+                if (validIds.length > 0) {
+                    const { data } = await supabase
+                        .from('players')
+                        .select('id, name, weight_class, avatar_url, photo_url, skills')
+                        .in('id', validIds);
+
+                    if (data) {
+                        // Map back to original sorted 4-slot array
+                        const mappedMembers = representativePlayers.map(id => {
+                            if (!id) return null;
+                            return data.find(p => p.id === id) || null;
+                        });
+                        // We need exactly 4 items for the grid, usually the prop is length 4
+                        // If less, pad it? The prop is usually fixed 4 from DB logic now.
+                        // But 'mappedMembers' might have nulls. 
+                        // The rendering logic below expects an array of objects. 
+                        // Existing logic: const gridItems = [...members]; while < 4 push placeholder.
+                        // So I should setMembers to this mapped array (with nulls or objects).
+                        // Wait, existing logic expects `members` to be just a list of valid players, then it pads.
+                        // If I want FIXED positions (e.g. invalid slot 2 is empty but slot 3 has player), 
+                        // I need to change the grid rendering logic to respect the array index.
+
+                        // Let's change the member state to be the full 4-slot array with nulls.
+                        setMembers(mappedMembers);
+                        return;
+                    }
+                }
+            }
+
+            // Fallback: Fetch Any 4 Members (Legacy behavior)
             const { data } = await supabase
                 .from('players')
-                .select('id, name, weight_class, avatar_url, photo_url')
+                .select('id, name, weight_class, avatar_url, photo_url, skills')
                 .eq('team_id', teamId)
                 .limit(4);
 
@@ -182,12 +218,20 @@ export default function MyTeamCard({
                     <div style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#6B7280', marginBottom: '0.5rem' }}>대표 선수</div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem' }}>
                         {(() => {
-                            const gridItems = [...members];
+                            let gridItems: any[] = [...members]; // Use let for reassignment
+
+                            // 1. Pad with placeholders if length < 4 (legacy fallback)
                             while (gridItems.length < 4) {
-                                gridItems.push({ id: `placeholder-${gridItems.length}`, isPlaceholder: true });
+                                gridItems.push({ isPlaceholder: true });
                             }
-                            return gridItems.map((member) => (
-                                <div key={member.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+
+                            // 2. Convert explicit nulls (from Rep Players) to placeholders
+                            gridItems = gridItems.map((item, idx) =>
+                                (!item || item === null) ? { id: `placeholder-idx-${idx}`, isPlaceholder: true } : item
+                            );
+
+                            return gridItems.map((member, idx) => (
+                                <div key={member.id || `member-${idx}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                                     <div style={{
                                         width: '100%', aspectRatio: '1/1', borderRadius: '8px',
                                         background: '#F3F4F6', overflow: 'hidden', display: 'flex',
@@ -198,13 +242,15 @@ export default function MyTeamCard({
                                                 <img src={member.avatar_url || member.photo_url} alt={member.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                             ) : <span style={{ fontSize: '1.5rem', color: '#9CA3AF' }}>👤</span>
                                         ) : (
-                                            <span style={{ color: '#D1D5DB' }}>-</span>
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style={{ width: '50%', height: '50%', color: '#D1D5DB' }}>
+                                                <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clipRule="evenodd" />
+                                            </svg>
                                         )}
                                     </div>
                                     {!member.isPlaceholder && (
                                         <div style={{ fontSize: '0.7rem', textAlign: 'center', lineHeight: '1.2' }}>
                                             <div style={{ fontWeight: 'bold', color: '#374151' }}>{member.name}</div>
-                                            <div style={{ color: '#6B7280', fontSize: '0.65rem' }}>{member.weight_class || ""}</div>
+                                            <div style={{ color: '#6B7280', fontSize: '0.65rem' }}>{member.skills?.weightClass || member.weight_class || ""}</div>
                                         </div>
                                     )}
                                 </div>
