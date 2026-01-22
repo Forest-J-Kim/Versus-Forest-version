@@ -7,7 +7,7 @@ import { useMode } from "@/components/providers/ModeProvider";
 import { useToast } from "@/components/providers/ToastProvider";
 import { createClient } from "@/utils/supabase/client";
 import { sportConfig } from "@/lib/sportConfig";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 
 interface Match {
   id: string;
@@ -175,7 +175,9 @@ function MatchCardItem({ match, currentUser, isManagerMode, onDelete, handleActi
   );
 }
 
-export default function MatchesPage() {
+// ... (MatchCardItem component remains unchanged) ...
+
+function MatchesContent() {
   const { isManagerMode } = useMode();
   const { showToast } = useToast();
   const searchParams = useSearchParams();
@@ -306,5 +308,13 @@ export default function MatchesPage() {
         </div>
       )}
     </main>
+  );
+}
+
+export default function MatchesPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>목록 로딩 중...</div>}>
+      <MatchesContent />
+    </Suspense>
   );
 }

@@ -287,7 +287,28 @@ function MatchRegisterForm() {
                             <span>🤝 장소 미정</span>
                             <span style={{ fontSize: '0.8em', fontWeight: '400', opacity: 0.9 }}>(협의해요)</span>
                         </button>
-                    </div>
+                    </div>### 🤖 [목록 조회 수정] 등록된 매칭 데이터 실시간 출력 지시서
+
+                    **1. 대상 파일**
+                    * `src/app/matches/page.tsx` (매칭 목록 페이지)
+
+                    **2. 데이터 페칭(Fetching) 로직 수정**
+                    * **클라이언트 교체:** 기존 `supabaseClient` 대신 `import {createClient} from "@/utils/supabase/client";`를 사용하여 브라우저 세션과 연동하라.
+                    * **쿼리 수정:** `supabase.from('matches').select('*')` 호출 시, 우리가 새로 만든 컬럼들(`date`, `sport`, `location`, `hostUserId`, `attributes`)을 모두 가져오는지 확인하라.
+                    * **필터링 점검:**
+                    * 현재 페이지가 '복싱' 종목이라면 `eq('sport', 'BOXING')` 또는 `eq('sport', 'soccer')` 처럼 등록 시 사용한 종목 ID와 일치하게 필터를 걸어라. (대소문자 주의)
+                    * `status`가 'OPEN'인 데이터만 가져오도록 설정하라.
+
+                    **3. UI 데이터 매핑 수정**
+                    * 매칭 카드를 그릴 때, 날짜는 `target_date`가 아닌 **`date`** 컬럼에서 가져오도록 수정하라.
+                    * 장소는 **`location`** 컬럼 데이터를 사용하라.
+                    * **속성(Attributes) 처리:** `attributes` 필드가 문자열(String)로 저장되어 있다면, `JSON.parse(match.attributes)`를 통해 객체로 변환하여 체급, 강도 등을 카드에 표시하라.
+
+                    **4. 실시간 갱신(Refresh)**
+                    * `swr`을 사용 중이라면 `revalidateOnFocus` 옵션을 켜거나, 페이지 진입 시 최신 데이터를 가져오도록 `mutate`를 호출하라.
+
+                    **5. 결과 확인**
+                    * "등록된 매칭이 없습니다" 메시지 대신, 방금 등록한 매칭 카드가 화면에 나타나야 함.
                 </div>
 
                 {/* --- Dynamic Fields --- */}
@@ -298,8 +319,8 @@ function MatchRegisterForm() {
                             <h3 style={{ marginBottom: '0.5rem' }}>{field.label}</h3>
                             {field.type === 'slider' && (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <input type="range" min={field.min} max={field.max} value={val || field.min} onChange={(e) => updateField(field.key, Number(e.target.value))} style={{ flex: 1 }} />
-                                    <span>{val || field.min} {field.unit}</span>
+                                    <input type="range" min={field.min} max={field.max} value={Number(val) || field.min} onChange={(e) => updateField(field.key, Number(e.target.value))} style={{ flex: 1 }} />
+                                    <span>{String(val || field.min)} {field.unit}</span>
                                 </div>
                             )}
                             {field.type === 'chips' && (
