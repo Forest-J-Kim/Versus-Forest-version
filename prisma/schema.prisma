@@ -2,7 +2,7 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -10,6 +10,8 @@ generator client {
   provider = "prisma-client-js"
 }
 
+/// Mapped to `players` table in Supabase. 
+/// NOTE: This is the public profile table, NOT `auth.users`.
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
@@ -17,8 +19,8 @@ model User {
   position  String?
   tier      String?
   region    String?
-  weightClass String?
-  createdAt DateTime @default(now())
+  weightClass String? @map("weight_class")
+  createdAt DateTime @default(now()) @map("created_at")
 
   ownedTeams    Team[]        @relation("TeamOwner")
   memberships   TeamMember[]
@@ -26,6 +28,11 @@ model User {
   hostedMatches Match[]       @relation("UserHost")
   guestMatches  Match[]       @relation("UserGuest")
   participatingMatches Match[] @relation("MatchPlayer")
+  
+  // Implicit relation for requests if needed, but for now specific relation in TeamRequest
+  requests      TeamRequest[]
+
+  @@map("players")
 }
 
 model Team {
@@ -33,62 +40,83 @@ model Team {
   name         String
   emblem       String?
   region       String?
-  homeStadium  Boolean  @default(false)
-  avgAge       Int?
+  homeStadium  Boolean  @default(false) @map("home_stadium")
+  avgAge       Int?     @map("avg_age")
   tier         String?
-  uniformColor String?
-  mannerScore  Float    @default(5.0)
-  createdAt    DateTime @default(now())
+  uniformColor String?  @map("uniform_color")
+  mannerScore  Float    @default(5.0) @map("manner_score")
+  createdAt    DateTime @default(now()) @map("created_at")
 
-  leaderId    String
+  leaderId    String   @map("captain_id")
   leader      User     @relation("TeamOwner", fields: [leaderId], references: [id])
 
   members     TeamMember[]
+  requests    TeamRequest[]
   
   hostedMatches Match[] @relation("TeamHost")
   guestMatches  Match[] @relation("TeamGuest")
+
+  @@map("teams")
 }
 
 model TeamMember {
   id        String   @id @default(uuid())
-  userId    String
-  teamId    String
+  userId    String   @map("user_id")
+  teamId    String   @map("team_id")
   role      String   @default("MEMBER")
-  joinedAt  DateTime @default(now())
+  joinedAt  DateTime @default(now()) @map("joined_at")
 
   user      User     @relation(fields: [userId], references: [id])
   team      Team     @relation(fields: [teamId], references: [id])
 
   @@unique([userId, teamId])
+  @@map("team_members")
 }
 
 model Match {
   id          String   @id @default(uuid())
-  type        String // keeping for backward compatibility but will use mode/sport mainly
-  mode        String   @default("SOLO") // SOLO, TEAM
-  sport       String   @default("BOXING") // BOXING, SOCCER, etc.
-  attributes  String   @default("{}") // SQLite doesn't natively support JSON type in Prisma easily without some setup, but for now String is safest for MVP or I can try strictly JSON if I trust sqlite version. Actually Prisma supports JSON in SQLite. Let's try String first for safety or JSON? Prisma 5 supports JSON on SQLite. Let's use String to be safe with the mismatch error I saw earlier, or just standard JSON. Let's use String for now to avoid complexity with JSON parsing in Client if any. Wait, JSON is better. Let's try `String` but treat as JSON, or actual `Json` type. Let's stick to `String` and JSON.parse/stringify manually to avoid "Json" type issues if any.
-  // Actually, I'll use `String` named `attributes` and parse it in app.
+  type        String // keeping for backward compatibility
+  mode        String   @default("SOLO")
+  sport       String   @default("BOXING")
+  attributes  String   @default("{}")
   
   status      String   @default("PENDING")
   date        DateTime?
   location    String?
   description String?
 
-  playerId    String?
+  playerId    String?  @map("player_id")
   player      User?    @relation("MatchPlayer", fields: [playerId], references: [id])
 
-  hostUserId  String?
+  hostUserId  String?  @map("host_user_id")
   hostUser    User?    @relation("UserHost", fields: [hostUserId], references: [id])
   
-  guestUserId String?
+  guestUserId String?  @map("guest_user_id")
   guestUser   User?    @relation("UserGuest", fields: [guestUserId], references: [id])
 
-  hostTeamId  String?
+  hostTeamId  String?  @map("host_team_id")
   hostTeam    Team?    @relation("TeamHost", fields: [hostTeamId], references: [id])
 
-  guestTeamId String?
+  guestTeamId String?  @map("guest_team_id")
   guestTeam   Team?    @relation("TeamGuest", fields: [guestTeamId], references: [id])
 
-  createdAt   DateTime @default(now())
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("matches")
+}
+
+model TeamRequest {
+  id        String   @id @default(uuid())
+  status    String   @default("pending")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  teamId    String   @map("team_id")
+  team      Team     @relation(fields: [teamId], references: [id])
+
+  // Assuming requests are linked to a player/user
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@map("team_requests")
 }

@@ -17,6 +17,8 @@ interface MyTeamCardProps {
     history?: ('WIN' | 'DRAW' | 'LOSS')[];
     isCaptain?: boolean;
     representativePlayers?: any[];
+    isManageMode?: boolean;
+    onLeave?: () => void;
 }
 
 export default function MyTeamCard({
@@ -31,7 +33,9 @@ export default function MyTeamCard({
     rating = 5,
     history = [],
     isCaptain = false,
-    representativePlayers
+    representativePlayers,
+    isManageMode = false,
+    onLeave
 }: MyTeamCardProps) {
     const router = useRouter();
     const [members, setMembers] = useState<any[]>([]);
@@ -136,7 +140,7 @@ export default function MyTeamCard({
 
     return (
         <div className={styles.card}>
-            <div className={styles.headerRow}>
+            <div className={styles.headerRow} style={{ alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span className={styles.sectionTitle}>{title}</span>
                     {isCaptain && (
@@ -156,38 +160,53 @@ export default function MyTeamCard({
                     )}
                 </div>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    {isCaptain && teamId && (
+                    {isManageMode && onLeave ? (
                         <button
-                            onClick={() => router.push(`/team/manage/${teamId}`)}
+                            onClick={(e) => { e.stopPropagation(); onLeave(); }}
                             style={{
-                                border: '1px solid #E5E7EB',
-                                background: pendingCount > 0 ? '#FEF2F2' : 'white',
-                                color: pendingCount > 0 ? '#DC2626' : '#374151',
-                                fontSize: '0.75rem',
-                                padding: '0.25rem 0.5rem',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                                fontWeight: pendingCount > 0 ? '700' : '500',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '4px'
+                                backgroundColor: '#EF4444', color: 'white', border: 'none',
+                                padding: '0.2rem 0.5rem', borderRadius: '0.3rem', fontSize: '0.75rem',
+                                cursor: 'pointer', fontWeight: 'bold'
                             }}
                         >
-                            선수등록
-                            {pendingCount > 0 && (
-                                <span style={{ background: '#DC2626', color: 'white', borderRadius: '999px', fontSize: '0.6rem', padding: '0 4px', minWidth: '14px', textAlign: 'center' }}>
-                                    {pendingCount}
-                                </span>
-                            )}
+                            탈퇴
                         </button>
+                    ) : (
+                        <>
+                            {isCaptain && teamId && (
+                                <button
+                                    onClick={() => router.push(`/team/manage/${teamId}`)}
+                                    style={{
+                                        border: '1px solid #E5E7EB',
+                                        background: pendingCount > 0 ? '#FEF2F2' : 'white',
+                                        color: pendingCount > 0 ? '#DC2626' : '#374151',
+                                        fontSize: '0.75rem',
+                                        padding: '0.25rem 0.5rem',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer',
+                                        fontWeight: pendingCount > 0 ? '700' : '500',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                    }}
+                                >
+                                    선수등록
+                                    {pendingCount > 0 && (
+                                        <span style={{ background: '#DC2626', color: 'white', borderRadius: '999px', fontSize: '0.6rem', padding: '0 4px', minWidth: '14px', textAlign: 'center' }}>
+                                            {pendingCount}
+                                        </span>
+                                    )}
+                                </button>
+                            )}
+                            <button
+                                onClick={() => teamId && router.push(`/team/${teamId}`)}
+                                className={styles.moreLink}
+                                style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, font: 'inherit', color: 'inherit' }}
+                            >
+                                + 더보기
+                            </button>
+                        </>
                     )}
-                    <button
-                        onClick={() => teamId && router.push(`/team/${teamId}`)}
-                        className={styles.moreLink}
-                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 0, font: 'inherit', color: 'inherit' }}
-                    >
-                        + 더보기
-                    </button>
                 </div>
             </div>
 

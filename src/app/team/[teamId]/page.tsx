@@ -26,12 +26,13 @@ export default function TeamDetailPage({ params }: PageProps) {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) setCurrentUserId(user.id);
 
-            // 1. Fetch Team Details
+            // 1. Fetch Team Details with Captain Info (Join)
             const { data: teamData, error: teamError } = await supabase
                 .from('teams')
-                .select('*')
+                .select('*, captain:players!captain_id(*)') // Joined captain data
                 .eq('id', teamId)
-                .single();
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                .single<any>();
 
             if (teamError) {
                 console.error(teamError);
@@ -48,54 +49,20 @@ export default function TeamDetailPage({ params }: PageProps) {
             if (membersError) console.error(membersError);
 
             // Map team_members to players list
-            // Data structure: [{ player_id:..., players: { id:..., name:... } }]
             const playersData = membersData?.map((m: any) => m.players).filter(p => p) || [];
 
-            // 3. Fetch Captain Data (separately)
-            let captainPlayer = null;
-            let captainProfileName = '정보 없음';
-
-            if (teamData.captain_id) {
-                // A. Fetch Profile Name for Header
-                const { data: capProfile } = await supabase
-                    .from('profiles')
-                    .select('nickname, username, full_name')
-                    .eq('id', teamData.captain_id)
-                    .single();
-
-                if (capProfile) {
-                    captainProfileName = capProfile.nickname || capProfile.username || capProfile.full_name || '정보 없음';
-                }
-
-                // B. Fetch Player Data for Member List
-                const { data: capData } = await supabase
-                    .from('players')
-                    .select('*')
-                    .eq('user_id', teamData.captain_id)
-                    .eq('sport_type', teamData.sport_type) // Ensure matching sport profile
-                    .maybeSingle();
-                captainPlayer = capData;
-            }
-
-            // Add Captain Name to team object for display
-            teamData.captain_name = captainProfileName;
-
-            // Merge Captain into Players List
+            // 3. Merge Captain into Players List (if not already present via members)
             let allPlayers = playersData || [];
-            if (captainPlayer) {
-                const exists = allPlayers.find(p => p.id === captainPlayer.id);
+            if (teamData.captain) {
+                const exists = allPlayers.find(p => p.id === teamData.captain.id);
                 if (!exists) {
-                    allPlayers = [captainPlayer, ...allPlayers];
-                } else {
-                    allPlayers = [captainPlayer, ...allPlayers.filter(p => p.id !== captainPlayer.id)];
+                    allPlayers = [teamData.captain, ...allPlayers];
                 }
             }
 
             setTeam(teamData);
             setPlayers(allPlayers);
             setLoading(false);
-
-            console.log("DEBUG_PLAYERS:", allPlayers);
         };
 
         fetchData();
@@ -104,7 +71,9 @@ export default function TeamDetailPage({ params }: PageProps) {
     if (loading) return <div className={styles.container}>로딩 중...</div>;
     if (!team) return <div className={styles.container}>팀 정보를 찾을 수 없습니다.</div>;
 
-    const isCaptain = currentUserId === team.captain_id;
+    // Correct Ownership Check: User ID (Auth) vs Captain's User ID (DB)
+    const isCaptain = currentUserId && team.captain && currentUserId === team.captain.user_id;
+
     // Determine Type
     const isTeamSport = ['soccer', 'foot', 'futsal', 'base', 'basket', 'volley', 'jokgu'].some(k => team.sport_type?.toLowerCase().includes(k));
 
@@ -118,8 +87,8 @@ export default function TeamDetailPage({ params }: PageProps) {
     ];
 
     // Coach Logic: Use Captain if no explicit coach info
-    // 1. Find Captain Data from players list
-    const captainData = players.find(p => p.user_id === team.captain_id);
+    // 1. Find Captain Data from players list matches team.captain
+    const captainData = team.captain;
 
     // 2. Determine displayCoaches
     let displayCoaches = (team.coaches_info && team.coaches_info.length > 0)
@@ -135,7 +104,7 @@ export default function TeamDetailPage({ params }: PageProps) {
             };
         })
         : [{
-            name: captainData?.name || team.captain_name || '정보 없음',
+            name: captainData?.name || '정보 없음',
             style: '메인 관장', // Default for captain fallback
             career: team.description || '베테랑 지도자',
             photoUrl: captainData?.avatar_url || captainData?.photo_url || null
@@ -173,7 +142,7 @@ export default function TeamDetailPage({ params }: PageProps) {
                             <div className={styles.metaItem}>
                                 <span className={styles.metaLabel}>{isTeamSport ? '주장' : '관장'}:</span>
                                 <span className={styles.metaValue}>
-                                    {players.find(p => p.user_id === team.captain_id)?.name || '정보 없음'}
+                                    {team.captain?.name || '정보 없음'}
                                 </span>
                             </div>
                             {isTeamSport && (
@@ -198,6 +167,8 @@ export default function TeamDetailPage({ params }: PageProps) {
                     )}
                 </div>
             </section>
+
+
 
             {/* Content Switch */}
             {isTeamSport ? (

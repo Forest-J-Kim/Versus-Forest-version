@@ -53,3 +53,33 @@
     color: #6B7280;
     margin-left: 0.25rem;
 }
+
+/* NEW: Add Team Button Styles */
+.addTeamButton {
+    width: 100%;
+    padding: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    background-color: transparent;
+    border: 2px dashed #D1D5DB;
+    border-radius: 0.75rem;
+    color: #6B7280;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.addTeamButton:hover {
+    border-color: #3B82F6;
+    color: #3B82F6;
+    background-color: #EFF6FF;
+}
+
+.plusIcon {
+    font-size: 1.2rem;
+    font-weight: bold;
+    line-height: 1;
+}

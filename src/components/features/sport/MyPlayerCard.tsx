@@ -12,14 +12,28 @@ interface MyPlayerCardProps {
     hasTeam?: boolean;
     requestStatus?: string | null;
     onFindTeam?: () => void;
+    isManageMode?: boolean;
+    onDelete?: () => void;
 }
 
-export default function MyPlayerCard({ name, gymName, tags, imageUrl, onEdit, hasTeam = false, requestStatus = null, onFindTeam }: MyPlayerCardProps) {
+export default function MyPlayerCard({ name, gymName, tags, imageUrl, onEdit, hasTeam = false, requestStatus = null, onFindTeam, isManageMode, onDelete }: MyPlayerCardProps) {
     return (
-        <div className={styles.card}>
-            <div className={styles.headerRow}>
+        <div className={styles.card} style={{ position: 'relative' }}>
+            <div className={styles.headerRow} style={{ alignItems: 'center' }}>
                 <span className={styles.sectionTitle}>내 정보</span>
-                {onEdit && <span className={styles.editLink} onClick={onEdit}>수정</span>}
+                {!isManageMode && onEdit && <span className={styles.editLink} onClick={onEdit}>수정</span>}
+                {isManageMode && onDelete && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                        style={{
+                            backgroundColor: '#EF4444', color: 'white', border: 'none',
+                            padding: '0.2rem 0.6rem', borderRadius: '0.3rem', fontSize: '0.75rem',
+                            cursor: 'pointer', fontWeight: 'bold'
+                        }}
+                    >
+                        삭제
+                    </button>
+                )}
             </div>
 
             <div className={styles.contentRow}>

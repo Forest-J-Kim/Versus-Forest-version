@@ -43,7 +43,8 @@ export default function ProfilePage() {
                 .from('profiles')
                 .select('*')
                 .eq('id', user.id)
-                .single();
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                .single<any>();
 
             const displayName = profile?.nickname || profile?.username || profile?.full_name || user.email?.split('@')[0] || "회원";
 
@@ -116,6 +117,37 @@ export default function ProfilePage() {
     }, []);
 
 
+    // Nickname Edit State
+    const [isEditingName, setIsEditingName] = useState(false);
+    const [editName, setEditName] = useState("");
+
+    const handleNameSave = async () => {
+        if (!editName.trim() || !userProfile) return;
+
+        try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { error } = await (supabase.from('profiles') as any)
+                .update({ nickname: editName.trim() })
+                .eq('id', userProfile.id);
+
+            if (error) throw error;
+
+            setUserProfile(prev => prev ? { ...prev, name: editName.trim() } : null);
+            setIsEditingName(false);
+            router.refresh();
+        } catch (e) {
+            console.error(e);
+            alert("닉네임 수정 중 오류가 발생했습니다.");
+        }
+    };
+
+    const startEditing = () => {
+        setEditName(userProfile?.name || "");
+        setIsEditingName(true);
+    };
+
+    // Management Mode State
+    const [isManageMode, setIsManageMode] = useState(false);
 
     const handleAvatarClick = () => {
         fileInputRef.current?.click();
@@ -136,6 +168,7 @@ export default function ProfilePage() {
         // Reset input so same file can be selected again if cancelled
         event.target.value = '';
     };
+
 
     const onCropComplete = useCallback((croppedArea: any, croppedAreaPixels: any) => {
         setCroppedAreaPixels(croppedAreaPixels);
@@ -170,8 +203,8 @@ export default function ProfilePage() {
 
             // D. Update DB
             if (userProfile?.id) {
-                const { error: updateError } = await supabase
-                    .from('profiles')
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const { error: updateError } = await (supabase.from('profiles') as any)
                     .update({ avatar_url: publicUrl })
                     .eq('id', userProfile.id);
 
@@ -244,7 +277,45 @@ export default function ProfilePage() {
                     onChange={handleFileChange}
                 />
 
-                <div className={styles.userName}>{userProfile.name}</div>
+                {isEditingName ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0.8rem 0' }}>
+                        <input
+                            type="text"
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            style={{
+                                padding: '0.4rem', border: '1px solid #D1D5DB',
+                                borderRadius: '0.4rem', fontSize: '1.1rem', fontWeight: 'bold',
+                                textAlign: 'center', width: '150px'
+                            }}
+                        />
+                        <button
+                            onClick={handleNameSave}
+                            style={{ border: 'none', background: 'none', fontSize: '1.2rem', cursor: 'pointer' }}
+                            title="저장"
+                        >
+                            ✅
+                        </button>
+                        <button
+                            onClick={() => setIsEditingName(false)}
+                            style={{ border: 'none', background: 'none', fontSize: '1.2rem', cursor: 'pointer' }}
+                            title="취소"
+                        >
+                            ❌
+                        </button>
+                    </div>
+                ) : (
+                    <div className={styles.userName} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        {userProfile.name}
+                        <span
+                            onClick={startEditing}
+                            style={{ fontSize: '1rem', cursor: 'pointer', opacity: 0.6 }}
+                            title="닉네임 수정"
+                        >
+                            ✏️
+                        </span>
+                    </div>
+                )}
 
                 {/* Captain Status Badge */}
                 <div
@@ -280,7 +351,21 @@ export default function ProfilePage() {
             </section>
 
             <section className={styles.sportsSection} style={{ minHeight: '200px' }}>
-                <h2 className={styles.sectionTitle}>내 종목별 프로필</h2>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <h2 className={styles.sectionTitle} style={{ marginBottom: 0 }}>내 종목별 프로필</h2>
+                    <button
+                        onClick={() => setIsManageMode(!isManageMode)}
+                        style={{
+                            padding: '0.3rem 0.6rem', fontSize: '0.85rem', borderRadius: '0.4rem',
+                            border: isManageMode ? '1px solid #EF4444' : '1px solid #D1D5DB',
+                            backgroundColor: isManageMode ? '#FEF2F2' : 'white',
+                            color: isManageMode ? '#B91C1C' : '#374151',
+                            cursor: 'pointer', fontWeight: 600
+                        }}
+                    >
+                        {isManageMode ? '⚙️ 완료' : '⚙️ 관리'}
+                    </button>
+                </div>
 
                 {/* Dynamic Data Content */}
                 <div style={{ paddingBottom: '2rem' }}>
@@ -303,18 +388,17 @@ export default function ProfilePage() {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                             {/* Group by Sport and Render Nested Cards */}
                             {(() => {
-                                const grouped: { [key: string]: { player?: any; team?: any } } = {};
+                                const grouped: { [key: string]: { player?: any; teams: any[] } } = {};
                                 mySports.forEach(item => {
                                     const key = item.sport_type.toLowerCase();
-                                    if (!grouped[key]) grouped[key] = {};
+                                    if (!grouped[key]) grouped[key] = { teams: [] };
+
                                     if (item.type === 'PLAYER') {
                                         grouped[key].player = item;
-                                        // If player has joined a team (via join query), use it if no captain team exists
-                                        if (item.teams && !grouped[key].team) {
-                                            grouped[key].team = item.teams;
-                                        }
                                     }
-                                    if (item.type === 'TEAM') grouped[key].team = item;
+                                    if (item.type === 'TEAM') {
+                                        grouped[key].teams.push(item);
+                                    }
                                 });
 
                                 return Object.keys(grouped).map(sportKey => {
@@ -333,10 +417,11 @@ export default function ProfilePage() {
                                             sportName={sportName}
                                             sportIcon={sportIcon}
                                             playerData={group.player}
-                                            teamData={group.team}
+                                            teamList={group.teams} // Updated to pass list
                                             userAvatarUrl={group.player?.avatar_url || group.player?.photo_url || userProfile.avatarUrl}
-                                            onRegisterTeam={() => router.push(`/profile/register/${sportKey}`)} // Or open modal
+                                            onRegisterTeam={() => router.push(`/profile/register/${sportKey}`)} // Matches requirement
                                             onEditProfile={() => router.push(`/profile/edit/${sportKey}`)}
+                                            isManageMode={isManageMode}
                                         />
                                     );
                                 });

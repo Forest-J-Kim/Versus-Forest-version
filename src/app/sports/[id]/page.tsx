@@ -24,7 +24,7 @@ export default function SportDashboard({ params }: PageProps) {
     const [loading, setLoading] = useState(true);
     const [isManagerMode, setIsManagerMode] = useState(false);
     const [playerProfile, setPlayerProfile] = useState<any>(null);
-    const [teamProfile, setTeamProfile] = useState<any>(null); // New state for team
+    const [teamList, setTeamList] = useState<any[]>([]); // Changed from teamProfile
     const [hasRole, setHasRole] = useState(false);
     const [userAvatarUrl, setUserAvatarUrl] = useState<string | undefined>(undefined);
 
@@ -62,15 +62,15 @@ export default function SportDashboard({ params }: PageProps) {
                     if (playerData) {
                         setPlayerProfile(playerData);
 
-                        // 3. [New System] Fetch Team via team_members
-                        const { data: membership } = await supabase
+                        // 3. [New System] Fetch Team via team_members (All Teams)
+                        const { data: memberships } = await supabase
                             .from('team_members')
                             .select('team_id, role, teams(*)')
-                            .eq('player_id', playerData.id)
-                            .maybeSingle();
+                            .eq('player_id', playerData.id);
 
-                        if (membership && membership.teams) {
-                            setTeamProfile(membership.teams);
+                        if (memberships && memberships.length > 0) {
+                            const teams = memberships.map((m: any) => m.teams).filter((t: any) => t);
+                            setTeamList(teams);
                         }
                     }
                 }
@@ -132,7 +132,7 @@ export default function SportDashboard({ params }: PageProps) {
                             sportName={sport.name}
                             sportIcon={sport.icon}
                             playerData={playerProfile}
-                            teamData={teamProfile}
+                            teamList={teamList} // Updated prop
                             userAvatarUrl={playerProfile?.avatar_url || userAvatarUrl}
                             hideHeader={true}
                             onRegisterTeam={() => router.push(`/profile/register/${sportId.toLowerCase()}`)}
@@ -145,7 +145,8 @@ export default function SportDashboard({ params }: PageProps) {
             {/* 3. Captain/Manager Actions (Only visible in Manager/Captain Mode) */}
             {isManagerMode && !isHealthSport && (
                 <section className={styles.captainSection}>
-                    <CaptainActions teamId={teamProfile?.id} />
+                    {/* Use the first team I am captain of, or if none, fallback to first team? logic checks captain_id usually inside component but here we pass ID */}
+                    <CaptainActions teamId={teamList.find((t: any) => t.captain_id === playerProfile?.id)?.id || teamList[0]?.id} />
                 </section>
             )}
 

@@ -63,16 +63,23 @@ export default function TeamEditPage({ params }: PageProps) {
             }
             setCurrentUserId(user.id);
 
-            // 1. Fetch Team
-            const { data: teamData, error } = await supabase.from('teams').select('*').eq('id', teamId).single();
+            // 1. Fetch Team with Captain Info
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data: teamData, error } = await supabase
+                .from('teams')
+                .select('*, captain:players!captain_id(*)')
+                .eq('id', teamId)
+                .single<any>();
+
             if (error || !teamData) {
                 alert("팀 정보를 불러올 수 없습니다.");
                 router.back();
                 return;
             }
 
-            // Security Check
-            if (teamData.captain_id !== user.id) {
+            // Security Check: Auth User ID vs Captain's User ID
+            const captainUser = teamData.captain; // joined object
+            if (!captainUser || captainUser.user_id !== user.id) {
                 alert("팀장만 수정할 수 있습니다.");
                 router.replace(`/team/${teamId}`);
                 return;
@@ -83,30 +90,25 @@ export default function TeamEditPage({ params }: PageProps) {
 
             // 3. Helper: Get Captain Name & Player Record
             let captainName = '정보 없음';
-            let captainPlayer = null;
+            let captainPlayer = captainUser; // Already fetched via join
 
-            if (teamData.captain_id) {
-                // Name Strategy 1: Profile
-                const { data: capProfile } = await supabase.from('profiles').select('nickname, username, full_name').eq('id', teamData.captain_id).single();
-                if (capProfile) {
-                    captainName = capProfile.nickname || capProfile.username || capProfile.full_name || '정보 없음';
-                }
+            if (captainUser) {
+                // Name Strategy 1: Profile (Use captainUser.user_id, NOT teamData.captain_id which is Player ID)
+                if (captainUser.user_id) {
+                    const { data: capProfile } = await supabase
+                        .from('profiles')
+                        .select('nickname, username, full_name')
+                        .eq('id', captainUser.user_id)
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        .single<any>();
 
-                // Player Record Strategy: Fetch all players for this user, find best match
-                const { data: userPlayers } = await supabase
-                    .from('players')
-                    .select('*')
-                    .eq('user_id', teamData.captain_id);
-
-                if (userPlayers && userPlayers.length > 0) {
-                    // Try to find exact sport match, then case-insensitive, then just first
-                    const exactMatch = userPlayers.find(p => p.sport_type === teamData.sport_type);
-                    const caseMatch = userPlayers.find(p => p.sport_type?.toLowerCase() === teamData.sport_type?.toLowerCase());
-                    captainPlayer = exactMatch || caseMatch || userPlayers[0];
+                    if (capProfile) {
+                        captainName = capProfile.nickname || capProfile.username || capProfile.full_name || '정보 없음';
+                    }
                 }
 
                 // Name Strategy 2: Player Name (fallback)
-                if (captainName === '정보 없음' && captainPlayer && captainPlayer.name) {
+                if (captainName === '정보 없음' && captainPlayer.name) {
                     captainName = captainPlayer.name;
                 }
             }
@@ -138,15 +140,15 @@ export default function TeamEditPage({ params }: PageProps) {
             // Migration/Safety: If empty but we have captain, ensure at least captain is there
             if (loadedCoaches.length === 0 && captainPlayer) {
                 loadedCoaches = [{
-                    user_id: captainPlayer.user_id || teamData.captain_id,
+                    user_id: captainPlayer.user_id,
                     name: captainPlayer.name || captainName,
                     role: '메인 관장',
                     career: teamData.description || '',
                     photoUrl: captainPlayer.avatar_url || captainPlayer.photo_url || null
                 }];
             } else if (loadedCoaches.length > 0 && !loadedCoaches[0].user_id && captainPlayer) {
-                // Retrofit legacy first item if it matches simple career
-                loadedCoaches[0].user_id = captainPlayer.user_id || teamData.captain_id;
+                // Retrofit legacy first item
+                loadedCoaches[0].user_id = captainPlayer.user_id;
                 loadedCoaches[0].name = captainPlayer.name || captainName;
                 loadedCoaches[0].role = '메인 관장';
             }
@@ -211,7 +213,7 @@ export default function TeamEditPage({ params }: PageProps) {
 
             const { data: { publicUrl } } = supabase.storage.from('emblems').getPublicUrl(fileName);
 
-            const { error: updateError } = await supabase.from('teams').update({ emblem_url: publicUrl }).eq('id', teamId);
+            const { error: updateError } = await (supabase.from('teams') as any).update({ emblem_url: publicUrl }).eq('id', teamId);
             if (updateError) throw updateError;
 
             setTeam({ ...team, emblem_url: publicUrl });
@@ -227,7 +229,7 @@ export default function TeamEditPage({ params }: PageProps) {
 
     // Actions
     const handleInfoSave = async (updated: any) => {
-        const { error } = await supabase.from('teams').update(updated).eq('id', teamId);
+        const { error } = await (supabase.from('teams') as any).update(updated).eq('id', teamId);
         if (error) {
             alert("저장 실패: " + error.message);
         } else {
@@ -238,7 +240,8 @@ export default function TeamEditPage({ params }: PageProps) {
     const handleCaptainChange = async (player: any) => {
         if (!confirm(`주장을 ${player.name} 님으로 변경하시겠습니까?\n변경 후에는 권한이 상실되어 메인 화면으로 이동합니다.`)) return;
 
-        const { error } = await supabase.from('teams').update({ captain_id: player.user_id }).eq('id', teamId);
+        // captain_id is FK to players.id (not user_id)
+        const { error } = await (supabase.from('teams') as any).update({ captain_id: player.id }).eq('id', teamId);
         if (error) {
             alert("변경 실패: " + error.message);
         } else {
@@ -250,7 +253,7 @@ export default function TeamEditPage({ params }: PageProps) {
     const handleKickMember = async (player: any) => {
         if (!confirm(`${player.name} 선수를 팀에서 제외(방출)하시겠습니까?`)) return;
 
-        const { error } = await supabase.from('players').update({ team_id: null }).eq('id', player.id);
+        const { error } = await (supabase.from('players') as any).update({ team_id: null }).eq('id', player.id);
         if (error) {
             alert("방출 실패: " + error.message);
         } else {
@@ -356,7 +359,7 @@ export default function TeamEditPage({ params }: PageProps) {
     };
 
     const handleGlobalSave = async () => {
-        const { error } = await supabase.from('teams').update({
+        const { error } = await (supabase.from('teams') as any).update({
             introduction: introduction,
             formation: formation,
             coaches_info: coachesList,
