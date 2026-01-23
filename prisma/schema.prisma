@@ -17,6 +17,7 @@ model User {
   position  String?
   tier      String?
   region    String?
+  weightClass String?
   createdAt DateTime @default(now())
 
   ownedTeams    Team[]        @relation("TeamOwner")
@@ -24,6 +25,7 @@ model User {
   
   hostedMatches Match[]       @relation("UserHost")
   guestMatches  Match[]       @relation("UserGuest")
+  participatingMatches Match[] @relation("MatchPlayer")
 }
 
 model Team {
@@ -72,6 +74,9 @@ model Match {
   date        DateTime?
   location    String?
   description String?
+
+  playerId    String?
+  player      User?    @relation("MatchPlayer", fields: [playerId], references: [id])
 
   hostUserId  String?
   hostUser    User?    @relation("UserHost", fields: [hostUserId], references: [id])

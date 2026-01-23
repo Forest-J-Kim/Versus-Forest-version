@@ -260,7 +260,7 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
 
         try {
             // 1. Update Player Profile
-            const { error: playerError } = await supabase.from('players')
+            const { data: updatedPlayer, error: playerError } = await supabase.from('players')
                 .update({
                     name: nickname,
                     location: region,
@@ -268,7 +268,8 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
                     avatar_url: avatarUrl // Update avatar url
                 })
                 .eq('user_id', userId)
-                .eq('sport_type', sportId);
+                .eq('sport_type', sportId)
+                .select().single();
 
             if (playerError) throw playerError;
 
@@ -288,14 +289,40 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
                     if (teamError) throw teamError;
                 } else {
                     // Start New Team (Upgraded to Captain)
-                    const { error: teamError } = await supabase.from('teams').insert({
-                        captain_id: userId,
+                    if (!updatedPlayer) throw new Error("선수 정보를 찾을 수 없습니다.");
+
+                    const { data: newTeam, error: teamError } = await supabase.from('teams').insert({
+                        captain_id: updatedPlayer.id,
                         sport_type: sportId,
                         team_name: teamName,
                         description: teamDesc,
                         emblem_url: emblemUrl
-                    });
+                    }).select().single();
+
                     if (teamError) throw teamError;
+
+                    // [Auto-Assign] Update player's team_id
+                    if (newTeam) {
+                        // 1. [New System] Add to team_members
+                        const { error: memberError } = await supabase.from('team_members').insert({
+                            team_id: newTeam.id,
+                            player_id: updatedPlayer.id,
+                            role: 'LEADER'
+                        });
+
+                        if (memberError) console.error("Failed to add to team_members:", memberError);
+
+                        // 2. [Legacy] Update player's team_id
+                        const { error: assignError } = await supabase.from('players')
+                            .update({ team_id: newTeam.id })
+                            .eq('user_id', userId)
+                            .eq('sport_type', sportId);
+
+                        if (assignError) {
+                            console.error("Failed to auto-assign team to player:", assignError);
+                            alert("팀은 생성되었으나 소속 설정에 실패했습니다.");
+                        }
+                    }
 
                     // Update Profile Roles
                     const { data: profile } = await supabase.from('profiles').select('roles').eq('id', userId).single();

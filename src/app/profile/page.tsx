@@ -31,8 +31,14 @@ export default function ProfilePage() {
 
     const fetchUser = async () => {
         setLoading(true);
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                setLoading(false);
+                return;
+            }
+
+            // 1. Fetch User Profile
             const { data: profile } = await supabase
                 .from('profiles')
                 .select('*')
@@ -49,17 +55,60 @@ export default function ProfilePage() {
                 avatarUrl: profile?.avatar_url
             });
 
-            // Fetch My Players and Joined Teams
-            const { data: players } = await supabase.from('players').select('*, teams(*)').eq('user_id', user.id);
-            const { data: teams } = await supabase.from('teams').select('*').eq('captain_id', user.id);
+            // 2. Fetch Players (Strictly by user_id, no joins initially)
+            const { data: playersData, error: playersError } = await supabase
+                .from('players')
+                .select('*')
+                .eq('user_id', user.id);
 
+            if (playersError) throw playersError;
+            const players = playersData || [];
+
+            // 3. [New System] Fetch Teams via team_members
+            const playerIds = players.map((p: any) => p.id);
+
+            let allMyTeams: any[] = [];
+
+            if (playerIds.length > 0) {
+                // Fetch all team memberships for these players
+                const { data: memberships } = await supabase
+                    .from('team_members')
+                    .select('team_id, role, teams(*)')
+                    .in('player_id', playerIds);
+
+                if (memberships) {
+                    memberships.forEach((m: any) => {
+                        let teamData = m.teams;
+                        if (Array.isArray(teamData)) {
+                            teamData = teamData.length > 0 ? teamData[0] : null;
+                        }
+
+                        if (teamData) {
+                            // Add to list if not already present, regardless of role
+                            if (!allMyTeams.find(t => t.id === teamData.id)) {
+                                allMyTeams.push(teamData);
+                            }
+                        }
+                    });
+                }
+            }
+
+            // 4. Combine Data
+            // Decouple direct player-team linking. Rely on Sport Type grouping in the renderer.
+            // This ensures all teams I am part of (Leader or Member) are displayed as long as I have a player profile for that sport.
             const combined = [
-                ...(players || []).map((p: any) => ({ ...p, type: 'PLAYER' })),
-                ...(teams || []).map((t: any) => ({ ...t, type: 'TEAM' }))
+                ...players.map((p: any) => ({ ...p, type: 'PLAYER', teams: null })),
+                ...allMyTeams.map((t: any) => ({ ...t, type: 'TEAM' }))
             ];
+
             setMySports(combined);
+
+        } catch (e) {
+            console.error("Profile Load Error:", e);
+            // alert("프로필을 불러오는 중 오류가 발생했습니다."); // Silent fail prefered or toast
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     useEffect(() => {

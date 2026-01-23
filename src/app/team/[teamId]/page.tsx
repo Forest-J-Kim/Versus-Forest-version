@@ -39,11 +39,17 @@ export default function TeamDetailPage({ params }: PageProps) {
                 return;
             }
 
-            // 2. Fetch Members (Players)
-            const { data: playersData } = await supabase
-                .from('players')
-                .select('*')
+            // 2. Fetch Members (via team_members)
+            const { data: membersData, error: membersError } = await supabase
+                .from('team_members')
+                .select('*, players(*)')
                 .eq('team_id', teamId);
+
+            if (membersError) console.error(membersError);
+
+            // Map team_members to players list
+            // Data structure: [{ player_id:..., players: { id:..., name:... } }]
+            const playersData = membersData?.map((m: any) => m.players).filter(p => p) || [];
 
             // 3. Fetch Captain Data (separately)
             let captainPlayer = null;

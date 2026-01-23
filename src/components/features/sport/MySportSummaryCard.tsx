@@ -34,6 +34,8 @@ export default function MySportSummaryCard({
     const [requestStatus, setRequestStatus] = useState<string | null>(null);
     const supabase = createClient();
 
+    const [captainNameDisplay, setCaptainNameDisplay] = useState<string>("");
+
     // Check for pending requests if no team
     const checkRequests = async () => {
         if (teamData || !playerData?.id) return;
@@ -54,6 +56,29 @@ export default function MySportSummaryCard({
     };
 
     useEffect(() => {
+        const fetchCaptainName = async () => {
+            if (!teamData) return;
+
+            // If I am the captain, use my name directly
+            if (teamData.captain_id === playerData?.id) {
+                setCaptainNameDisplay(playerData.name);
+                return;
+            }
+
+            // If I am not captain, fetch captain's name
+            if (teamData.captain_id) {
+                const { data: captain } = await supabase
+                    .from('players')
+                    .select('name')
+                    .eq('id', teamData.captain_id)
+                    .single();
+
+                if (captain?.name) {
+                    setCaptainNameDisplay(captain.name);
+                }
+            }
+        };
+        fetchCaptainName();
         checkRequests();
     }, [playerData, teamData]);
 
@@ -102,8 +127,6 @@ export default function MySportSummaryCard({
     const location = playerData.location || "지역 미설정";
 
     // Calculate sport_type for modal (using from playerData if available or inferring?)
-    // Actually we don't have sport_type string easily in props, but sportName is localized.
-    // Ideally we should pass sport_type code prop, but playerData has sport_type.
     const sportTypeInternal = playerData.sport_type;
 
     return (
@@ -143,7 +166,7 @@ export default function MySportSummaryCard({
                         <MyTeamCard
                             teamId={teamData.id}
                             teamName={teamData.team_name}
-                            captainName={playerData.name} // Assuming player is captain if this card exists? Or fetched captain name.
+                            captainName={captainNameDisplay || "로딩 중..."}
                             description={teamData.description}
                             isRegistered={true}
                             emblemUrl={teamData.emblem_url}
@@ -151,15 +174,10 @@ export default function MySportSummaryCard({
                             sportType={playerData.sport_type}
                             rating={5.0} // Mock
                             history={['WIN', 'DRAW', 'WIN', 'LOSS', 'WIN']} // Mock
-                            isCaptain={teamData.captain_id === playerData.user_id}
+                            isCaptain={teamData.captain_id === playerData.id}
                             representativePlayers={teamData.representative_players}
                         />
                     ) : (
-                        // Optional: Show "Join/Create Team" placeholder or nothing? 
-                        // User prompt said "Inner Card 2 (My Team Info): (If team exists)"
-                        // But maybe show a "Not in team" stub if appropriate?
-                        // For now, render nothing if no team, or render Empty Team Card logic if I had one.
-                        // I'll render nothing if no teamData is passed.
                         null
                     )}
                 </div>

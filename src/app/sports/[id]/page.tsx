@@ -33,54 +33,52 @@ export default function SportDashboard({ params }: PageProps) {
     useEffect(() => {
         const fetchData = async () => {
             setLoading(true);
-            const { data: { user } } = await supabase.auth.getUser();
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
 
-            if (user) {
-                // 1. Check Roles
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('roles, avatar_url')
-                    .eq('id', user.id)
-                    .single();
+                if (user) {
+                    // 1. Check Roles & Avatar
+                    const { data: profile } = await supabase
+                        .from('profiles')
+                        .select('roles, avatar_url')
+                        .eq('id', user.id)
+                        .single();
 
-                if (profile?.avatar_url) setUserAvatarUrl(profile.avatar_url);
+                    if (profile?.avatar_url) setUserAvatarUrl(profile.avatar_url);
 
-                if (profile?.roles && profile.roles[sportId.toLowerCase()] === 'captain') {
-                    setHasRole(true);
-                    setIsManagerMode(true);
-                }
+                    if (profile?.roles && profile.roles[sportId.toLowerCase()] === 'captain') {
+                        setHasRole(true);
+                        setIsManagerMode(true);
+                    }
 
-                // 2. Fetch Player Data with Team Info
-                const { data: playerData } = await supabase
-                    .from('players')
-                    .select('*, teams(*)')
-                    .eq('user_id', user.id)
-                    .eq('sport_type', sportId.toLowerCase()) // Ensure case match
-                    .maybeSingle(); // Use maybeSingle to avoid error if not found
+                    // 2. Fetch Player Data (No Join)
+                    const { data: playerData } = await supabase
+                        .from('players')
+                        .select('*')
+                        .eq('user_id', user.id)
+                        .eq('sport_type', sportId.toLowerCase())
+                        .maybeSingle();
 
-                if (playerData) {
-                    setPlayerProfile(playerData);
+                    if (playerData) {
+                        setPlayerProfile(playerData);
 
-                    // If player is joined a team, use it
-                    if (playerData.teams) {
-                        setTeamProfile(playerData.teams);
+                        // 3. [New System] Fetch Team via team_members
+                        const { data: membership } = await supabase
+                            .from('team_members')
+                            .select('team_id, role, teams(*)')
+                            .eq('player_id', playerData.id)
+                            .maybeSingle();
+
+                        if (membership && membership.teams) {
+                            setTeamProfile(membership.teams);
+                        }
                     }
                 }
-
-                // 3. Fetch Team Data (if captain) - Prioritize Captain Team over Joined Team if needed
-                // Or just overwrite if captain
-                const { data: teamData } = await supabase
-                    .from('teams')
-                    .select('*')
-                    .eq('captain_id', user.id)
-                    .eq('sport_type', sportId.toLowerCase())
-                    .maybeSingle();
-
-                if (teamData) {
-                    setTeamProfile(teamData);
-                }
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
         };
         fetchData();
     }, [sportId]);

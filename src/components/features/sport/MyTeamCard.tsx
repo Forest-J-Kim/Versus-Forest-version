@@ -80,13 +80,16 @@ export default function MyTeamCard({
             }
 
             // Fallback: Fetch Any 4 Members (Legacy behavior)
-            const { data } = await supabase
-                .from('players')
-                .select('id, name, weight_class, avatar_url, photo_url, skills')
+            // Fallback: Fetch Any 4 Members (via team_members)
+            const { data: memberData } = await supabase
+                .from('team_members')
+                .select('players(id, name, weight_class, avatar_url, photo_url, skills)')
                 .eq('team_id', teamId)
                 .limit(4);
 
-            if (data) {
+            if (memberData) {
+                // Map the nested players object to flat array
+                const data = memberData.map((m: any) => m.players).filter((p: any) => p);
                 setMembers(data);
             }
         };
@@ -134,7 +137,24 @@ export default function MyTeamCard({
     return (
         <div className={styles.card}>
             <div className={styles.headerRow}>
-                <span className={styles.sectionTitle}>{title}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span className={styles.sectionTitle}>{title}</span>
+                    {isCaptain && (
+                        <span style={{
+                            backgroundColor: '#FFD700',
+                            color: '#000',
+                            borderRadius: '50%',
+                            width: '18px',
+                            height: '18px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '11px',
+                            fontWeight: 'bold',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                        }} title="Captain">C</span>
+                    )}
+                </div>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     {isCaptain && teamId && (
                         <button

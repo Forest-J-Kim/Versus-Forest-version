@@ -25,16 +25,34 @@ export default function JoinTeamModal({ isOpen, onClose, sportType, playerId, on
         if (!searchTerm.trim()) return;
         setLoading(true);
         try {
-            const { data, error } = await supabase
+            // 1. 팀 정보를 가져온다
+            const { data: teamsData, error: teamsError } = await supabase
                 .from('teams')
                 .select('*')
                 .eq('sport_type', sportType)
                 .ilike('team_name', `%${searchTerm}%`);
 
-            if (error) throw error;
-            setSearchResults(data || []);
+            if (teamsError) throw teamsError;
+
+            if (teamsData && teamsData.length > 0) {
+                // 2. captain_id가 가리키는 players 테이블에서 선수의 이름을 직접 가져온다
+                const captainIds = teamsData.map(t => t.captain_id);
+                const { data: playersData } = await supabase
+                    .from('players')
+                    .select('id, name')
+                    .in('id', captainIds);
+
+                const combined = teamsData.map(t => ({
+                    ...t,
+                    captainPlayer: playersData?.find(p => p.id === t.captain_id)
+                }));
+
+                setSearchResults(combined);
+            } else {
+                setSearchResults([]);
+            }
         } catch (e) {
-            console.error(e);
+            console.error("❌ 검색 에러:", e);
             alert("검색 중 오류가 발생했습니다.");
         } finally {
             setLoading(false);
@@ -100,7 +118,7 @@ export default function JoinTeamModal({ isOpen, onClose, sportType, playerId, on
                                 </div>
                                 <div className={styles.info}>
                                     <div className={styles.name}>{team.team_name}</div>
-                                    <div className={styles.captain}>관장(주장): {team.captain_nickname || '알 수 없음'}</div>
+                                    <div className={styles.captain}>관장(주장): {team.captainPlayer?.name || '정보 없음'}</div>
                                 </div>
                                 <button
                                     className={styles.joinBtn}

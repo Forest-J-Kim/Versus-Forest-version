@@ -90,7 +90,11 @@ export default function MatchBoard({ initialMatches }: MatchBoardProps) {
                             </div>
 
                             <div className={styles.details}>
-                                {match.location && <div className={styles.location}>📍 {match.location}</div>}
+                                {match.location && (
+                                    <div className={styles.location}>
+                                        {match.location.includes("(Home)") ? "🏠" : "📍"} {match.location.replace("(Home)", "").trim()}
+                                    </div>
+                                )}
                                 {match.description && <div className={styles.desc}>"{match.description}"</div>}
                             </div>
 

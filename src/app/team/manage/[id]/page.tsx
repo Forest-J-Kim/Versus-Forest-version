@@ -76,14 +76,43 @@ export default function TeamManagePage() {
 
         setProcessingId(requestId);
         try {
-            // Updated to use RPC to bypass RLS limitations on players table
-            const { error } = await supabase.rpc('approve_team_request', {
-                request_id: requestId
-            });
+            // 1. Update Request Status
+            const { error: reqError } = await supabase
+                .from('team_requests')
+                .update({ status: 'approved', updated_at: new Date().toISOString() })
+                .eq('id', requestId);
 
-            if (error) throw error;
+            if (reqError) throw reqError;
 
-            alert("승인되었습니다.");
+            // 2. [New System] Add to team_members
+            const { error: memberError } = await supabase
+                .from('team_members')
+                .insert({
+                    team_id: teamId,
+                    player_id: playerId,
+                    role: 'MEMBER'
+                });
+
+            if (memberError) {
+                // If member insert fails (e.g. duplicate), we might need to handle it.
+                // But generally should throw.
+                console.error("Failed to add team_member:", memberError);
+                // Depending on strictness, we might want to alert, but proceed for now as we have legacy fallback.
+            }
+
+            // 3. [Legacy] Update Player's Team ID
+            const { error: playerError } = await supabase
+                .from('players')
+                .update({ team_id: teamId })
+                .eq('id', playerId);
+
+            if (playerError) {
+                // If player update fails, maybe revert request? Or just alert.
+                // For MVP, alerting is critical.
+                throw new Error(`요청은 승인되었으나 선수 정보 업데이트 실패: ${playerError.message}`);
+            }
+
+            alert("승인 및 팀 배정이 완료되었습니다.");
             await fetchRequests();
         } catch (error: any) {
             console.error("Approval failed:", error);

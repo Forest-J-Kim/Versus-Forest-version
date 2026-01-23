@@ -232,28 +232,58 @@ export default function SportRegisterPage({ params }: { params: Promise<{ id: st
 
         try {
             // 1. Insert Player Profile
-            const { error: playerError } = await supabase.from('players').insert({
+            const { data: newPlayer, error: playerError } = await supabase.from('players').insert({
                 user_id: userId,
                 sport_type: sportId,
                 name: nickname,
                 location: region,
                 skills: skills,
                 avatar_url: avatarUrl // Insert Avatar URL
-            });
+            }).select().single();
             if (playerError) throw playerError;
 
             // 2. Insert Team if Captain
             if (isCaptain) {
                 if (!teamName) throw new Error("팀 이름을 입력해주세요.");
+                if (!newPlayer) throw new Error("선수 프로필 생성 실패");
 
-                const { error: teamError } = await supabase.from('teams').insert({
-                    captain_id: userId,
+                const { data: newTeam, error: teamError } = await supabase.from('teams').insert({
+                    captain_id: newPlayer.id,
                     sport_type: sportId,
                     team_name: teamName,
                     description: teamDesc,
                     emblem_url: emblemUrl
-                });
+                }).select().single();
+
                 if (teamError) throw teamError;
+
+                // [Auto-Assign] Update player's team_id
+                if (newTeam) {
+                    // 1. [New System] Add to team_members
+                    const { error: memberError } = await supabase.from('team_members').insert({
+                        team_id: newTeam.id,
+                        player_id: newPlayer.id,
+                        role: 'LEADER'
+                    });
+
+                    if (memberError) {
+                        console.error("Failed to add to team_members:", memberError);
+                        // Should we throw? Maybe alert user but don't block flow if team created?
+                        // Better to throw to ensure consistency.
+                        throw memberError;
+                    }
+
+                    // 2. [Legacy/Fast Access] Update player's team_id (Optional but kept for safety)
+                    const { error: assignError } = await supabase.from('players')
+                        .update({ team_id: newTeam.id })
+                        .eq('user_id', userId)
+                        .eq('sport_type', sportId);
+
+                    if (assignError) {
+                        console.error("Failed to auto-assign team to player:", assignError);
+                        alert("팀은 생성되었으나 소속 설정에 실패했습니다. 관리자에게 문의하세요.");
+                    }
+                }
 
                 // Update Profile Roles
                 const { data: profile } = await supabase.from('profiles').select('roles').eq('id', userId).single();

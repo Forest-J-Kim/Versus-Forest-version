@@ -32,17 +32,157 @@ function MatchRegisterForm() {
     // --- User State ---
     const [user, setUser] = useState<any>(null);
 
+    // --- Location State ---
+    const [locationType, setLocationType] = useState<"HOME" | "AWAY" | "TBD">("HOME");
+
+    // --- Player/Team State ---
+    const [ownedTeams, setOwnedTeams] = useState<any[]>([]);
+    const [teamMembers, setTeamMembers] = useState<any[]>([]);
+    const [selectedPlayerId, setSelectedPlayerId] = useState<string>("");
+
     useEffect(() => {
-        const fetchUser = async () => {
+        const fetchUserAndTeams = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             console.log("Current User Info (Mount):", user);
             setUser(user);
+
+            if (user) {
+                // Default to self
+                setSelectedPlayerId(user.id);
+
+                // Fetch owned teams to check if Captain
+                const { data: teams, error: teamError } = await supabase
+                    .from('Team')
+                    .select('id, name, leaderId')
+                    .eq('leaderId', user.id);
+
+                console.log("1. 현재 로그인 유저 ID:", user.id);
+                console.log("2. 조회된 팀 정보(Owned Teams):", teams);
+
+                if (teamError) {
+                    console.error("Error fetching teams:", teamError);
+                }
+
+                if (teams && teams.length > 0) {
+                    setOwnedTeams(teams);
+
+                    const teamMap = new Map();
+
+                    // Collect all Team IDs
+                    const teamIds = teams.map(t => {
+                        teamMap.set(t.id, t.name);
+                        return t.id;
+                    });
+
+                    // Fetch Members for these teams
+                    const { data: members, error: memberError } = await supabase
+                        .from('TeamMember')
+                        .select('userId, teamId, role, joinedAt')
+                        .in('teamId', teamIds);
+
+                    if (memberError) console.error("Error fetching members:", memberError);
+                    console.log("Fetched raw TeamMembers:", members);
+
+                    if (members) {
+                        // Ensure we fetch details for the members found PLUS the captain (self)
+                        // This guarantees we have the captain's DB row (with weightClass) even if not in TeamMember table
+                        const userIds = members.map(m => m.userId);
+                        if (!userIds.includes(user.id)) {
+                            userIds.push(user.id);
+                        }
+
+                        // Fetch User Details
+                        // Check if 'weightClass' exists in User table? We know it does now.
+                        const { data: userDetails, error: userError } = await supabase
+                            .from('User')
+                            .select('id, name, position, weightClass')
+                            .in('id', userIds);
+
+                        if (userError) console.error("Error fetching user details:", userError);
+
+                        if (userDetails) {
+                            // Merge Data: User Detail + Team Name
+                            const finalMembers = userDetails.map(u => {
+                                // Tri-state:
+                                // 1. User is in TeamMember list -> Use that teamId
+                                // 2. User is the Captain (User.id == u.id) -> Use their first owned team (teams[0])
+                                // 3. Fallback -> Unknown
+
+                                let tId = null;
+                                let tName = '';
+
+                                const membership = members.find(m => m.userId === u.id);
+                                if (membership) {
+                                    tId = membership.teamId;
+                                    tName = teamMap.get(tId) || 'Unknown Team';
+                                } else if (u.id === user.id && teams.length > 0) {
+                                    // Captain fallback: If not in member list, assume primary team
+                                    tId = teams[0].id;
+                                    tName = teams[0].name;
+                                }
+
+                                return {
+                                    ...u,
+                                    teamName: tName,
+                                    teamId: tId
+                                };
+                            });
+
+                            // Filter out any users we somehow couldn't map (shouldn't happen for captains/members)
+                            const validMembers = finalMembers.filter(m => m.teamName !== '');
+
+                            console.log("3. 조회된 팀원 전체(Final List):", validMembers);
+                            setTeamMembers(validMembers);
+                        }
+                    } else {
+                        console.log("No members found in TeamMember table for these teams.");
+                    }
+                } else {
+                    // No teams owned
+                    // Ensure we clear members if any
+                    setTeamMembers([{ id: user.id, name: user.user_metadata?.name || 'Me', weightClass: user.user_metadata?.weightClass }]);
+                }
+            }
         };
-        fetchUser();
+        fetchUserAndTeams();
     }, []);
 
-    // --- Location State ---
-    const [locationType, setLocationType] = useState<"HOME" | "AWAY" | "TBD">("HOME");
+    // Effect to auto-fill weight/position when player changes
+    useEffect(() => {
+        if (!selectedPlayerId) return;
+
+        // Find player in teamMembers list or default to user
+        let player: any = null;
+        if (teamMembers.length > 0) {
+            player = teamMembers.find(m => m.id === selectedPlayerId);
+        } else if (user && user.id === selectedPlayerId) {
+            // Solo fallback (if user data is available in state or could be looked up)
+            // Ideally we should have user details in 'user' object or fetch it.
+            // For now, if we are in teamMembers (which handles 'Me' case if loaded), we rely on that.
+            // If the user selects "Me" but is not in teamMembers (e.g. no teams), we might need to rely on what we have.
+            player = user; // 'user' might not have weightClass if from auth.getUser only?
+            // Actually lines 94-99 fetched user details for members. For solo, we might need similar detail fetch or rely on user_metadata.
+            if (!player.weightClass && player.user_metadata?.weightClass) {
+                player = { ...player, weightClass: player.user_metadata.weightClass };
+            }
+        }
+
+        if (player) {
+            // Map DB columns to Form keys
+            // 'weightClass' (DB) -> 'weight' (Form/sportConfig)
+            if (player.weightClass) {
+                const wStr = String(player.weightClass);
+                const w = parseInt(wStr.replace(/[^0-9]/g, ''), 10);
+                if (!isNaN(w)) {
+                    updateField('weight', w);
+                }
+            }
+        }
+    }, [selectedPlayerId, teamMembers, user]);
+
+
+
+
 
     // Hardcoded ID per request
     const TEMP_USER_ID = 'user-1234';
@@ -149,12 +289,18 @@ function MatchRegisterForm() {
             setIsSubmitting(true);
 
             let locString = "장소 미정";
-            if (locationType === "HOME") locString = "서울 복싱 (Home)";
+            if (locationType === "HOME") {
+                // Use selected player's team gym name if available
+                const player = teamMembers.find(m => m.id === selectedPlayerId);
+                const teamName = player?.teamName || "내 체육관";
+                locString = `${teamName} (Home)`;
+            }
             if (locationType === "AWAY") locString = "상대 체육관 희망 (Away)";
             if (locationType === "TBD") locString = "장소 협의";
 
             const matchData = {
                 hostUserId: currentUser.id,
+                playerId: selectedPlayerId, // Add playerId
                 date: finalTargetDate.toISOString(),
                 location: locString,
                 sport: sportId,
@@ -219,9 +365,32 @@ function MatchRegisterForm() {
 
     return (
         <main className={styles.container}>
-            <h1 style={{ marginBottom: '1rem', fontSize: '1.5rem' }}>{sportDef.icon} {sportDef.name}</h1>
+            <h1 style={{ marginBottom: '1rem', fontSize: '1.5rem' }}>{sportDef.icon} {sportDef.name} 매칭 등록</h1>
 
             <div className={styles.form}>
+
+                {/* --- Section 0: Player Selection --- */}
+                <div className={styles.section}>
+                    <h3 style={{ marginBottom: '0.5rem' }}>선수 선택 (Player)</h3>
+                    <select
+                        className={styles.inputSelect}
+                        value={selectedPlayerId}
+                        onChange={(e) => setSelectedPlayerId(e.target.value)}
+                        style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid #E5E7EB', backgroundColor: 'white' }}
+                    >
+                        {teamMembers.length > 0 ? (
+                            teamMembers.map(m => (
+                                <option key={m.id} value={m.id}>
+                                    {m.name} [{m.parsedSkills?.weight || '-'}kg / {m.parsedSkills?.position || '-'}]
+                                </option>
+                            ))
+                        ) : (
+                            <option value="">
+                                {user ? "선수 정보 로딩 중 (또는 없음)..." : "로그인 필요"}
+                            </option>
+                        )}
+                    </select>
+                </div>
 
                 {/* --- Section 1: Date --- */}
                 <div className={styles.section}>
@@ -287,28 +456,7 @@ function MatchRegisterForm() {
                             <span>🤝 장소 미정</span>
                             <span style={{ fontSize: '0.8em', fontWeight: '400', opacity: 0.9 }}>(협의해요)</span>
                         </button>
-                    </div>### 🤖 [목록 조회 수정] 등록된 매칭 데이터 실시간 출력 지시서
-
-                    **1. 대상 파일**
-                    * `src/app/matches/page.tsx` (매칭 목록 페이지)
-
-                    **2. 데이터 페칭(Fetching) 로직 수정**
-                    * **클라이언트 교체:** 기존 `supabaseClient` 대신 `import {createClient} from "@/utils/supabase/client";`를 사용하여 브라우저 세션과 연동하라.
-                    * **쿼리 수정:** `supabase.from('matches').select('*')` 호출 시, 우리가 새로 만든 컬럼들(`date`, `sport`, `location`, `hostUserId`, `attributes`)을 모두 가져오는지 확인하라.
-                    * **필터링 점검:**
-                    * 현재 페이지가 '복싱' 종목이라면 `eq('sport', 'BOXING')` 또는 `eq('sport', 'soccer')` 처럼 등록 시 사용한 종목 ID와 일치하게 필터를 걸어라. (대소문자 주의)
-                    * `status`가 'OPEN'인 데이터만 가져오도록 설정하라.
-
-                    **3. UI 데이터 매핑 수정**
-                    * 매칭 카드를 그릴 때, 날짜는 `target_date`가 아닌 **`date`** 컬럼에서 가져오도록 수정하라.
-                    * 장소는 **`location`** 컬럼 데이터를 사용하라.
-                    * **속성(Attributes) 처리:** `attributes` 필드가 문자열(String)로 저장되어 있다면, `JSON.parse(match.attributes)`를 통해 객체로 변환하여 체급, 강도 등을 카드에 표시하라.
-
-                    **4. 실시간 갱신(Refresh)**
-                    * `swr`을 사용 중이라면 `revalidateOnFocus` 옵션을 켜거나, 페이지 진입 시 최신 데이터를 가져오도록 `mutate`를 호출하라.
-
-                    **5. 결과 확인**
-                    * "등록된 매칭이 없습니다" 메시지 대신, 방금 등록한 매칭 카드가 화면에 나타나야 함.
+                    </div>
                 </div>
 
                 {/* --- Dynamic Fields --- */}
@@ -351,8 +499,16 @@ function MatchRegisterForm() {
                             {summaryText}
                         </div>
                         <div style={{ fontSize: '0.9rem', color: '#374151', marginTop: '4px' }}>
-                            {locationType === 'HOME' ? '🏠 내 체육관 (Home)' : locationType === 'AWAY' ? '✈️ 원정 (Away)' : '🤝 장소 협의'}
-                        </div>
+                            <div style={{ fontSize: '0.9rem', color: '#374151', marginTop: '4px' }}>
+                                {(() => {
+                                    if (locationType === 'HOME') {
+                                        const player = teamMembers.find(m => m.id === selectedPlayerId);
+                                        return `🏠 ${player?.teamName || '내 체육관'} (Home)`;
+                                    }
+                                    if (locationType === 'AWAY') return '✈️ 원정 (Away)';
+                                    return '🤝 장소 협의';
+                                })()}
+                            </div>                        </div>
                     </div>
                 </div>
 

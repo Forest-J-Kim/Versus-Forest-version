@@ -24,7 +24,7 @@ export const sportConfig: Record<string, Record<string, SportDef>> = {
     SOLO: {
         BOXING: {
             id: 'BOXING',
-            name: '복싱 / 킥복싱',
+            name: '복싱',
             icon: '🥊',
             color: '#EFF6FF',
             border: '#BFDBFE',
@@ -67,7 +67,7 @@ export const sportConfig: Record<string, Record<string, SportDef>> = {
     TEAM: {
         SOCCER: {
             id: 'SOCCER',
-            name: '축구 / 풋살',
+            name: '축구/풋살',
             icon: '⚽',
             color: '#F0FDF4',
             border: '#BBF7D0',
