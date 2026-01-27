@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import styles from "./Header.module.css";
-import ModeSwitcher from "@/components/ui/ModeSwitcher";
+// ModeSwitcher removed
 import { useMode } from "@/components/providers/ModeProvider";
 
 import { createClient } from '@/utils/supabase/client';
@@ -76,7 +76,7 @@ export default function Header() {
                     <span className={styles.title}>
                         {isMatches ? "Matches" : "Page"}
                     </span>
-                    {isMatches && <div className={styles.switcherWrapper}><ModeSwitcher /></div>}
+                    {/* Mode Toggle Removed */}
                 </div>
             )}
         </header>

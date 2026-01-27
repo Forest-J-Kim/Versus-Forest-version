@@ -16,8 +16,10 @@ interface RequestItem {
         photo_url?: string;
         weight_class?: string;
         location?: string;
-    }
+    } | null; // Allow null players if deleted
 }
+
+
 
 export default function TeamManagePage() {
     const params = useParams(); // { id: string }
@@ -28,7 +30,8 @@ export default function TeamManagePage() {
     const [pastRequests, setPastRequests] = useState<RequestItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [processingId, setProcessingId] = useState<string | null>(null);
-    const supabase = createClient();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const supabase = createClient() as any;
 
     const fetchRequests = async () => {
         if (!teamId) return;
@@ -190,16 +193,26 @@ export default function TeamManagePage() {
                             newRequests.map(req => (
                                 <div key={req.id} className={styles.card}>
                                     <div className={styles.cardInner}>
-                                        {/* Player Info (Reusing simplified Player Card idea) */}
+                                        {/* Player Info (Null Safety Applied) */}
                                         <div className={styles.playerInfo}>
                                             <div className={styles.avatar}>
-                                                {(req.players.avatar_url || req.players.photo_url) ? (
-                                                    <img src={req.players.avatar_url || req.players.photo_url} alt={req.players.name} />
-                                                ) : '👤'}
+                                                {(req.players?.avatar_url || req.players?.photo_url) ? (
+                                                    <img
+                                                        src={req.players?.avatar_url || req.players?.photo_url || ''}
+                                                        alt={req.players?.name || ''}
+                                                    />
+                                                ) : (
+                                                    /* No image or deleted user */
+                                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f3f4f6', borderRadius: '50%', fontSize: '1.5rem' }}>
+                                                        👤
+                                                    </div>
+                                                )}
                                             </div>
                                             <div className={styles.infoText}>
-                                                <div className={styles.name}>{req.players.name}</div>
-                                                <div className={styles.meta}>{req.players.weight_class} · {req.players.location || '지역 정보 없음'}</div>
+                                                <div className={styles.name}>{req.players?.name || "(알 수 없음/탈퇴)"}</div>
+                                                <div className={styles.meta}>
+                                                    {req.players ? `${req.players?.weight_class || '-'} · ${req.players?.location || '지역 정보 없음'}` : '선수 정보 없음'}
+                                                </div>
                                             </div>
                                         </div>
 
@@ -207,9 +220,10 @@ export default function TeamManagePage() {
                                         <div className={styles.actionButtons}>
                                             <button
                                                 className={styles.approveBtn}
-                                                onClick={() => handleApprove(req.id, req.players.id)}
-                                                disabled={!!processingId}
-                                                style={{ opacity: processingId ? 0.5 : 1 }}
+                                                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                                                onClick={() => req.players && handleApprove(req.id, req.players!.id)}
+                                                disabled={!!processingId || !req.players}
+                                                style={{ opacity: (processingId || !req.players) ? 0.5 : 1 }}
                                             >
                                                 {processingId === req.id ? '처리 중...' : '승인'}
                                             </button>
@@ -219,7 +233,7 @@ export default function TeamManagePage() {
                                                 disabled={!!processingId}
                                                 style={{ opacity: processingId ? 0.5 : 1 }}
                                             >
-                                                {processingId === req.id ? '...' : '반려'}
+                                                반려
                                             </button>
                                         </div>
                                     </div>
@@ -246,13 +260,23 @@ export default function TeamManagePage() {
                                     <div className={styles.cardInner}>
                                         <div className={styles.playerInfo}>
                                             <div className={styles.avatar}>
-                                                {(req.players.avatar_url || req.players.photo_url) ? (
-                                                    <img src={req.players.avatar_url || req.players.photo_url} alt={req.players.name} />
-                                                ) : '👤'}
+                                                {(req.players?.avatar_url || req.players?.photo_url) ? (
+                                                    <img
+                                                        src={req.players?.avatar_url || req.players?.photo_url || ''}
+                                                        alt={req.players?.name || ''}
+                                                    />
+                                                ) : (
+                                                    /* No image or deleted user */
+                                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f3f4f6', borderRadius: '50%', fontSize: '1.5rem' }}>
+                                                        👤
+                                                    </div>
+                                                )}
                                             </div>
                                             <div className={styles.infoText}>
-                                                <div className={styles.name}>{req.players.name}</div>
-                                                <div className={styles.meta}>{req.players.weight_class} · {req.players.location || '지역 정보 없음'}</div>
+                                                <div className={styles.name}>{req.players?.name || "(알 수 없음/탈퇴)"}</div>
+                                                <div className={styles.meta}>
+                                                    {req.players ? `${req.players?.weight_class || '-'} · ${req.players?.location || '지역 정보 없음'}` : '선수 정보 없음'}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>

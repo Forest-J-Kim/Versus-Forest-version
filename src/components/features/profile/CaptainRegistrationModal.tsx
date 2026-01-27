@@ -12,7 +12,8 @@ interface Props {
 }
 
 export default function CaptainRegistrationModal({ isOpen, onClose, onSuccess, userId }: Props) {
-    const supabase = createClient();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const supabase = createClient() as any;
     const [selectedSport, setSelectedSport] = useState<string>('BOXING');
     const [businessNumber, setBusinessNumber] = useState('');
     const [loading, setLoading] = useState(false);

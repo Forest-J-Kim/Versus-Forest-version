@@ -35,7 +35,10 @@ export default function TeamDetailPage({ params }: PageProps) {
                 .single<any>();
 
             if (teamError) {
-                console.error(teamError);
+                // Ignore "Row not found" error (PGRST116) as we handle !team below
+                if (teamError.code !== 'PGRST116') {
+                    console.error("Team fetch error:", teamError.message);
+                }
                 setLoading(false);
                 return;
             }

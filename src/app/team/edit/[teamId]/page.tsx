@@ -240,13 +240,24 @@ export default function TeamEditPage({ params }: PageProps) {
     const handleCaptainChange = async (player: any) => {
         if (!confirm(`주장을 ${player.name} 님으로 변경하시겠습니까?\n변경 후에는 권한이 상실되어 메인 화면으로 이동합니다.`)) return;
 
-        // captain_id is FK to players.id (not user_id)
-        const { error } = await (supabase.from('teams') as any).update({ captain_id: player.id }).eq('id', teamId);
-        if (error) {
-            alert("변경 실패: " + error.message);
-        } else {
-            alert("주장이 변경되었습니다.");
-            router.push(`/team/${teamId}`); // Redirect effectively kicks out of edit mode
+        try {
+            // Find current captain's player ID (it should be stored in team.captain_id)
+            const currentCaptainPlayerId = team.captain_id;
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { error } = await supabase.rpc('transfer_team_captain', {
+                p_team_id: teamId,
+                p_old_captain_player_id: currentCaptainPlayerId,
+                p_new_captain_player_id: player.id
+            } as any);
+
+            if (error) throw error;
+
+            alert("주장이 변경되었습니다. 메인으로 이동합니다.");
+            router.push('/');
+        } catch (error: any) {
+            console.error("이양 실패:", error);
+            alert("권한 이양 중 오류가 발생했습니다: " + error.message);
         }
     };
 

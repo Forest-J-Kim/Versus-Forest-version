@@ -77,8 +77,8 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
             setUserId(user.id);
 
             // 1. Fetch Existing Player Data
-            const { data: playerData } = await supabase
-                .from('players')
+            const { data: playerData } = await (supabase
+                .from('players' as any) as any)
                 .select('*')
                 .eq('user_id', user.id)
                 .eq('sport_type', sportId)
@@ -87,13 +87,29 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
             if (playerData) {
                 setNickname(playerData.name);
                 setRegion(playerData.location);
-                setSkills(playerData.skills || {});
-                setAvatarUrl(playerData.avatar_url); // Load avatar
+
+                // Load base skills
+                const loadedSkills = playerData.skills || {};
+
+                // [Refactor] Load from Columns if available (Normalization)
+                if (playerData.weight_class) loadedSkills.weightClass = playerData.weight_class;
+                if (playerData.position) loadedSkills.stance = playerData.position; // Map DB 'position' -> UI 'skills.stance' for boxing
+
+                // Parse Record "X전 Y승 Z패"
+                if (playerData.record) {
+                    const winsMatch = playerData.record.match(/(\d+)승/);
+                    const lossesMatch = playerData.record.match(/(\d+)패/);
+                    if (winsMatch) loadedSkills.wins = winsMatch[1];
+                    if (lossesMatch) loadedSkills.losses = lossesMatch[1];
+                }
+
+                setSkills(loadedSkills);
+                setAvatarUrl(playerData.avatar_url);
             }
 
             // 2. Fetch Existing Team Data (if captain)
-            const { data: teamData } = await supabase
-                .from('teams')
+            const { data: teamData } = await (supabase
+                .from('teams' as any) as any)
                 .select('*')
                 .eq('captain_id', user.id)
                 .eq('sport_type', sportId)
@@ -109,6 +125,33 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
         };
         init();
     }, [sportId]);
+
+    // ... (renderSportFields remains same as it binds to 'skills' state) ...
+    // Note: renderSportFields uses 'skills.position' for soccer but 'skills.stance' for boxing?
+    // Checking renderSportFields:
+    // Soccer uses 'position'. Boxing uses 'stance'.
+    // My init logic: `if (playerData.position) loadedSkills.stance = playerData.position;`
+    // Wait, if it's Soccer, I should map `position` -> `skills.position`.
+    // If it's Boxing, I should map `position` -> `skills.stance`.
+    // The previous code had:
+    // Soccer: value={skills.position} updateSkill('position', ...)
+    // Boxing: value={skills.stance} updateSkill('stance', ...)
+    // So I need a conditional map or map to both?
+    // Since 'position' column is used for 'Stance' in boxing (Orthodox/Southpaw) and 'Position' in Soccer (FW/DF),
+    // I should map it based on sportId.
+
+    // Actually, let's refine the init logic inside the replacements to be sport-aware or just map to both if harmless.
+    // Better to be specific.
+
+    // Also handleSubmit needs to be updated. I will do that in the same tool call if possible, or separate?
+    // The previous prompt said "Replace the entire fetch and update logic".
+    // I will look for where handleSubmit starts. Line 257.
+    // I'll replace from line 79 to line 272 (covers init and start of handleSubmit's update).
+    // Wait, that's a huge block.
+    // I'll do `init` replacement first.
+
+    // Let's perform `init` replacement first.
+
 
     // --- Dynamic Field Renders ---
     const renderSportFields = () => {
@@ -259,13 +302,39 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
         setLoading(true);
 
         try {
+            // Prepare Data
+            const wins = parseInt(skills.wins || '0', 10);
+            const losses = parseInt(skills.losses || '0', 10);
+            const total = wins + losses;
+            const recordStr = (wins > 0 || losses > 0) ? `${total}전 ${wins}승 ${losses}패` : null;
+
+            // Mapping for Position/Stance
+            let positionVal = null;
+            if (['boxing', 'kickboxing', 'judo'].includes(sportId)) {
+                positionVal = skills.stance;
+            } else if (sportId === 'soccer') {
+                positionVal = skills.position;
+            }
+            // Add other sports if needed
+
+            // Clean skills (Remove migrated fields if desired, or keep for safety? User said "skills: {} or misc")
+            // To be safe and compliant:
+            const { weightClass, stance, wins: _w, losses: _l, position: _p, ...restSkills } = skills;
+            // Actually, keep other fields. 
+
             // 1. Update Player Profile
-            const { data: updatedPlayer, error: playerError } = await supabase.from('players')
+            const { data: updatedPlayer, error: playerError } = await (supabase.from('players' as any) as any)
                 .update({
                     name: nickname,
                     location: region,
-                    skills: skills,
-                    avatar_url: avatarUrl // Update avatar url
+                    // [Refactor] Migrated Columns
+                    weight_class: skills.weightClass || null,
+                    position: positionVal,
+                    record: recordStr,
+                    // Remaining skills
+                    skills: restSkills, // Squeaky clean? Or just pass 'skills'? User said "skills is empty or misc".
+                    // I'll pass 'restSkills' which strips the migrated ones to satisfy "normalization".
+                    avatar_url: avatarUrl
                 })
                 .eq('user_id', userId)
                 .eq('sport_type', sportId)

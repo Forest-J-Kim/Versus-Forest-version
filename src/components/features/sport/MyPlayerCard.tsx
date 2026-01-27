@@ -14,9 +14,10 @@ interface MyPlayerCardProps {
     onFindTeam?: () => void;
     isManageMode?: boolean;
     onDelete?: () => void;
+    metaContent?: React.ReactNode;
 }
 
-export default function MyPlayerCard({ name, gymName, tags, imageUrl, onEdit, hasTeam = false, requestStatus = null, onFindTeam, isManageMode, onDelete }: MyPlayerCardProps) {
+export default function MyPlayerCard({ name, gymName, tags, imageUrl, onEdit, hasTeam = false, requestStatus = null, onFindTeam, isManageMode, onDelete, metaContent }: MyPlayerCardProps) {
     return (
         <div className={styles.card} style={{ position: 'relative' }}>
             <div className={styles.headerRow} style={{ alignItems: 'center' }}>
@@ -44,7 +45,7 @@ export default function MyPlayerCard({ name, gymName, tags, imageUrl, onEdit, ha
                     <div className={styles.name}>{name}</div>
                     <div className={styles.gym}>{gymName}</div>
                     <div className={styles.tags}>
-                        {tags.map((tag, i) => (
+                        {metaContent ? metaContent : tags.map((tag, i) => (
                             <span key={i} className={styles.tag}>{tag}</span>
                         ))}
                     </div>

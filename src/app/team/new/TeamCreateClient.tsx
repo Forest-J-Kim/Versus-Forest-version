@@ -22,7 +22,8 @@ export default function TeamCreateClient({
     sportName,
     sportIcon
 }: TeamCreateClientProps) {
-    const supabase = createClient();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const supabase = createClient() as any;
     const router = useRouter();
 
     const [submitting, setSubmitting] = useState(false);
@@ -105,7 +106,7 @@ export default function TeamCreateClient({
             const { error: memberError } = await supabase.from('team_members').insert({
                 team_id: newTeam.id,
                 player_id: playerId,
-                role: 'owner'
+                role: 'LEADER'
             });
 
             if (memberError) throw memberError;

@@ -19,6 +19,9 @@ export interface Database {
                     tier: string | null
                     region: string | null
                     weight_class: string | null
+                    main_foot: string | null
+                    skill_level: string | null
+                    record: string | null
                     created_at: string
                     // Add other inferred cols if any
                 }
@@ -30,6 +33,9 @@ export interface Database {
                     tier?: string | null
                     region?: string | null
                     weight_class?: string | null
+                    main_foot?: string | null
+                    skill_level?: string | null
+                    record?: string | null
                     created_at?: string
                 }
                 Update: {
@@ -40,6 +46,9 @@ export interface Database {
                     tier?: string | null
                     region?: string | null
                     weight_class?: string | null
+                    main_foot?: string | null
+                    skill_level?: string | null
+                    record?: string | null
                     created_at?: string
                 }
             }

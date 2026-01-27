@@ -231,13 +231,35 @@ export default function SportRegisterPage({ params }: { params: Promise<{ id: st
         setLoading(true);
 
         try {
+            // Prepare Data
+            const wins = parseInt(skills.wins || '0', 10);
+            const losses = parseInt(skills.losses || '0', 10);
+            const total = wins + losses;
+            const recordStr = (wins > 0 || losses > 0) ? `${total}전 ${wins}승 ${losses}패` : null;
+
+            // Mapping for Position/Stance
+            let positionVal = null;
+            if (['boxing', 'kickboxing', 'judo'].includes(sportId)) {
+                positionVal = skills.stance;
+            } else if (sportId === 'soccer') {
+                positionVal = skills.position;
+            }
+
+            // Clean skills
+            const { weightClass, stance, wins: _w, losses: _l, position: _p, ...restSkills } = skills;
+
             // 1. Insert Player Profile
-            const { data: newPlayer, error: playerError } = await supabase.from('players').insert({
+            const { data: newPlayer, error: playerError } = await (supabase.from('players' as any) as any).insert({
                 user_id: userId,
                 sport_type: sportId,
                 name: nickname,
                 location: region,
-                skills: skills,
+                // Normalized Columns
+                weight_class: skills.weightClass || null,
+                position: positionVal,
+                record: recordStr,
+
+                skills: restSkills,
                 avatar_url: avatarUrl // Insert Avatar URL
             }).select().single();
             if (playerError) throw playerError;
@@ -247,7 +269,7 @@ export default function SportRegisterPage({ params }: { params: Promise<{ id: st
                 if (!teamName) throw new Error("팀 이름을 입력해주세요.");
                 if (!newPlayer) throw new Error("선수 프로필 생성 실패");
 
-                const { data: newTeam, error: teamError } = await supabase.from('teams').insert({
+                const { data: newTeam, error: teamError } = await (supabase.from('teams' as any) as any).insert({
                     captain_id: newPlayer.id,
                     sport_type: sportId,
                     team_name: teamName,
@@ -260,7 +282,7 @@ export default function SportRegisterPage({ params }: { params: Promise<{ id: st
                 // [Auto-Assign] Update player's team_id
                 if (newTeam) {
                     // 1. [New System] Add to team_members
-                    const { error: memberError } = await supabase.from('team_members').insert({
+                    const { error: memberError } = await (supabase.from('team_members' as any) as any).insert({
                         team_id: newTeam.id,
                         player_id: newPlayer.id,
                         role: 'LEADER'
@@ -274,7 +296,7 @@ export default function SportRegisterPage({ params }: { params: Promise<{ id: st
                     }
 
                     // 2. [Legacy/Fast Access] Update player's team_id (Optional but kept for safety)
-                    const { error: assignError } = await supabase.from('players')
+                    const { error: assignError } = await (supabase.from('players' as any) as any)
                         .update({ team_id: newTeam.id })
                         .eq('user_id', userId)
                         .eq('sport_type', sportId);
@@ -286,9 +308,9 @@ export default function SportRegisterPage({ params }: { params: Promise<{ id: st
                 }
 
                 // Update Profile Roles
-                const { data: profile } = await supabase.from('profiles').select('roles').eq('id', userId).single();
+                const { data: profile } = await (supabase.from('profiles' as any) as any).select('roles').eq('id', userId).single();
                 const newRoles = { ...(profile?.roles || {}), [sportId]: 'captain' };
-                await supabase.from('profiles').update({ roles: newRoles }).eq('id', userId);
+                await (supabase.from('profiles' as any) as any).update({ roles: newRoles }).eq('id', userId);
             }
 
             alert("프로필 등록이 완료되었습니다!");

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import ModeSwitcher from "@/components/ui/ModeSwitcher";
 import styles from "./Navbar.module.css";
 
 export default function Navbar() {
@@ -10,7 +9,6 @@ export default function Navbar() {
                     VERSUS
                 </Link>
                 <div className={styles.actions}>
-                    <ModeSwitcher />
                     {/* Future: User Profile / Login Button */}
                 </div>
             </div>
