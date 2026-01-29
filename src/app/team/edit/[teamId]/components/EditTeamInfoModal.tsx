@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import styles from './EditTeamInfoModal.module.css';
+import NaverLocationPicker from '@/components/common/NaverLocationPicker';
 
 interface EditTeamInfoModalProps {
     isOpen: boolean;
@@ -13,19 +14,21 @@ interface EditTeamInfoModalProps {
 export default function EditTeamInfoModal({ isOpen, onClose, team, captainName, onSave, onChangeCaptain }: EditTeamInfoModalProps & { captainName: string, onChangeCaptain: () => void }) {
     const [name, setName] = useState('');
     const [desc, setDesc] = useState('');
+    const [location, setLocation] = useState('');
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         if (team) {
             setName(team.team_name || '');
             setDesc(team.description || '');
+            setLocation(team.location || '');
         }
     }, [team, isOpen]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
-        await onSave({ team_name: name, description: desc });
+        await onSave({ team_name: name, description: desc, location: location });
         setLoading(false);
         onClose();
     };
@@ -46,6 +49,10 @@ export default function EditTeamInfoModal({ isOpen, onClose, team, captainName, 
                             required
                             className={styles.input}
                         />
+                    </div>
+
+                    <div className={styles.field}>
+                        <NaverLocationPicker onLocationSelect={setLocation} initialAddress={location} />
                     </div>
 
                     <div className={styles.field}>

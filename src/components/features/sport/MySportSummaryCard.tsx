@@ -257,7 +257,7 @@ export default function MySportSummaryCard({
 
     // Boxing / Combat
     if (['boxing', 'kickboxing', 'judo', 'mma'].includes(sportType)) {
-        if (playerData.weight_class) tags.push(playerData.weight_class);
+        if (playerData.weight_class) tags.push(`${playerData.weight_class}kg`);
         if (playerData.position) tags.push(playerData.position);
         if (playerData.record) tags.push(playerData.record);
     }

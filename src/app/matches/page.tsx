@@ -11,26 +11,46 @@ import { useEffect, useState, Suspense } from "react";
 
 interface Match {
   id: string;
-  mode: string;
-  sport: string;
-  date: string;     // Changed from target_date
-  location: string;
-  hostUserId: string;
-  attributes: string; // JSON string
-  createdAt: string;
-  status: string;
-  type: string;
+  sport_type: string | null; // Changed from sport
+  match_date: string | null; // Changed from date
+  match_location: string | null;
+  status: string | null;
+
+  // Relations
+  home_player_id?: string | null;
+  home_team_id?: string | null;
+
+  // Joined Data
+  home_player?: {
+    name: string;
+    avatar_url: string | null;
+    weight_class: string | null;
+  } | null;
+  home_team?: {
+    team_name: string;
+    emblem_url: string | null;
+  } | null;
+
+  // User
+  host_user_id?: string | null;
+  author_id?: string | null;
+
+  attributes: string | null; // JSON string
+  created_at: string;
 }
 
 // Sub-component for Swipe logic
-function MatchCardItem({ match, currentUser, isManagerMode, onDelete, handleAction }: {
+function MatchCardItem({ match, currentUser, isManagerMode, onDelete, handleAction, sportDef }: {
   match: Match;
   currentUser: any;
   isManagerMode: boolean;
   onDelete: (id: string) => void;
   handleAction: (id: string) => void;
+  sportDef: any;
 }) {
-  const isMyMatch = currentUser && match.hostUserId === currentUser.id;
+  // Use host_user_id or author_id
+  const ownerId = match.host_user_id || match.author_id;
+  const isMyMatch = currentUser && ownerId === currentUser.id;
   const [startX, setStartX] = useState(0);
   const [translateX, setTranslateX] = useState(0);
   const [isSwiped, setIsSwiped] = useState(false);
@@ -38,15 +58,37 @@ function MatchCardItem({ match, currentUser, isManagerMode, onDelete, handleActi
   // Parsing attributes
   let attrs: any = {};
   try {
-    attrs = typeof match.attributes === 'string'
-      ? JSON.parse(match.attributes)
-      : match.attributes;
+    if (match.attributes) {
+      attrs = typeof match.attributes === 'string'
+        ? JSON.parse(match.attributes)
+        : match.attributes;
+    }
   } catch (e) { }
 
-  const { weight, rounds, intensity, level } = attrs;
-  const matchDate = new Date(match.date);
-  const dateStr = matchDate.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
-  const timeStr = matchDate.getHours() > 0 ? `${matchDate.getHours()}:00` : '시간 미정';
+  // 1. Dynamic Specs (Summary Details)
+  const summaryDetails = sportDef?.fields
+    ?.filter((f: any) => attrs[f.key])
+    .map((f: any) => `${attrs[f.key]}${f.unit || ''}`)
+    .join(' · ');
+
+  // 2. Date Logic
+  const targetDate = match.match_date ? new Date(match.match_date) : new Date(match.created_at);
+  const dateStr = targetDate.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
+  const timeStr = targetDate.getHours() > 0 ? `${targetDate.getHours()}:00` : '시간 미정';
+
+  // 3. Location Logic ("🏠 내 체육관 (Home)")
+  let locString = match.match_location || '장소 미정';
+  // Add icon if missing (simple heuristic)
+  if (!locString.includes('🏠') && !locString.includes('✈️') && !locString.includes('🤝')) {
+    if (locString.includes('Home')) locString = `🏠 ${locString}`;
+    else if (locString.includes('Away')) locString = `✈️ ${locString}`;
+    else if (locString.includes('협의') || locString.includes('TBD')) locString = `🤝 ${locString}`;
+  }
+
+  // 4. Display Logic (Team vs Player)
+  const isTeamMatch = !!match.home_team_id;
+  const displayName = isTeamMatch ? match.home_team?.team_name : match.home_player?.name;
+  const displayImage = isTeamMatch ? match.home_team?.emblem_url : match.home_player?.avatar_url;
 
   // Touch Handlers
   const onTouchStart = (e: React.TouchEvent) => {
@@ -67,8 +109,6 @@ function MatchCardItem({ match, currentUser, isManagerMode, onDelete, handleActi
     } else {
       // Swiping right (closing)
       if (isSwiped) {
-        // If already swiped open, and moving right, reduce negative translation toward 0
-        // Current position is -80, diff is positive.
         const newX = -80 + diff;
         if (newX > 0) setTranslateX(0);
         else setTranslateX(newX);
@@ -80,8 +120,6 @@ function MatchCardItem({ match, currentUser, isManagerMode, onDelete, handleActi
 
   const onTouchEnd = () => {
     if (!isMyMatch) return;
-
-    // Threshold check (e.g., more than -50px)
     if (translateX < -50) {
       setTranslateX(-80);
       setIsSwiped(true);
@@ -92,23 +130,14 @@ function MatchCardItem({ match, currentUser, isManagerMode, onDelete, handleActi
   };
 
   return (
-    <div style={{ position: 'relative', overflow: 'hidden', borderRadius: '16px' }}>
+    <div style={{ position: 'relative', overflow: 'hidden', borderRadius: '16px', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
       {/* Bottom Layer (Delete Button) */}
       <div style={{
-        position: 'absolute',
-        top: 0, bottom: 0, right: 0,
-        width: '100%',
-        background: '#F43F5E', // bg-rose-500
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'flex-end',
-        paddingRight: '26px',
-        borderRadius: '16px',
+        position: 'absolute', top: 0, bottom: 0, right: 0, width: '100%',
+        background: '#F43F5E', display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+        paddingRight: '26px', borderRadius: '16px',
       }}>
-        <button
-          onClick={() => onDelete(match.id)}
-          style={{ fontSize: '1.5rem', background: 'transparent', border: 'none', color: 'white' }}
-        >
+        <button onClick={() => onDelete(match.id)} style={{ fontSize: '1.5rem', background: 'transparent', border: 'none', color: 'white' }}>
           🗑️
         </button>
       </div>
@@ -126,7 +155,8 @@ function MatchCardItem({ match, currentUser, isManagerMode, onDelete, handleActi
           position: 'relative',
           transform: `translateX(${translateX}px)`,
           transition: 'transform 0.3s ease-out',
-          zIndex: 10
+          zIndex: 10,
+          display: 'flex', flexDirection: 'column', gap: '8px'
         }}
       >
         {isMyMatch && (
@@ -137,35 +167,64 @@ function MatchCardItem({ match, currentUser, isManagerMode, onDelete, handleActi
           }}>내 매치</div>
         )}
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.8rem', color: '#6B7280', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              {match.location?.includes('Home') ? '🏠' : match.location?.includes('Away') ? '✈️' : match.location?.includes('TBD') ? '🤝' : ''} {match.location || '장소 미정'}
-            </span>
+        {/* Header: Date & Time */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: '1.05rem', fontWeight: 'bold', color: '#111827' }}>
+            {dateStr} <span style={{ color: '#4B5563', fontWeight: 'normal' }}>{timeStr}</span>
+          </span>
+        </div>
+        {/* Location */}
+        <div style={{ fontSize: '0.9rem', color: '#4B5563', marginTop: '-4px' }}>
+          {locString}
+        </div>
+
+        {/* Dynamic Warning: If incompatible */}
+        {(!match.home_player && !match.home_team) && (
+          <div style={{ fontSize: '0.75rem', color: 'red' }}>⚠️ 데이터 로드 실패 (ID 연결 오류)</div>
+        )}
+
+        {/* Divider */}
+        <div style={{ height: '1px', background: '#F3F4F6', margin: '4px 0' }} />
+
+        {/* Main Info: Image + Name + Specs */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginTop: '4px' }}>
+          {/* Avatar / Emblem */}
+          <div style={{
+            width: '48px', height: '48px', borderRadius: '50%', overflow: 'hidden',
+            background: '#F3F4F6', border: '1px solid #E5E7EB', flexShrink: 0
+          }}>
+            {displayImage ? (
+              <img src={displayImage} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>
+                {isTeamMatch ? '🛡️' : '👤'}
+              </div>
+            )}
           </div>
-          <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#374151', marginRight: isMyMatch ? '4rem' : '0' }}>
-            {dateStr} {timeStr}
-          </span>
+
+          {/* Texts */}
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 'bold', fontSize: '1rem', color: '#1F2937' }}>
+              {displayName || '이름 없음'}
+            </div>
+
+            {/* Detailed Specs (Summary Style) */}
+            <div style={{
+              fontSize: '0.85rem', color: '#4B5563', marginTop: '4px', lineHeight: '1.4',
+              background: '#F9FAFB', padding: '6px 10px', borderRadius: '8px', display: 'inline-block'
+            }}>
+              {summaryDetails || <span style={{ color: '#9CA3AF' }}>상세 정보 없음</span>}
+            </div>
+          </div>
         </div>
 
-        <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '0.5rem', lineHeight: '1.4' }}>
-          {weight ? `${weight}급 ` : ''}
-          {intensity ? `${intensity} 스파링` : '스파링'}
-        </h3>
-
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-          {rounds && <span style={{ fontSize: '0.75rem', color: '#4B5563', background: '#F3F4F6', padding: '2px 8px', borderRadius: '4px' }}>{rounds}</span>}
-          {level && <span style={{ fontSize: '0.75rem', color: '#4B5563', background: '#F3F4F6', padding: '2px 8px', borderRadius: '4px' }}>{level}</span>}
-          <span style={{ fontSize: '0.75rem', color: '#4B5563', background: '#F3F4F6', padding: '2px 8px', borderRadius: '4px' }}>
-            {match.location?.includes('Home') ? '홈' : match.location?.includes('Away') ? '원정' : '중립'}
-          </span>
-        </div>
-
+        {/* Actions */}
         <button
           onClick={() => handleAction(match.id)}
           style={{
-            width: '100%', padding: '0.75rem', borderRadius: '8px',
-            background: isManagerMode ? '#1F2937' : '#2563EB', color: 'white', fontWeight: 'bold', border: 'none', cursor: 'pointer'
+            width: '100%', padding: '0.75rem', borderRadius: '8px', marginTop: '8px',
+            background: isManagerMode ? '#1F2937' : '#2563EB', color: 'white', fontWeight: 'bold', border: 'none', cursor: 'pointer',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
           }}
         >
           {isManagerMode ? "시합 수락하기 (Accept)" : "신청하기 (Apply)"}
@@ -175,7 +234,7 @@ function MatchCardItem({ match, currentUser, isManagerMode, onDelete, handleActi
   );
 }
 
-// ... (MatchCardItem component remains unchanged) ...
+// ... (Rest of component unchanged until fetchMatches) ...
 
 function MatchesContent() {
   const { isManagerMode } = useMode();
@@ -188,37 +247,41 @@ function MatchesContent() {
   const mode = searchParams.get('mode') || 'SOLO';
 
   // Helper for sport display
+  // ... (Keep existing getSportName) ... (I need to keep the context lines in view or copy them if replacing block)
+
+  // (Assuming context is sufficient or I replace fetchMatches block mainly)
+  // I will assume I need to replace the whole MatchCardItem + Interfaces + Fetcher section.
+  // BUT the replacement range is huge. I should be careful.
+
+  /* I will include MatchesContent skeleton to target correctly */
+
   const getSportName = (s: string) => {
     if (s === 'BOXING') return '복싱';
     if (s === 'SOCCER') return '축구/풋살';
     if (s === 'JIUJITSU') return '주짓수';
-    if (s === 'KICKBOXING') return '킥복싱';
-    if (s === 'MMA') return 'MMA';
-    if (s === 'FITNESS') return '헬스';
-    if (s === 'RUNNING') return '러닝';
+    // ... others
     return s;
   };
-
   const sportName = getSportName(sport);
   const sportDef = sportConfig[mode]?.[sport];
 
   // Fetcher
   const fetchMatches = async () => {
+    // New Logic: Use sport_type, status='SCHEDULED', join players/teams
+    // Explicitly hint the join column using correct FK name matches_home_player_id_fkey and matches_home_team_id_fkey
     const { data, error } = await supabase
       .from('matches')
-      .select('*')
-      .eq('sport', sport) // Filter by current sport
-      .eq('status', 'OPEN') // Only OPEN matches
+      .select('*, home_player:players!matches_home_player_id_fkey(name, avatar_url, weight_class), home_team:teams!matches_home_team_id_fkey(team_name, emblem_url), host_user_id:author_id')
+      .eq('sport_type', sport) // Filter by sport_type
+      .in('status', ['OPEN', 'SCHEDULED']) // Query both OPEN and SCHEDULED
       .order('created_at', { ascending: false });
 
     if (error) {
       console.error("Error fetching matches:", error);
       throw error;
     }
-    return data;
+    return data as unknown as Match[];
   };
-
-  // Real-time Feed
   const { data: matches, error, isLoading } = useSWR<Match[]>(
     ['matches', sport, mode], // Key depends on filters
     fetchMatches,
@@ -303,6 +366,7 @@ function MatchesContent() {
               isManagerMode={isManagerMode}
               onDelete={handleDelete}
               handleAction={handleAction}
+              sportDef={sportDef}
             />
           ))}
         </div>

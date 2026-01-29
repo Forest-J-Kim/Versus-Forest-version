@@ -4,6 +4,7 @@ import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import styles from "./team.module.css";
+import NaverMapViewer from "@/components/common/NaverMapViewer";
 
 interface PageProps {
     params: Promise<{ teamId: string }>;
@@ -17,6 +18,7 @@ export default function TeamDetailPage({ params }: PageProps) {
 
     const [team, setTeam] = useState<any>(null);
     const [players, setPlayers] = useState<any[]>([]);
+    const [repPlayers, setRepPlayers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
@@ -63,6 +65,29 @@ export default function TeamDetailPage({ params }: PageProps) {
                 }
             }
 
+            // 4. [Optimization] Link Representative Players (Filter from allPlayers without DB refetch)
+            let rawRepPlayers = teamData.representative_players;
+            let targetIds: string[] = [];
+
+            // JSON Parsing (Defensive Logic)
+            if (Array.isArray(rawRepPlayers)) {
+                targetIds = rawRepPlayers;
+            } else if (typeof rawRepPlayers === 'string') {
+                try {
+                    targetIds = JSON.parse(rawRepPlayers);
+                } catch (e) {
+                    console.error("Failed to parse rep players:", e);
+                    targetIds = [];
+                }
+            }
+
+            // Filter from already loaded allPlayers instead of new DB fetch
+            const matchedRepPlayers = allPlayers.filter(p => targetIds.includes(p.id));
+
+            // Ensure teamData format is array for UI rendering
+            teamData.representative_players = targetIds;
+
+            setRepPlayers(matchedRepPlayers);
             setTeam(teamData);
             setPlayers(allPlayers);
             setLoading(false);
@@ -79,6 +104,7 @@ export default function TeamDetailPage({ params }: PageProps) {
 
     // Determine Type
     const isTeamSport = ['soccer', 'foot', 'futsal', 'base', 'basket', 'volley', 'jokgu'].some(k => team.sport_type?.toLowerCase().includes(k));
+    const isCombatSport = ['boxing', 'kickboxing', 'judo', 'mma'].some(k => team.sport_type?.toLowerCase().includes(k));
 
     // Parse JSONB fields (defensively)
     const matchHistory = Array.isArray(team.match_history) ? team.match_history : [];
@@ -287,6 +313,14 @@ export default function TeamDetailPage({ params }: PageProps) {
                         ))}
                     </section>
 
+                    {/* Location Section */}
+                    {team.location && (
+                        <section className={styles.section}>
+                            <h2 className={styles.sectionTitle}>체육관 위치</h2>
+                            <NaverMapViewer address={team.location} />
+                        </section>
+                    )}
+
                     {/* Representative Players Section */}
                     {team.representative_players && Array.isArray(team.representative_players) && team.representative_players.some((id: string) => id) && (
                         <section className={styles.section}>
@@ -294,7 +328,7 @@ export default function TeamDetailPage({ params }: PageProps) {
                             <div className={styles.repGrid}>
                                 {[0, 1, 2, 3].map(idx => {
                                     const playerId = team.representative_players[idx];
-                                    const player = playerId ? players.find(p => p.id === playerId) : null;
+                                    const player = playerId ? repPlayers.find(p => p.id === playerId) : null;
 
                                     return (
                                         <div key={idx} className={styles.repCard} style={{ cursor: 'default' }}>
@@ -308,8 +342,12 @@ export default function TeamDetailPage({ params }: PageProps) {
                                                     />
                                                     <div className={styles.repName}>{player.name}</div>
                                                     <div className={styles.repInfo}>
-                                                        <span>{player.skills?.weightClass || player.weight_class || '-'}</span>
-                                                        <span>{player.skills?.stance || player.skills?.style || player.skills?.position || '-'}</span>
+                                                        <span>
+                                                            {(player.skills?.weightClass || player.weight_class)
+                                                                ? `${player.skills?.weightClass || player.weight_class}${isCombatSport ? 'kg' : ''}`
+                                                                : '-'}
+                                                        </span>
+                                                        <span>{player.stance || player.position || player.style || player.skills?.stance || player.skills?.style || player.skills?.position || '-'}</span>
                                                     </div>
                                                 </>
                                             ) : (
@@ -351,7 +389,9 @@ export default function TeamDetailPage({ params }: PageProps) {
                                         )}
                                     </div>
                                     <div className={styles.memberName}>{player.name}</div>
-                                    <div className={styles.memberMeta}>{player.weight_class}</div>
+                                    <div className={styles.memberMeta}>
+                                        {player.weight_class ? `${player.weight_class}${isCombatSport ? 'kg' : ''}` : ''}
+                                    </div>
                                 </div>
                             ))}
                         </div>

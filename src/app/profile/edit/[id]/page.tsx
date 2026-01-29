@@ -92,8 +92,23 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
                 const loadedSkills = playerData.skills || {};
 
                 // [Refactor] Load from Columns if available (Normalization)
-                if (playerData.weight_class) loadedSkills.weightClass = playerData.weight_class;
-                if (playerData.position) loadedSkills.stance = playerData.position; // Map DB 'position' -> UI 'skills.stance' for boxing
+                if (playerData.weight_class) {
+                    // Strip 'kg' or non-digits for number input compatibility
+                    loadedSkills.weightClass = playerData.weight_class.toString().replace(/[^0-9.]/g, '');
+                }
+
+                // Map 'position' column based on sport
+                if (playerData.position) {
+                    if (['boxing', 'kickboxing', 'judo'].includes(sportId)) {
+                        loadedSkills.stance = playerData.position; // Boxing Stance
+                    } else {
+                        loadedSkills.position = playerData.position; // Soccer Position
+                    }
+                }
+
+                // Map new columns (foot, level) - Priority: Column > JSON > Empty
+                if (playerData.main_foot) loadedSkills.foot = playerData.main_foot;
+                if (playerData.skill_level) loadedSkills.level = playerData.skill_level;
 
                 // Parse Record "X전 Y승 Z패"
                 if (playerData.record) {
@@ -105,22 +120,24 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
 
                 setSkills(loadedSkills);
                 setAvatarUrl(playerData.avatar_url);
-            }
 
-            // 2. Fetch Existing Team Data (if captain)
-            const { data: teamData } = await (supabase
-                .from('teams' as any) as any)
-                .select('*')
-                .eq('captain_id', user.id)
-                .eq('sport_type', sportId)
-                .single();
+                // 2. Fetch Existing Team Data (using player_id, independent of boolean flags)
+                const { data: teamData } = await (supabase
+                    .from('teams' as any) as any)
+                    .select('*')
+                    .eq('captain_id', playerData.id) // Use Player ID, not User ID
+                    .eq('sport_type', sportId)
+                    .single();
 
-            if (teamData) {
-                setIsCaptain(true);
-                setTeamName(teamData.team_name);
-                setTeamDesc(teamData.description || "");
-                setEmblemUrl(teamData.emblem_url);
-                setTeamId(teamData.id);
+                if (teamData) {
+                    setIsCaptain(true);
+                    setTeamName(teamData.team_name);
+                    setTeamDesc(teamData.description || "");
+                    setEmblemUrl(teamData.emblem_url);
+                    setTeamId(teamData.id);
+                } else {
+                    setIsCaptain(false); // Explicitly unchecked if not captain
+                }
             }
         };
         init();
@@ -201,7 +218,17 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
                     <>
                         <div className={styles.fieldGroup}>
                             <label className={styles.label}>체급</label>
-                            <input type="text" className={styles.input} placeholder="예: -70kg, 헤비급" value={skills.weightClass || ""} onChange={(e) => updateSkill('weightClass', e.target.value)} />
+                            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                <input
+                                    type="number"
+                                    className={styles.input}
+                                    placeholder="예: 65"
+                                    value={skills.weightClass || ""}
+                                    onChange={(e) => updateSkill('weightClass', e.target.value)}
+                                    style={{ paddingRight: '2.5rem' }}
+                                />
+                                <span style={{ position: 'absolute', right: '1rem', color: '#6B7280', fontSize: '0.9rem' }}>kg</span>
+                            </div>
                         </div>
                         {(sportId === 'boxing' || sportId === 'kickboxing') && (
                             <div className={styles.fieldGroup}>
@@ -319,7 +346,7 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
 
             // Clean skills (Remove migrated fields if desired, or keep for safety? User said "skills: {} or misc")
             // To be safe and compliant:
-            const { weightClass, stance, wins: _w, losses: _l, position: _p, ...restSkills } = skills;
+            const { weightClass, stance, wins: _w, losses: _l, position: _p, foot, level, ...restSkills } = skills;
             // Actually, keep other fields. 
 
             // 1. Update Player Profile
@@ -328,9 +355,12 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
                     name: nickname,
                     location: region,
                     // [Refactor] Migrated Columns
-                    weight_class: skills.weightClass || null,
+                    weight_class: skills.weightClass ? skills.weightClass.toString().replace(/[^0-9.]/g, '') : null,
                     position: positionVal,
                     record: recordStr,
+                    main_foot: foot,       // Mapped from skills.foot
+                    skill_level: level,    // Mapped from skills.level
+
                     // Remaining skills
                     skills: restSkills, // Squeaky clean? Or just pass 'skills'? User said "skills is empty or misc".
                     // I'll pass 'restSkills' which strips the migrated ones to satisfy "normalization".
@@ -395,7 +425,8 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
 
                     // Update Profile Roles
                     const { data: profile } = await supabase.from('profiles').select('roles').eq('id', userId).single();
-                    const newRoles = { ...(profile?.roles || {}), [sportId]: 'captain' };
+                    // Fix: Cast 'roles' (Json) to any/object to satisfy "Spread types may only be created from object types"
+                    const newRoles = { ...((profile?.roles || {}) as any), [sportId]: 'captain' };
                     await supabase.from('profiles').update({ roles: newRoles }).eq('id', userId);
                 }
             }

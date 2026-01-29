@@ -289,7 +289,11 @@ export default function MyTeamCard({
                                     {!member.isPlaceholder && (
                                         <div style={{ fontSize: '0.7rem', textAlign: 'center', lineHeight: '1.2' }}>
                                             <div style={{ fontWeight: 'bold', color: '#374151' }}>{member.name}</div>
-                                            <div style={{ color: '#6B7280', fontSize: '0.65rem' }}>{member.skills?.weightClass || member.weight_class || ""}</div>
+                                            <div style={{ color: '#6B7280', fontSize: '0.65rem' }}>
+                                                {(member.skills?.weightClass || member.weight_class)
+                                                    ? `${member.skills?.weightClass || member.weight_class}kg`
+                                                    : ""}
+                                            </div>
                                         </div>
                                     )}
                                 </div>

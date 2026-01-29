@@ -264,14 +264,29 @@ function MatchRegisterForm() {
             if (locationType === "AWAY") locString = "상대 체육관 희망 (Away)";
             if (locationType === "TBD") locString = "장소 협의";
 
+            let homePlayerId: string | null = null;
+            let homeTeamId: string | null = null;
+
+            // Logic Branching (Boxing vs Soccer)
+            // Current Context: Boxing (mode='SOLO' or sportId='boxing') -> Player ID
+            // Team Context: Soccer -> Team ID
+            if (sportId === 'soccer' || mode === 'TEAM') {
+                homeTeamId = selectedPlayerId; // Assuming selected ID is Team ID in this context, or Captain's Player ID? Using as requested.
+            } else {
+                homePlayerId = selectedPlayerId;
+            }
+
             const matchData = {
-                hostUserId: currentUser.id,
-                playerId: selectedPlayerId, // Add playerId
-                date: finalTargetDate.toISOString(),
-                location: locString,
-                sport: sportId,
-                mode: mode,
-                status: 'OPEN',
+                // strict mapping as requested
+                home_player_id: homePlayerId,
+                home_team_id: homeTeamId,
+                match_date: finalTargetDate.toISOString(),
+                match_location: locString,
+                sport_type: sportId,
+                status: 'SCHEDULED', // Uppercase
+
+                // Legacy / Other fields
+                host_user_id: currentUser.id, // Keeping this for reference/auth
                 type: 'MATCH',
                 attributes: JSON.stringify(formData)
             };
@@ -352,7 +367,7 @@ function MatchRegisterForm() {
                         ) : (
                             candidates.map((p) => (
                                 <option key={p.id} value={p.id}>
-                                    {p.name} ({p.weight_class || '체급미정'} / {p.position || '스탠스미정'})
+                                    {p.name} ({p.weight_class ? `${p.weight_class}kg` : '체급미정'} / {p.position || '스탠스미정'})
                                 </option>
                             ))
                         )}

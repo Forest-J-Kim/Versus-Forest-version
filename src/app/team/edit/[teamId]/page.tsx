@@ -8,6 +8,7 @@ import styles from "./edit.module.css";
 import PlayerSelectModal from "./components/PlayerSelectModal";
 import EditTeamInfoModal from "./components/EditTeamInfoModal";
 import Cropper from 'react-easy-crop';
+import NaverLocationPicker from "@/components/common/NaverLocationPicker";
 
 interface PageProps {
     params: Promise<{ teamId: string }>;
@@ -26,7 +27,10 @@ export default function TeamEditPage({ params }: PageProps) {
 
     // Edit States
     const [introduction, setIntroduction] = useState('');
+    const [location, setLocation] = useState(''); // Add location state
     const [coachCareer, setCoachCareer] = useState('');
+
+
     const [coachesList, setCoachesList] = useState<any[]>([]);
     const [representativePlayers, setRepresentativePlayers] = useState<any[]>(new Array(4).fill(null));
     const [formation, setFormation] = useState<{ [key: string]: string }>({}); // { slotId: playerId }
@@ -126,6 +130,7 @@ export default function TeamEditPage({ params }: PageProps) {
             setTeam(teamData);
             setPlayers(allPlayers);
             setIntroduction(teamData.introduction || '');
+            setLocation(teamData.location || '');
             setFormation(teamData.formation || {}); // Load existing formation
 
             // Init Coach List
@@ -264,18 +269,38 @@ export default function TeamEditPage({ params }: PageProps) {
     const handleKickMember = async (player: any) => {
         if (!confirm(`${player.name} 선수를 팀에서 제외(방출)하시겠습니까?`)) return;
 
-        const { error } = await (supabase.from('players') as any).update({ team_id: null }).eq('id', player.id);
-        if (error) {
-            alert("방출 실패: " + error.message);
-        } else {
+        try {
+            const { error } = await supabase.rpc('kick_team_member', {
+                p_team_id: teamId,
+                p_player_id: player.id
+            } as any);
+
+            if (error) throw error;
+
+            // Update local state for immediate feedback
             setPlayers(players.filter(p => p.id !== player.id));
-            // Also remove from formation if exists
-            // A bit complex to find which slot, but map check is easier
+
+            // Remove from formation if exists
             const newFormation = { ...formation };
             Object.keys(newFormation).forEach(key => {
                 if (newFormation[key] === player.id) delete newFormation[key];
             });
-            setFormation(newFormation);
+            setFormation(newFormation); // Formation state might need to be refreshed from server if RPC cleans it?
+            // User said RPC cleans everything. But local state 'formation' won't update unless we fetch or update it manually.
+            // Updating manually is better for UX.
+
+            // Use should check coaches list and rep players too?
+            // "RPC cleans everything" -> Backend data is clean.
+            // Frontend 'coachesList' and 'representativePlayers' might still show the user until refresh.
+            // Let's also filter them locally to be consistent.
+
+            setCoachesList(coachesList.filter(c => c.user_id !== player.user_id));
+            setRepresentativePlayers(representativePlayers.map(pid => pid === player.id ? null : pid));
+
+            alert("선수가 방출되었습니다.");
+        } catch (error: any) {
+            console.error('추방 실패:', error);
+            alert("방출 실패: " + error.message);
         }
     };
 
@@ -370,19 +395,59 @@ export default function TeamEditPage({ params }: PageProps) {
     };
 
     const handleGlobalSave = async () => {
-        const { error } = await (supabase.from('teams') as any).update({
-            introduction: introduction,
-            formation: formation,
-            coaches_info: coachesList,
-            representative_players: representativePlayers
-        }).eq('id', teamId);
+        try {
+            // 1. Update Team Info (JSON)
+            const { error } = await (supabase.from('teams') as any).update({
+                introduction: introduction,
+                location: location,
+                formation: formation,
+                coaches_info: coachesList,
+                representative_players: representativePlayers
+            }).eq('id', teamId);
 
-        if (error) {
-            alert("저장 실패: " + error.message);
-        } else {
+            if (error) throw error;
+
+            // 2. Dual Update: Sync team_members Roles
+            // 2-1. Extract Player IDs from Coach List
+            const coachPlayerIds = coachesList
+                .map(coach => {
+                    const match = players.find(p => p.user_id === coach.user_id);
+                    return match ? match.id : null;
+                })
+                .filter(id => id !== null);
+
+            if (coachPlayerIds.length > 0) {
+                // 2-2. Promote New Coaches to MANAGER
+                // (Exclude LEADER to prevent demoting/modifying captain)
+                const { error: promoteError } = await (supabase.from('team_members') as any)
+                    .update({ role: 'MANAGER' })
+                    .eq('team_id', teamId)
+                    .in('player_id', coachPlayerIds)
+                    .neq('role', 'LEADER');
+
+                if (promoteError) console.error("Coach promotion failed", promoteError);
+            }
+
+            // 2-3. Demote Removed Coaches to MEMBER
+            // Target: Role is MANAGER AND player_id is NOT in coachPlayerIds
+            let demoteQuery = (supabase.from('team_members') as any)
+                .update({ role: 'MEMBER' })
+                .eq('team_id', teamId)
+                .eq('role', 'MANAGER');
+
+            if (coachPlayerIds.length > 0) {
+                demoteQuery = demoteQuery.not('player_id', 'in', `("${coachPlayerIds.join('","')}")`);
+            }
+
+            const { error: demoteError } = await demoteQuery;
+            if (demoteError) console.error("Coach demotion failed", demoteError);
+
+
             alert("수정 완료되었습니다.");
             router.refresh();
             router.push(`/team/${teamId}`);
+        } catch (error: any) {
+            alert("저장 실패: " + error.message);
         }
     };
 
@@ -448,7 +513,6 @@ export default function TeamEditPage({ params }: PageProps) {
                 </div>
             </header>
 
-            {/* Introduction - Inline Edit */}
             <section className={teamStyles.section}>
                 <h3 className={teamStyles.subTitle}>팀 상세 소개</h3>
                 <textarea
@@ -457,6 +521,9 @@ export default function TeamEditPage({ params }: PageProps) {
                     onChange={(e) => setIntroduction(e.target.value)}
                     placeholder="팀의 상세한 소개글을 작성해주세요. (이력, 가입 문의, 모임 시간 등)"
                 />
+
+                <h3 className={teamStyles.subTitle} style={{ marginTop: '1.5rem' }}>체육관 위치</h3>
+                <NaverLocationPicker onLocationSelect={setLocation} initialAddress={location} />
             </section>
 
             {/* Coach Management - Gym Only */}

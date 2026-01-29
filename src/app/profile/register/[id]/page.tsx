@@ -246,7 +246,7 @@ export default function SportRegisterPage({ params }: { params: Promise<{ id: st
             }
 
             // Clean skills
-            const { weightClass, stance, wins: _w, losses: _l, position: _p, ...restSkills } = skills;
+            const { weightClass, stance, wins: _w, losses: _l, position: _p, foot, level, ...restSkills } = skills;
 
             // 1. Insert Player Profile
             const { data: newPlayer, error: playerError } = await (supabase.from('players' as any) as any).insert({
@@ -258,6 +258,8 @@ export default function SportRegisterPage({ params }: { params: Promise<{ id: st
                 weight_class: skills.weightClass || null,
                 position: positionVal,
                 record: recordStr,
+                main_foot: foot,       // Mapped from skills.foot
+                skill_level: level,    // Mapped from skills.level
 
                 skills: restSkills,
                 avatar_url: avatarUrl // Insert Avatar URL

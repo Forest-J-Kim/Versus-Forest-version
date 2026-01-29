@@ -6,6 +6,7 @@ import { createClient } from "@/utils/supabase/client";
 import styles from './team-new.module.css';
 import Cropper from 'react-easy-crop';
 import getCroppedImg from '@/utils/canvasUtils';
+import NaverLocationPicker from '@/components/common/NaverLocationPicker';
 
 interface TeamCreateClientProps {
     userId: string;
@@ -31,6 +32,7 @@ export default function TeamCreateClient({
     // Form Fields
     const [teamName, setTeamName] = useState("");
     const [teamDesc, setTeamDesc] = useState("");
+    const [location, setLocation] = useState("");
     const [emblemUrl, setEmblemUrl] = useState<string | null>(null);
 
     // Image Upload
@@ -96,7 +98,8 @@ export default function TeamCreateClient({
                 sport_type: sportId,
                 team_name: teamName,
                 description: teamDesc,
-                emblem_url: emblemUrl
+                emblem_url: emblemUrl,
+                location: location // Add location
             }).select().single();
 
             if (teamError) throw teamError;
@@ -153,6 +156,9 @@ export default function TeamCreateClient({
                     <label className={styles.label}>팀 이름</label>
                     <input type="text" className={styles.input} value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="멋진 팀 이름을 지어주세요" />
                 </div>
+
+                {/* Location Picker */}
+                <NaverLocationPicker onLocationSelect={setLocation} initialAddress={location} />
 
                 <div className={styles.fieldGroup}>
                     <label className={styles.label}>한줄 소개</label>
