@@ -130,7 +130,7 @@ export default function NaverLocationPicker({ onLocationSelect, initialAddress }
     return (
         <div style={{ marginBottom: '1rem' }}>
             <Script
-                src={`https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${clientId}&submodules=geocoder`}
+                src={`https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${clientId}&submodules=geocoder`}
                 strategy="afterInteractive"
                 onLoad={() => setIsLoading(false)}
                 onError={() => console.error("Naver Maps Load Error")}
