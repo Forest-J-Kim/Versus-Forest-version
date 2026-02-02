@@ -197,6 +197,14 @@ export default function TeamDetailPage({ params }: PageProps) {
                 </div>
             </section>
 
+            {/* Location Section (Universal) */}
+            {team.location && (
+                <section className={styles.section}>
+                    <h3 className={styles.subTitle}>{isTeamSport ? '홈 구장' : '체육관 위치'}</h3>
+                    <NaverMapViewer address={team.location} />
+                </section>
+            )}
+
 
 
             {/* Content Switch */}
@@ -314,12 +322,7 @@ export default function TeamDetailPage({ params }: PageProps) {
                     </section>
 
                     {/* Location Section */}
-                    {team.location && (
-                        <section className={styles.section}>
-                            <h2 className={styles.sectionTitle}>체육관 위치</h2>
-                            <NaverMapViewer address={team.location} />
-                        </section>
-                    )}
+
 
                     {/* Representative Players Section */}
                     {team.representative_players && Array.isArray(team.representative_players) && team.representative_players.some((id: string) => id) && (

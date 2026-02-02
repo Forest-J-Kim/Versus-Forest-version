@@ -10,7 +10,7 @@ interface NaverMapViewerProps {
 export default function NaverMapViewer({ address }: NaverMapViewerProps) {
     const mapRef = useRef<HTMLDivElement>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [isLoaded, setIsLoaded] = useState(false);
+    const [isLoaded, setIsLoaded] = useState(false); // Refresh
     const clientId = process.env.NEXT_PUBLIC_NAVER_MAPS_CLIENT_ID;
 
     useEffect(() => {
@@ -63,11 +63,13 @@ export default function NaverMapViewer({ address }: NaverMapViewerProps) {
                 onReady={() => setIsLoaded(true)}
             />
             {isLoading && <div style={{ padding: '20px', textAlign: 'center', color: '#888', background: '#f9f9f9' }}>지도 로딩 중...</div>}
-            <div ref={mapRef} style={{ width: '100%', height: '250px', display: isLoading ? 'none' : 'block' }} />
-            <div style={{ padding: '12px', background: '#F9FAFB', borderTop: '1px solid #E5E7EB', fontSize: '0.9rem', color: '#374151', display: 'flex', alignItems: 'center', gap: '8px' }}>
+
+            <div style={{ padding: '12px', background: '#F9FAFB', borderBottom: '1px solid #E5E7EB', fontSize: '0.9rem', color: '#374151', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span>📍</span>
                 <span style={{ fontWeight: 600 }}>{address}</span>
             </div>
+
+            <div ref={mapRef} style={{ width: '100%', height: '250px', display: isLoading ? 'none' : 'block' }} />
         </div>
     );
 }

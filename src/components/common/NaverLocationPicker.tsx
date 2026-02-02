@@ -139,9 +139,7 @@ export default function NaverLocationPicker({ onLocationSelect, initialAddress }
                 }}
             />
 
-            <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#374151', marginBottom: '0.5rem' }}>
-                활동 지역 / 주소
-            </label>
+            {/* <label> removed for UI simplicity */}
             <div style={{ display: 'flex', gap: '8px' }}>
                 <input
                     type="text"

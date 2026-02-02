@@ -51,14 +51,27 @@ function MatchRegisterForm() {
 
                 // 2. 내 선수 프로필 조회 (정규화된 컬럼 사용)
                 // weight_class, position(스탠스), record(전적) 컬럼을 직접 가져옴
+                // [FIX] Ambiguous Join removal: Fetch team_id and fetch team separately or infer
                 const { data: me } = await (supabase
                     .from('players' as any) as any)
-                    .select('id, name, avatar_url, weight_class, position, record')
+                    .select('id, name, avatar_url, weight_class, position, record, team_id') // Removed team:teams(...)
                     .eq('user_id', user.id)
                     .eq('sport_type', 'boxing')
                     .single();
 
                 if (!me) return;
+
+                // [FIX] Manual Team Fetch for 'Me'
+                if (me.team_id) {
+                    const { data: myTeamData } = await supabase
+                        .from('teams')
+                        .select('team_name, location')
+                        .eq('id', me.team_id)
+                        .single();
+                    if (myTeamData) {
+                        me.team = myTeamData;
+                    }
+                }
 
                 // Set default selection if empty
                 setSelectedPlayerId(prev => prev || me.id);
@@ -66,7 +79,7 @@ function MatchRegisterForm() {
                 // 3. 캡틴 여부 확인
                 const { data: myTeam } = await (supabase
                     .from('teams' as any) as any)
-                    .select('id')
+                    .select('id, team_name, location') // Fetch details for team members
                     .eq('captain_id', me.id)
                     .eq('sport_type', 'boxing')
                     .maybeSingle();
@@ -86,13 +99,23 @@ function MatchRegisterForm() {
                         // 팀원 상세 정보 (정규화된 컬럼)
                         const { data: teamPlayers } = await (supabase
                             .from('players' as any) as any)
-                            .select('id, name, avatar_url, weight_class, position, record')
+                            .select('id, name, avatar_url, weight_class, position, record') // Removed join
                             .in('id', ids);
 
-                        finalCandidates = teamPlayers || [];
+                        // Attach Team Info manually
+                        const playersWithTeam = teamPlayers?.map((p: any) => ({
+                            ...p,
+                            team: { team_name: myTeam.team_name, location: myTeam.location }
+                        })) || [];
+
+                        finalCandidates = playersWithTeam;
 
                         // 나 자신이 포함 안 되어 있으면 추가
                         if (!finalCandidates.find((p: any) => p.id === me.id)) {
+                            // Ensure 'me' has team info if it matches myTeam (it should)
+                            if (!me.team && me.team_id === myTeam.id) {
+                                me.team = { team_name: myTeam.team_name, location: myTeam.location };
+                            }
                             finalCandidates.push(me);
                         }
                     } else {
@@ -271,9 +294,16 @@ function MatchRegisterForm() {
             // Current Context: Boxing (mode='SOLO' or sportId='boxing') -> Player ID
             // Team Context: Soccer -> Team ID
             if (sportId === 'soccer' || mode === 'TEAM') {
-                homeTeamId = selectedPlayerId; // Assuming selected ID is Team ID in this context, or Captain's Player ID? Using as requested.
+                homeTeamId = selectedPlayerId; // Assuming selected ID is Team ID in this context
             } else {
                 homePlayerId = selectedPlayerId;
+
+                // [FIX] Explicitly save Team ID for Home matches if available
+                if (locationType === 'HOME') {
+                    const player = candidates.find(m => m.id === selectedPlayerId);
+                    // Check nested team object first, then direct foreign key
+                    homeTeamId = player?.team?.id || player?.team_id || null;
+                }
             }
 
             const matchData = {
@@ -485,7 +515,17 @@ function MatchRegisterForm() {
                                 {(() => {
                                     if (locationType === 'HOME') {
                                         const player = candidates.find(m => m.id === selectedPlayerId);
-                                        return `🏠 ${player?.teamName || '내 체육관'} (Home)`;
+                                        const teamName = player?.team?.team_name || player?.teamName || '내 체육관';
+
+                                        // Shorten location: '서울특별시 성동구 ...' -> '서울 성동구'
+                                        let location = player?.team?.location || '';
+                                        if (location) {
+                                            const parts = location.split(' ');
+                                            if (parts.length >= 2) location = `${parts[0].substring(0, 2)} ${parts[1]}`;
+                                        }
+                                        const locDisplay = location ? `(${location})` : '(Home)';
+
+                                        return `🏠 ${teamName} ${locDisplay}`;
                                     }
                                     if (locationType === 'AWAY') return '✈️ 원정 (Away)';
                                     return '🤝 장소 협의';

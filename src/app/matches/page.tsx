@@ -25,10 +25,15 @@ interface Match {
     name: string;
     avatar_url: string | null;
     weight_class: string | null;
+    team?: {
+      team_name: string;
+      location?: string;
+    } | null;
   } | null;
   home_team?: {
     team_name: string;
     emblem_url: string | null;
+    location?: string;
   } | null;
 
   // User
@@ -48,8 +53,8 @@ function MatchCardItem({ match, currentUser, isManagerMode, onDelete, handleActi
   handleAction: (id: string) => void;
   sportDef: any;
 }) {
-  // Use host_user_id or author_id
-  const ownerId = match.host_user_id || match.author_id;
+  // Use host_user_id
+  const ownerId = match.host_user_id;
   const isMyMatch = currentUser && ownerId === currentUser.id;
   const [startX, setStartX] = useState(0);
   const [translateX, setTranslateX] = useState(0);
@@ -76,13 +81,30 @@ function MatchCardItem({ match, currentUser, isManagerMode, onDelete, handleActi
   const dateStr = targetDate.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
   const timeStr = targetDate.getHours() > 0 ? `${targetDate.getHours()}:00` : '시간 미정';
 
-  // 3. Location Logic ("🏠 내 체육관 (Home)")
+  // 3. Location Logic
   let locString = match.match_location || '장소 미정';
-  // Add icon if missing (simple heuristic)
-  if (!locString.includes('🏠') && !locString.includes('✈️') && !locString.includes('🤝')) {
-    if (locString.includes('Home')) locString = `🏠 ${locString}`;
-    else if (locString.includes('Away')) locString = `✈️ ${locString}`;
-    else if (locString.includes('협의') || locString.includes('TBD')) locString = `🤝 ${locString}`;
+
+  // [Modified Logic] Prioritize Home Team Data (Direct or via Player)
+  // Check direct relation OR nested relation via player
+  const realTeam = match.home_team || match.home_player?.team;
+
+  if (realTeam) {
+    const region = realTeam.location || "";
+    // Shorten: "서울 성동구"
+    const shortRegion = region.split(" ").slice(0, 2).join(" ");
+    locString = `🏠 ${realTeam.team_name} (${shortRegion})`;
+  }
+  // Fallback for Legacy Home / Manual Text
+  else if (locString.includes('Home')) {
+    // If it says Home but no data, use static text or keep existing
+    if (!locString.includes('🏠')) locString = `🏠 ${locString}`; // Add icon if missing
+  }
+  else {
+    // Other cases (Away, TvD) - just add icons
+    if (!locString.includes('🏠') && !locString.includes('✈️') && !locString.includes('🤝')) {
+      if (locString.includes('Away')) locString = `✈️ ${locString}`;
+      else if (locString.includes('협의') || locString.includes('TBD')) locString = `🤝 ${locString}`;
+    }
   }
 
   // 4. Display Logic (Team vs Player)
@@ -268,10 +290,10 @@ function MatchesContent() {
   // Fetcher
   const fetchMatches = async () => {
     // New Logic: Use sport_type, status='SCHEDULED', join players/teams
-    // Explicitly hint the join column using correct FK name matches_home_player_id_fkey and matches_home_team_id_fkey
+    // Explicitly hint the join column using column name 'home_team_id'
     const { data, error } = await supabase
       .from('matches')
-      .select('*, home_player:players!matches_home_player_id_fkey(name, avatar_url, weight_class), home_team:teams!matches_home_team_id_fkey(team_name, emblem_url), host_user_id:author_id')
+      .select('*, home_player:players!home_player_id(*, team:teams!players_team_id_fkey(*)), home_team:teams!home_team_id(team_name, emblem_url, location), host_user_id:author_id')
       .eq('sport_type', sport) // Filter by sport_type
       .in('status', ['OPEN', 'SCHEDULED']) // Query both OPEN and SCHEDULED
       .order('created_at', { ascending: false });
@@ -280,6 +302,8 @@ function MatchesContent() {
       console.error("Error fetching matches:", error);
       throw error;
     }
+
+    console.log('🔥 Fetched Matches:', data);
     return data as unknown as Match[];
   };
   const { data: matches, error, isLoading } = useSWR<Match[]>(
@@ -318,11 +342,26 @@ function MatchesContent() {
   const handleDelete = async (matchId: string) => {
     if (!confirm("정말 이 매칭을 삭제하시겠습니까?")) return;
 
+    // 1. Optimistic Update (Immediate Feedback)
+    // Filter out the deleted item from local cache without revalidating yet
+    await mutate(
+      ['matches', sport, mode],
+      (currentMatches: Match[] | undefined) => {
+        return currentMatches ? currentMatches.filter(m => m.id !== matchId) : [];
+      },
+      false
+    );
+
+    // 2. Execute Delete
     const { error } = await supabase.from('matches').delete().eq('id', matchId);
+
     if (error) {
       alert("삭제 실패: " + error.message);
+      // Revert / Revalidate on error
+      mutate(['matches', sport, mode]);
     } else {
       showToast("매칭이 삭제되었습니다.", "success");
+      // Trigger actual revalidation to ensure sync
       mutate(['matches', sport, mode]);
     }
   };
