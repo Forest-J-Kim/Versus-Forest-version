@@ -56,9 +56,6 @@ function MatchCardItem({ match, currentUser, isManagerMode, onDelete, handleActi
   // Use host_user_id
   const ownerId = match.host_user_id;
   const isMyMatch = currentUser && ownerId === currentUser.id;
-  const [startX, setStartX] = useState(0);
-  const [translateX, setTranslateX] = useState(0);
-  const [isSwiped, setIsSwiped] = useState(false);
 
   // Parsing attributes
   let attrs: any = {};
@@ -85,7 +82,6 @@ function MatchCardItem({ match, currentUser, isManagerMode, onDelete, handleActi
   let locString = match.match_location || '장소 미정';
 
   // [Modified Logic] Prioritize Home Team Data (Direct or via Player)
-  // Check direct relation OR nested relation via player
   const realTeam = match.home_team || match.home_player?.team;
 
   if (realTeam) {
@@ -96,7 +92,6 @@ function MatchCardItem({ match, currentUser, isManagerMode, onDelete, handleActi
   }
   // Fallback for Legacy Home / Manual Text
   else if (locString.includes('Home')) {
-    // If it says Home but no data, use static text or keep existing
     if (!locString.includes('🏠')) locString = `🏠 ${locString}`; // Add icon if missing
   }
   else {
@@ -112,81 +107,47 @@ function MatchCardItem({ match, currentUser, isManagerMode, onDelete, handleActi
   const displayName = isTeamMatch ? match.home_team?.team_name : match.home_player?.name;
   const displayImage = isTeamMatch ? match.home_team?.emblem_url : match.home_player?.avatar_url;
 
-  // Touch Handlers
-  const onTouchStart = (e: React.TouchEvent) => {
-    if (!isMyMatch) return;
-    setStartX(e.targetTouches[0].clientX);
-  };
-
-  const onTouchMove = (e: React.TouchEvent) => {
-    if (!isMyMatch) return;
-    const currentX = e.targetTouches[0].clientX;
-    const diff = currentX - startX;
-
-    // If swiping left (diff < 0)
-    if (diff < 0) {
-      // Limit slide to -80px
-      if (diff > -80) setTranslateX(diff);
-      else setTranslateX(-80);
-    } else {
-      // Swiping right (closing)
-      if (isSwiped) {
-        const newX = -80 + diff;
-        if (newX > 0) setTranslateX(0);
-        else setTranslateX(newX);
-      } else {
-        setTranslateX(0);
-      }
-    }
-  };
-
-  const onTouchEnd = () => {
-    if (!isMyMatch) return;
-    if (translateX < -50) {
-      setTranslateX(-80);
-      setIsSwiped(true);
-    } else {
-      setTranslateX(0);
-      setIsSwiped(false);
-    }
-  };
-
   return (
     <div style={{ position: 'relative', overflow: 'hidden', borderRadius: '16px', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
-      {/* Bottom Layer (Delete Button) */}
-      <div style={{
-        position: 'absolute', top: 0, bottom: 0, right: 0, width: '100%',
-        background: '#F43F5E', display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
-        paddingRight: '26px', borderRadius: '16px',
-      }}>
-        <button onClick={() => onDelete(match.id)} style={{ fontSize: '1.5rem', background: 'transparent', border: 'none', color: 'white' }}>
-          🗑️
-        </button>
-      </div>
-
-      {/* Top Layer (Card Content) */}
+      {/* Card Content */}
       <div
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
         style={{
           background: isMyMatch ? '#F8FAFC' : 'white',
           padding: '1.25rem',
           borderRadius: '16px',
           border: isMyMatch ? '1px solid #BFDBFE' : '1px solid #E5E7EB',
           position: 'relative',
-          transform: `translateX(${translateX}px)`,
-          transition: 'transform 0.3s ease-out',
-          zIndex: 10,
           display: 'flex', flexDirection: 'column', gap: '8px'
         }}
       >
         {isMyMatch && (
           <div style={{
             position: 'absolute', top: '12px', right: '12px',
-            background: '#EFF6FF', color: '#2563EB', fontSize: '0.7rem', fontWeight: 'bold',
-            padding: '2px 8px', borderRadius: '6px', border: '1px solid #BFDBFE'
-          }}>내 매치</div>
+            display: 'flex', gap: '8px', zIndex: 20
+          }}>
+            <span style={{
+              background: '#EFF6FF', color: '#2563EB', fontSize: '0.7rem', fontWeight: 'bold',
+              padding: '2px 8px', borderRadius: '6px', border: '1px solid #BFDBFE',
+              display: 'flex', alignItems: 'center'
+            }}>
+              내 매치
+            </span>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onDelete(match.id);
+              }}
+              style={{
+                background: 'rgba(255, 255, 255, 0.8)', cursor: 'pointer',
+                border: '1px solid #FECACA', borderRadius: '50%',
+                width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '1rem', color: '#EF4444'
+              }}
+            >
+              🗑️
+            </button>
+          </div>
         )}
 
         {/* Header: Date & Time */}
@@ -293,7 +254,7 @@ function MatchesContent() {
     // Explicitly hint the join column using column name 'home_team_id'
     const { data, error } = await supabase
       .from('matches')
-      .select('*, home_player:players!home_player_id(*, team:teams!players_team_id_fkey(*)), home_team:teams!home_team_id(team_name, emblem_url, location), host_user_id:author_id')
+      .select('*, home_player:players!home_player_id(*, team:teams!players_team_id_fkey(*)), home_team:teams!home_team_id(team_name, emblem_url, location), host_user_id')
       .eq('sport_type', sport) // Filter by sport_type
       .in('status', ['OPEN', 'SCHEDULED']) // Query both OPEN and SCHEDULED
       .order('created_at', { ascending: false });
