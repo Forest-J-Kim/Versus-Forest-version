@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import useSWR, { mutate } from "swr";
 import { useSearchParams } from "next/navigation";
 import { useMode } from "@/components/providers/ModeProvider";
@@ -11,10 +12,16 @@ import { useEffect, useState, Suspense } from "react";
 
 interface Match {
   id: string;
-  sport_type: string | null; // Changed from sport
-  match_date: string | null; // Changed from date
+  sport_type: string | null;
+  match_date: string | null;
   match_location: string | null;
   status: string | null;
+
+  // New Columns (Refactored from attributes)
+  match_weight?: number | null;
+  match_type?: string | null; // e.g. Sparring Intensity
+  rounds?: string | null;
+  gear?: string | null;
 
   // Relations
   home_player_id?: string | null;
@@ -40,8 +47,9 @@ interface Match {
   host_user_id?: string | null;
   author_id?: string | null;
 
-  attributes: string | null; // JSON string
+  attributes: string | null; // Kept for legacy compatibility if needed
   created_at: string;
+  match_applications?: { count: number }[];
 }
 
 // Sub-component for Swipe logic
@@ -57,20 +65,34 @@ function MatchCardItem({ match, currentUser, isManagerMode, onDelete, handleActi
   const ownerId = match.host_user_id;
   const isMyMatch = currentUser && ownerId === currentUser.id;
 
-  // Parsing attributes
-  let attrs: any = {};
-  try {
-    if (match.attributes) {
-      attrs = typeof match.attributes === 'string'
-        ? JSON.parse(match.attributes)
-        : match.attributes;
-    }
-  } catch (e) { }
-
   // 1. Dynamic Specs (Summary Details)
+  // Logic: Prefer new columns. If new columns are empty/null, fallback to attributes for legacy support.
+  let displayData: any = {};
+
+  if (match.match_weight || match.match_type || match.rounds || match.gear) {
+    // Use new columns
+    // Map back to sportConfig keys if needed. 
+    // Assuming sportConfig keys are 'weight', 'type', 'rounds', 'gear'
+    displayData = {
+      weight: match.match_weight,
+      type: match.match_type,
+      rounds: match.rounds,
+      gear: match.gear
+    };
+  } else {
+    // Fallback to legacy attributes
+    try {
+      if (match.attributes) {
+        displayData = typeof match.attributes === 'string'
+          ? JSON.parse(match.attributes)
+          : match.attributes;
+      }
+    } catch (e) { }
+  }
+
   const summaryDetails = sportDef?.fields
-    ?.filter((f: any) => attrs[f.key])
-    .map((f: any) => `${attrs[f.key]}${f.unit || ''}`)
+    ?.filter((f: any) => displayData[f.key])
+    .map((f: any) => `${displayData[f.key]}${f.unit || ''}`)
     .join(' · ');
 
   // 2. Date Logic
@@ -106,6 +128,8 @@ function MatchCardItem({ match, currentUser, isManagerMode, onDelete, handleActi
   const isTeamMatch = !!match.home_team_id;
   const displayName = isTeamMatch ? match.home_team?.team_name : match.home_player?.name;
   const displayImage = isTeamMatch ? match.home_team?.emblem_url : match.home_player?.avatar_url;
+
+  const appCount = match.match_applications?.[0]?.count || 0;
 
   return (
     <div style={{ position: 'relative', overflow: 'hidden', borderRadius: '16px', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
@@ -210,16 +234,19 @@ function MatchCardItem({ match, currentUser, isManagerMode, onDelete, handleActi
             boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
           }}
         >
-          {isManagerMode ? "시합 수락하기 (Accept)" : "신청하기 (Apply)"}
+          {isMyMatch
+            ? `신청자 관리 (${appCount}명 신청 중)`
+            : isManagerMode
+              ? "시합 수락하기 (Accept)"
+              : `신청하기 (${appCount}명 신청 중)`}
         </button>
       </div>
     </div>
   );
 }
 
-// ... (Rest of component unchanged until fetchMatches) ...
-
 function MatchesContent() {
+  const router = useRouter();
   const { isManagerMode } = useMode();
   const { showToast } = useToast();
   const searchParams = useSearchParams();
@@ -228,15 +255,6 @@ function MatchesContent() {
   // Get context from URL or default
   const sport = searchParams.get('sport') || 'BOXING';
   const mode = searchParams.get('mode') || 'SOLO';
-
-  // Helper for sport display
-  // ... (Keep existing getSportName) ... (I need to keep the context lines in view or copy them if replacing block)
-
-  // (Assuming context is sufficient or I replace fetchMatches block mainly)
-  // I will assume I need to replace the whole MatchCardItem + Interfaces + Fetcher section.
-  // BUT the replacement range is huge. I should be careful.
-
-  /* I will include MatchesContent skeleton to target correctly */
 
   const getSportName = (s: string) => {
     if (s === 'BOXING') return '복싱';
@@ -251,10 +269,9 @@ function MatchesContent() {
   // Fetcher
   const fetchMatches = async () => {
     // New Logic: Use sport_type, status='SCHEDULED', join players/teams
-    // Explicitly hint the join column using column name 'home_team_id'
     const { data, error } = await supabase
       .from('matches')
-      .select('*, home_player:players!home_player_id(*, team:teams!players_team_id_fkey(*)), home_team:teams!home_team_id(team_name, emblem_url, location), host_user_id')
+      .select('*, home_player:players!home_player_id(*, team:teams!players_team_id_fkey(*)), home_team:teams!home_team_id(team_name, emblem_url, location), host_user_id, match_applications(count)')
       .eq('sport_type', sport) // Filter by sport_type
       .in('status', ['OPEN', 'SCHEDULED']) // Query both OPEN and SCHEDULED
       .order('created_at', { ascending: false });
@@ -296,7 +313,7 @@ function MatchesContent() {
       showToast("매칭이 수락되었습니다! (채팅방 생성)", "success");
       // Here we would actually call an API to update status
     } else {
-      showToast("신청이 완료되었습니다! (선수에게 알림)", "success");
+      router.push(`/matches/${matchId}/apply`);
     }
   };
 
@@ -304,7 +321,6 @@ function MatchesContent() {
     if (!confirm("정말 이 매칭을 삭제하시겠습니까?")) return;
 
     // 1. Optimistic Update (Immediate Feedback)
-    // Filter out the deleted item from local cache without revalidating yet
     await mutate(
       ['matches', sport, mode],
       (currentMatches: Match[] | undefined) => {
@@ -322,7 +338,6 @@ function MatchesContent() {
       mutate(['matches', sport, mode]);
     } else {
       showToast("매칭이 삭제되었습니다.", "success");
-      // Trigger actual revalidation to ensure sync
       mutate(['matches', sport, mode]);
     }
   };

@@ -307,18 +307,23 @@ function MatchRegisterForm() {
             }
 
             const matchData = {
-                // strict mapping as requested
                 home_player_id: homePlayerId,
                 home_team_id: homeTeamId,
                 match_date: finalTargetDate.toISOString(),
                 match_location: locString,
                 sport_type: sportId,
                 status: 'SCHEDULED', // Uppercase
-
-                // Legacy / Other fields
-                host_user_id: currentUser.id, // Keeping this for reference/auth
+                host_user_id: currentUser.id,
                 type: 'MATCH',
-                attributes: JSON.stringify(formData)
+
+                // [UPDATE] Refactored from attributes JSON to individual columns
+                match_weight: Number(formData.weight),
+                match_type: formData.type, // Sparring Intensity
+                rounds: formData.rounds,
+                gear: formData.gear,
+
+                // Legacy fields preservation (optional, if DB requires it, but instructed to remove attributes usage)
+                // attributes: JSON.stringify(formData) // REMOVED
             };
 
             console.log("📦 Sending Payload:", matchData);
