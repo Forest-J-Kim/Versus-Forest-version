@@ -110,7 +110,7 @@ export default function MessageListPage() {
                         .maybeSingle();
 
                     if (player) {
-                        partnerName = player.name || player.player_nickname;
+                        partnerName = player.name || player.player_nickname || "알 수 없음";
                         partnerAvatar = player.avatar_url;
                     }
                 }
@@ -118,13 +118,13 @@ export default function MessageListPage() {
                 // Fallback (if player fetch failed or ID missing)
                 if (partnerName === "알 수 없음") {
                     const { data: profile } = await supabase
-                        .from('profiles')
+                        .from('profiles' as any)
                         .select('username, avatar_url')
                         .eq('user_id', partnerUserId)
                         .single();
                     if (profile) {
-                        partnerName = profile.username;
-                        partnerAvatar = profile.avatar_url;
+                        partnerName = (profile as any).username || "알 수 없음";
+                        partnerAvatar = (profile as any).avatar_url;
                     }
                 }
 
