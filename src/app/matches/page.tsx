@@ -252,7 +252,7 @@ function MatchesContent() {
       .from('matches')
       .select('*, home_player:players!home_player_id(*, team:teams!players_team_id_fkey(*)), home_team:teams!home_team_id(team_name, emblem_url, location), host_user_id, match_applications(count)')
       .eq('sport_type', sport) // Filter by sport_type
-      .in('status', ['OPEN', 'SCHEDULED']) // Query both OPEN and SCHEDULED
+      .neq('status', 'DELETED') // 삭제된 것(DELETED)만 아니면 모두 조회
       .order('created_at', { ascending: false });
 
     if (error) {

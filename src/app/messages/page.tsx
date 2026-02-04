@@ -58,8 +58,15 @@ export default function MessageListPage() {
                 return;
             }
 
+            // Filter out rooms where I have left
+            const activeRooms = rooms.filter((room: any) => {
+                if (room.host_id === user.id) return !room.host_out;
+                if (room.applicant_user_id === user.id) return !room.applicant_out;
+                return true;
+            });
+
             // 2. Process Data to enrich with Partner Profile
-            const enrichedRooms = await Promise.all(rooms.map(async (room) => {
+            const enrichedRooms = await Promise.all(activeRooms.map(async (room) => {
                 const isHost = room.host_id === user.id;
 
                 // Determine Partner's SPECIFIC Player ID
@@ -103,7 +110,7 @@ export default function MessageListPage() {
                         .maybeSingle();
 
                     if (player) {
-                        partnerName = player.player_nickname || player.name;
+                        partnerName = player.name || player.player_nickname;
                         partnerAvatar = player.avatar_url;
                     }
                 }
