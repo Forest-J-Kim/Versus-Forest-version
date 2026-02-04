@@ -1,21 +1,23 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, use } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
+import { Database } from "@/types/supabase";
 
-export default function ChatRoomPage({ params }: { params: { chat_room_id: string } }) {
+export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_id: string }> }) {
     const router = useRouter();
-    const supabase = createClient();
-    const chatRoomId = params.chat_room_id;
+    const supabase = createClient<Database>();
+    const unwrappedParams = use(params);
+    const chatRoomId = unwrappedParams.chat_room_id;
 
     const [loading, setLoading] = useState(true);
-    const [messages, setMessages] = useState<any[]>([]);
+    const [messages, setMessages] = useState<any[]>([]); // Keep as any[] for now for mixed profile data, or define stricter type if possible
     const [inputMessage, setInputMessage] = useState("");
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
     // Meta Data
-    const [chatRoom, setChatRoom] = useState<any>(null);
+    const [chatRoom, setChatRoom] = useState<any>(null); // Type this properly if needed, but 'any' is safe for now
     const [matchInfo, setMatchInfo] = useState<any>(null);
 
     // Players Logic
@@ -33,7 +35,7 @@ export default function ChatRoomPage({ params }: { params: { chat_room_id: strin
         scrollToBottom();
     }, [messages]);
 
-    // 1. Init Data
+    // 1. Init Data (수정된 버전: 분리 조회 방식)
     useEffect(() => {
         const init = async () => {
             const { data: { user } } = await supabase.auth.getUser();
@@ -43,82 +45,79 @@ export default function ChatRoomPage({ params }: { params: { chat_room_id: strin
             }
             setCurrentUserId(user.id);
 
-            // Fetch Chat Room with related match and match_applications info
-            // Joining match_applications to find the applicant information
-            const { data: room, error: roomError } = await supabase
+            // [Step 1] 채팅방 기본 정보만 먼저 조회 (Join 없이 안전하게)
+            const { data: roomBasic, error: roomError } = await supabase
                 .from('chat_rooms')
-                .select(`
-                    *,
-                    match:matches!match_id (
-                        id,
-                        match_date,
-                        match_location,
-                        sport_type,
-                        home_player_id,
-                        target_date,
-                        target_time,
-                        home_player:players!home_player_id (
-                            player_nickname,
-                            avatar_url,
-                            record,
-                            position
-                        ),
-                        match_applications (
-                             applicant_user_id,
-                             applicant_player_id,
-                             applicant_player:players!applicant_player_id (
-                                player_nickname,
-                                avatar_url,
-                                record,
-                                position
-                             )
-                        )
-                    )
-                `)
+                .select('*')
                 .eq('id', chatRoomId)
                 .single();
 
-            if (roomError || !room) {
+            // 채팅방 자체가 없으면 에러 (이건 진짜 없는 방)
+            if (roomError || !roomBasic) {
                 console.error("Chat Room Fetch Error:", roomError);
                 alert("채팅방을 찾을 수 없습니다.");
                 router.back();
                 return;
             }
+
+            // [Step 2] 매치 정보 및 관련 데이터 별도 조회
+            // (status가 DELETED여도 가져오도록 maybeSingle 사용 및 Join 단순화)
+            const { data: matchData } = await supabase
+                .from('matches')
+                .select(`
+                    id, match_date, match_location, sport_type, status,
+                    home_player_id,
+                    home_player:players!home_player_id (
+                        player_nickname, avatar_url, record, position
+                    ),
+                    match_applications (
+                        applicant_user_id, applicant_player_id,
+                        applicant_player:players!applicant_player_id (
+                            player_nickname, avatar_url, record, position
+                        )
+                    )
+                `)
+                .eq('id', roomBasic.match_id)
+                .maybeSingle(); // match가 없거나 권한 문제로 안 보여도 에러 안 냄 (null 반환)
+
+            // [Step 3] 데이터 병합 (UI가 기존 코드를 그대로 쓸 수 있게 구조 맞춤)
+            const room = { ...roomBasic, match: matchData };
+
             setChatRoom(room);
-            setMatchInfo(room.match);
+            setMatchInfo(matchData);
 
             // Identify Host Player Profile
-            if (room.match?.home_player) {
-                setHostPlayer(room.match.home_player);
+            if (matchData?.home_player) {
+                setHostPlayer(matchData.home_player);
             }
 
             // Identify Applicant Player Profile
-            const apps = room.match?.match_applications || [];
+            const apps = matchData?.match_applications || [];
+            // @ts-ignore
             const myApp = apps.find((a: any) => a.applicant_user_id === room.applicant_user_id);
+
             if (myApp?.applicant_player) {
                 setApplicantPlayer(myApp.applicant_player);
             } else {
-                // Fallback if joined fetch failed or strict relation issues, try manual fetch
+                // Fallback: 신청자 정보가 조인으로 안 왔을 때 수동 조회
                 const { data: appData } = await supabase
                     .from('match_applications')
                     .select(`
-                            applicant_player:players!applicant_player_id (
-                                player_nickname,
-                                avatar_url,
-                                record,
-                                position
-                            )
-                        `)
+                        applicant_player:players!applicant_player_id (
+                            player_nickname, avatar_url, record, position
+                        )
+                    `)
                     .eq('match_id', room.match_id)
                     .eq('applicant_user_id', room.applicant_user_id)
                     .maybeSingle();
+
                 if (appData?.applicant_player) {
                     setApplicantPlayer(appData.applicant_player);
                 }
             }
 
             // Fetch Messages
-            const { data: msgs, error: msgError } = await supabase
+            const { data: msgs } = await supabase
                 .from('messages')
                 .select('*')
                 .eq('chat_room_id', chatRoomId)
@@ -131,7 +130,6 @@ export default function ChatRoomPage({ params }: { params: { chat_room_id: strin
 
         init();
     }, [chatRoomId, router, supabase]);
-
     // 2. Realtime Subscription
     useEffect(() => {
         const channel = supabase
@@ -202,8 +200,18 @@ export default function ChatRoomPage({ params }: { params: { chat_room_id: strin
                 padding: '0',
                 borderBottom: '1px solid #E5E7EB',
                 position: 'sticky', top: 0, zIndex: 10,
-                boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+                boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+                opacity: matchInfo?.status === 'DELETED' ? 0.6 : 1, // [Soft Delete] Dim header
             }}>
+                {/* [Soft Delete] Warning Banner */}
+                {matchInfo?.status === 'DELETED' && (
+                    <div style={{
+                        background: '#EF4444', color: 'white', fontSize: '0.8rem', fontWeight: 'bold',
+                        textAlign: 'center', padding: '4px'
+                    }}>
+                        🔴 삭제된 매치 (Deleted)
+                    </div>
+                )}
                 {/* Top Row: Match Details */}
                 <div style={{
                     padding: '8px 16px', borderBottom: '1px solid #F3F4F6',
@@ -216,9 +224,9 @@ export default function ChatRoomPage({ params }: { params: { chat_room_id: strin
                     >
                         ←
                     </button>
-                    <span>🗓️ {matchInfo?.target_date || "날짜 미정"}</span>
+                    <span>🗓️ {matchInfo?.match_date ? new Date(matchInfo.match_date).toLocaleDateString('ko-KR', { year: 'numeric', month: 'numeric', day: 'numeric' }) : "날짜 미정"}</span>
                     <span>|</span>
-                    <span>🕒 {matchInfo?.target_time || "시간 미정"}</span>
+                    <span>🕒 {matchInfo?.match_date ? new Date(matchInfo.match_date).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false }) : "시간 미정"}</span>
                     <span>|</span>
                     <span>📍 {matchInfo?.match_location || "장소 미정"}</span>
                 </div>
@@ -238,6 +246,7 @@ export default function ChatRoomPage({ params }: { params: { chat_room_id: strin
                             )}
                         </div>
                         <span style={{ fontWeight: 'bold', fontSize: '0.9rem', color: '#111827' }}>{hostPlayer?.player_nickname || "호스트"}</span>
+
                         <span style={{ fontSize: '0.75rem', color: '#6B7280' }}>
                             {hostPlayer?.record || "-전 -승"} / {hostPlayer?.position || "-"}
                         </span>
@@ -264,6 +273,7 @@ export default function ChatRoomPage({ params }: { params: { chat_room_id: strin
                             )}
                         </div>
                         <span style={{ fontWeight: 'bold', fontSize: '0.9rem', color: '#111827' }}>{applicantPlayer?.player_nickname || "신청자"}</span>
+
                         <span style={{ fontSize: '0.75rem', color: '#6B7280' }}>
                             {applicantPlayer?.record || "-전 -승"} / {applicantPlayer?.position || "-"}
                         </span>
@@ -279,62 +289,76 @@ export default function ChatRoomPage({ params }: { params: { chat_room_id: strin
                     const profileData = !isMyMessage ? getMessageProfile(msg.sender_id) : null;
 
                     return (
-                        <div
-                            key={msg.id || idx}
-                            style={{
-                                display: 'flex',
-                                flexDirection: isMyMessage ? 'row-reverse' : 'row',
-                                alignItems: 'flex-start',
-                                gap: '8px'
-                            }}
-                        >
-                            {/* Profile Image for Other User */}
-                            {!isMyMessage && (
-                                <div style={{ width: '40px', flexShrink: 0 }}>
-                                    {showProfile && (
-                                        <div style={{
-                                            width: '40px', height: '40px', borderRadius: '50%',
-                                            background: '#E5E7EB', overflow: 'hidden',
-                                            border: '1px solid #D1D5DB'
-                                        }}>
-                                            {profileData?.avatar ? (
-                                                <img src={profileData.avatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                            ) : (
-                                                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>👤</div>
+
+                        <div key={msg.id || idx}>
+                            {/* System Message Handler */}
+                            {msg.content === "system:::match_deleted" ? (
+                                <div style={{ width: '100%', margin: '20px 0', textAlign: 'center' }}>
+                                    <div style={{ fontSize: '0.8rem', color: '#EF4444', fontWeight: 'bold' }}>
+                                        ---------------------- 호스트가 매치를 삭제했습니다 ------------------------
+                                    </div>
+                                    <div style={{ fontSize: '0.7rem', color: '#9CA3AF', marginTop: '4px' }}>
+                                        {new Date(msg.created_at).toLocaleString()}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div
+                                    style={{
+                                        display: 'flex',
+                                        flexDirection: isMyMessage ? 'row-reverse' : 'row',
+                                        alignItems: 'flex-start',
+                                        gap: '8px'
+                                    }}
+                                >
+                                    {/* Profile Image for Other User */}
+                                    {!isMyMessage && (
+                                        <div style={{ width: '40px', flexShrink: 0 }}>
+                                            {showProfile && (
+                                                <div style={{
+                                                    width: '40px', height: '40px', borderRadius: '50%',
+                                                    background: '#E5E7EB', overflow: 'hidden',
+                                                    border: '1px solid #D1D5DB'
+                                                }}>
+                                                    {profileData?.avatar ? (
+                                                        <img src={profileData.avatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    ) : (
+                                                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>👤</div>
+                                                    )}
+                                                </div>
                                             )}
                                         </div>
                                     )}
+
+                                    {/* Message Bubble */}
+                                    <div style={{ maxWidth: '70%' }}>
+                                        {(!isMyMessage && showProfile) && (
+                                            <div style={{ fontSize: '0.8rem', color: '#4B5563', marginBottom: '4px', marginLeft: '4px' }}>
+                                                {profileData?.name}
+                                            </div>
+                                        )}
+                                        <div style={{
+                                            padding: '10px 14px',
+                                            borderRadius: '16px',
+                                            borderTopRightRadius: isMyMessage ? '2px' : '16px',
+                                            borderTopLeftRadius: !isMyMessage ? '2px' : '16px',
+                                            background: isMyMessage ? '#3B82F6' : 'white',
+                                            color: isMyMessage ? 'white' : '#111827',
+                                            fontSize: '0.95rem',
+                                            lineHeight: '1.4',
+                                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                                            wordBreak: 'break-word'
+                                        }}>
+                                            {msg.content}
+                                        </div>
+                                        <div style={{
+                                            fontSize: '0.7rem', color: '#9CA3AF', marginTop: '2px',
+                                            textAlign: isMyMessage ? 'right' : 'left', marginRight: '4px', marginLeft: '4px'
+                                        }}>
+                                            {msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'now'}
+                                        </div>
+                                    </div>
                                 </div>
                             )}
-
-                            {/* Message Bubble */}
-                            <div style={{ maxWidth: '70%' }}>
-                                {(!isMyMessage && showProfile) && (
-                                    <div style={{ fontSize: '0.8rem', color: '#4B5563', marginBottom: '4px', marginLeft: '4px' }}>
-                                        {profileData?.name}
-                                    </div>
-                                )}
-                                <div style={{
-                                    padding: '10px 14px',
-                                    borderRadius: '16px',
-                                    borderTopRightRadius: isMyMessage ? '2px' : '16px',
-                                    borderTopLeftRadius: !isMyMessage ? '2px' : '16px',
-                                    background: isMyMessage ? '#3B82F6' : 'white',
-                                    color: isMyMessage ? 'white' : '#111827',
-                                    fontSize: '0.95rem',
-                                    lineHeight: '1.4',
-                                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                                    wordBreak: 'break-word'
-                                }}>
-                                    {msg.content}
-                                </div>
-                                <div style={{
-                                    fontSize: '0.7rem', color: '#9CA3AF', marginTop: '2px',
-                                    textAlign: isMyMessage ? 'right' : 'left', marginRight: '4px', marginLeft: '4px'
-                                }}>
-                                    {msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'now'}
-                                </div>
-                            </div>
                         </div>
                     );
                 })}

@@ -32,13 +32,56 @@ function MatchRegisterForm() {
     // --- User State ---
     const [user, setUser] = useState<any>(null);
 
-    // --- Location State ---
     const [locationType, setLocationType] = useState<"HOME" | "AWAY" | "TBD">("HOME");
+    const [matchLocation, setMatchLocation] = useState<string>("장소 미정");
 
     const [ownedTeams, setOwnedTeams] = useState<any[]>([]);
     const [candidates, setCandidates] = useState<any[]>([]);
     const [selectedPlayerId, setSelectedPlayerId] = useState<string>("");
     const [isLoading, setIsLoading] = useState(true);
+
+    // --- Location Logic Effect ---
+    useEffect(() => {
+        const updateLocation = async () => {
+            if (locationType === 'HOME') {
+                if (!selectedPlayerId) {
+                    setMatchLocation("🏠 선수 선택 필요 (Home)");
+                    return;
+                }
+
+                try {
+                    // [Refactor] Always fetch from DB to ensure accuracy, skipping memory cache
+                    const { data: teamData } = await (supabase
+                        .from('team_members' as any) as any)
+                        .select(`
+                            team:teams ( team_name, location ) 
+                        `)
+                        .eq('player_id', selectedPlayerId)
+                        .maybeSingle();
+
+                    if (teamData?.team?.location) {
+                        const tName = teamData.team.team_name;
+                        const tLoc = teamData.team.location;
+                        // Format: "Seoul Mapo-gu" -> "Seoul Mapo-gu" (shortened)
+                        const shortLoc = tLoc.split(" ").slice(0, 2).join(" ");
+                        setMatchLocation(`🏠 ${tName} (${shortLoc})`);
+                    } else {
+                        setMatchLocation("🏠 소속 팀 정보 없음 (Home)");
+                    }
+
+                } catch (e) {
+                    console.error("Location Fetch Error:", e);
+                    setMatchLocation("🏠 위치 정보 오류 (Home)");
+                }
+            } else if (locationType === 'AWAY') {
+                setMatchLocation("상대 체육관 (Away)"); // Simplified for Away
+            } else {
+                setMatchLocation("장소 협의");
+            }
+        };
+
+        updateLocation();
+    }, [locationType, selectedPlayerId, candidates]); // Re-run when these change
 
     useEffect(() => {
         const fetchCandidates = async () => {
@@ -138,7 +181,6 @@ function MatchRegisterForm() {
         fetchCandidates();
     }, []);
 
-
     // Effect to auto-fill weight/position when player changes
     useEffect(() => {
         if (!selectedPlayerId) return;
@@ -168,10 +210,6 @@ function MatchRegisterForm() {
             }
         }
     }, [selectedPlayerId, candidates, user]);
-
-
-
-
 
     // Hardcoded ID per request
     const TEMP_USER_ID = 'user-1234';
@@ -277,15 +315,8 @@ function MatchRegisterForm() {
         try {
             setIsSubmitting(true);
 
-            let locString = "장소 미정";
-            if (locationType === "HOME") {
-                // Use selected player's team gym name if available
-                const player = candidates.find(m => m.id === selectedPlayerId);
-                const teamName = player?.teamName || "내 체육관";
-                locString = `${teamName} (Home)`;
-            }
-            if (locationType === "AWAY") locString = "상대 체육관 희망 (Away)";
-            if (locationType === "TBD") locString = "장소 협의";
+            // Use the reactive state 'matchLocation' directly
+            const locString = matchLocation;
 
             let homePlayerId: string | null = null;
             let homeTeamId: string | null = null;
@@ -298,11 +329,11 @@ function MatchRegisterForm() {
             } else {
                 homePlayerId = selectedPlayerId;
 
-                // [FIX] Explicitly save Team ID for Home matches if available
+                // [SNAP] Logic: Hard-copy Team Location for stability
                 if (locationType === 'HOME') {
-                    const player = candidates.find(m => m.id === selectedPlayerId);
-                    // Check nested team object first, then direct foreign key
-                    homeTeamId = player?.team?.id || player?.team_id || null;
+                    // Just set homeTeamId based on selection, location string is already handled by Effect
+                    const playerCandidate = candidates.find(m => m.id === selectedPlayerId);
+                    homeTeamId = playerCandidate?.team?.id || playerCandidate?.team_id || null;
                 }
             }
 
@@ -517,24 +548,7 @@ function MatchRegisterForm() {
                         </div>
                         <div style={{ fontSize: '0.9rem', color: '#374151', marginTop: '4px' }}>
                             <div style={{ fontSize: '0.9rem', color: '#374151', marginTop: '4px' }}>
-                                {(() => {
-                                    if (locationType === 'HOME') {
-                                        const player = candidates.find(m => m.id === selectedPlayerId);
-                                        const teamName = player?.team?.team_name || player?.teamName || '내 체육관';
-
-                                        // Shorten location: '서울특별시 성동구 ...' -> '서울 성동구'
-                                        let location = player?.team?.location || '';
-                                        if (location) {
-                                            const parts = location.split(' ');
-                                            if (parts.length >= 2) location = `${parts[0].substring(0, 2)} ${parts[1]}`;
-                                        }
-                                        const locDisplay = location ? `(${location})` : '(Home)';
-
-                                        return `🏠 ${teamName} ${locDisplay}`;
-                                    }
-                                    if (locationType === 'AWAY') return '✈️ 원정 (Away)';
-                                    return '🤝 장소 협의';
-                                })()}
+                                {matchLocation}
                             </div>                        </div>
                     </div>
                 </div>

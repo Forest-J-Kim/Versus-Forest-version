@@ -101,28 +101,7 @@ function MatchCardItem({ match, currentUser, isManagerMode, onDelete, handleActi
   const timeStr = targetDate.getHours() > 0 ? `${targetDate.getHours()}:00` : '시간 미정';
 
   // 3. Location Logic
-  let locString = match.match_location || '장소 미정';
-
-  // [Modified Logic] Prioritize Home Team Data (Direct or via Player)
-  const realTeam = match.home_team || match.home_player?.team;
-
-  if (realTeam) {
-    const region = realTeam.location || "";
-    // Shorten: "서울 성동구"
-    const shortRegion = region.split(" ").slice(0, 2).join(" ");
-    locString = `🏠 ${realTeam.team_name} (${shortRegion})`;
-  }
-  // Fallback for Legacy Home / Manual Text
-  else if (locString.includes('Home')) {
-    if (!locString.includes('🏠')) locString = `🏠 ${locString}`; // Add icon if missing
-  }
-  else {
-    // Other cases (Away, TvD) - just add icons
-    if (!locString.includes('🏠') && !locString.includes('✈️') && !locString.includes('🤝')) {
-      if (locString.includes('Away')) locString = `✈️ ${locString}`;
-      else if (locString.includes('협의') || locString.includes('TBD')) locString = `🤝 ${locString}`;
-    }
-  }
+  const locString = match.match_location || '장소 미정';
 
   // 4. Display Logic (Team vs Player)
   const isTeamMatch = !!match.home_team_id;
@@ -329,14 +308,38 @@ function MatchesContent() {
       false
     );
 
-    // 2. Execute Delete
-    const { error } = await supabase.from('matches').delete().eq('id', matchId);
+    // 2. Execute Delete (Soft Delete)
+    const { error } = await supabase
+      .from('matches')
+      .update({ status: 'DELETED' }) // Soft delete
+      .eq('id', matchId);
 
     if (error) {
       alert("삭제 실패: " + error.message);
       // Revert / Revalidate on error
       mutate(['matches', sport, mode]);
     } else {
+      // [System Message] Notify chat rooms about deletion
+      // Find chat rooms associated with this match
+      const { data: chatRooms } = await supabase
+        .from('chat_rooms')
+        .select('id')
+        .eq('match_id', matchId);
+
+      if (chatRooms && chatRooms.length > 0) {
+        // Insert system message for each room
+        // We need current user ID (available in 'currentUser')
+        const myId = currentUser?.id;
+        if (myId) {
+          const systemMessages = chatRooms.map(room => ({
+            chat_room_id: room.id,
+            sender_id: myId,
+            content: "system:::match_deleted"
+          }));
+          await supabase.from('messages').insert(systemMessages);
+        }
+      }
+
       showToast("매칭이 삭제되었습니다.", "success");
       mutate(['matches', sport, mode]);
     }

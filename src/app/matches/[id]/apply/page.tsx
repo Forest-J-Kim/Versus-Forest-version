@@ -313,15 +313,12 @@ export default function ApplyMatchPage({ params }: { params: { id: string } }) {
                             <span style={{ width: '24px', marginRight: '8px', textAlign: 'center' }}>📅</span>
                             <span style={{ fontWeight: 500 }}>{new Date(match.match_date).toLocaleDateString()}</span>
                             <span style={{ margin: '0 8px', color: '#D1D5DB' }}>|</span>
-                            <span>{new Date(match.match_date).getHours()}:00</span>
+                            <span>{new Date(match.match_date).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })}</span>
                         </div>
                         <div style={{ display: 'flex', color: '#374151', fontSize: '0.9rem', alignItems: 'flex-start' }}>
                             <span style={{ width: '24px', marginRight: '8px', textAlign: 'center', marginTop: '1px' }}>📍</span>
                             <span style={{ lineHeight: '1.4' }}>
-                                {match.match_location?.includes('Home')
-                                    ? (match.home_player?.team_members?.[0]?.team?.location || "체육관 주소 미등록")
-                                    : (match.match_location || "장소 미정")
-                                }
+                                {match.match_location || "장소 미정"}
                             </span>
                         </div>
                     </div>
