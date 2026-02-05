@@ -28,7 +28,6 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
     const [applicants, setApplicants] = useState<any[]>([]);
 
     const [isHost, setIsHost] = useState(false);
-    const [isCaptain, setIsCaptain] = useState(false);
     const [applicantCount, setApplicantCount] = useState(0);
 
 
@@ -98,7 +97,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
             const isOwner = user.id === matchData.host_user_id;
             setIsHost(isOwner);
 
-            // Always Fetch Applicants (For both Host and Guest)
+            // Always Fetch Applicants (For Host Management AND Guest Duplicate Check)
             const { data: apps, error } = await supabase
                 .from('match_applications')
                 .select(`
@@ -149,7 +148,6 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                         .limit(1)
                         .maybeSingle();
                     myTeamId = leaderMember?.team_id;
-                    setIsCaptain(!!myTeamId);
                 }
 
                 let finalCandidates: any[] = [];
@@ -593,6 +591,8 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
     const pendingApps = applicants.filter(a => a.status === 'PENDING');
     const processedApps = applicants.filter(a => a.status !== 'PENDING');
 
+    const hasAppliedHistory = candidates.some(c => applicants.some(a => a.applicant_player_id === c.id && a.status !== 'REJECTED'));
+
     return (
         <div style={{ background: 'var(--background)', minHeight: '100vh', paddingBottom: '140px' }}>
             {/* ... (Original Render for Pending/Apply) ... */}
@@ -615,7 +615,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                     ←
                 </button>
                 <h1 style={{ fontSize: '1.125rem', fontWeight: 'bold', color: '#111827' }}>
-                    매치 상세 정보
+                    {isHost ? "매칭 관리" : (hasAppliedHistory ? "매칭 추가 신청하기" : "매칭 신청하기")}
                 </h1>
             </header>
 
@@ -732,89 +732,189 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                 </section>
 
                 {/* Application Form - Hide if Host */}
-                {/* Application Form Placeholder - Link to Apply Page */}
+                {!isHost && (
+                    <section style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '0.95rem', fontWeight: 'bold', color: '#111827', marginBottom: '8px' }}>
+                                출전 선수 선택
+                            </label>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '360px', overflowY: 'auto', paddingRight: '4px' }}>
+                                {candidates.map(p => {
+                                    const isSelected = selectedPlayerIds.includes(p.id);
+                                    // Check if already applied
+                                    const alreadyApplied = applicants.some(a => a.applicant_player_id === p.id && a.status !== 'REJECTED');
+                                    // Check if this player is the match host (Home Player)
+                                    const isHomePlayer = p.id === match.home_player_id;
 
+                                    const isDisabled = alreadyApplied || isHomePlayer;
 
-                {/* Applicants List - Always Visible */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-                    {/* Pending Applications Section */}
-                    <section>
-                        <h2 style={{ fontSize: '1rem', fontWeight: 'bold', color: '#111827', marginBottom: '16px', display: 'flex', justifyContent: 'space-between' }}>
-                            대기 중인 신청
-                            <span style={{ color: 'var(--primary)' }}>{pendingApps.length}건</span>
-                        </h2>
+                                    return (
+                                        <div
+                                            key={p.id}
+                                            onClick={() => {
+                                                if (isDisabled) return;
+                                                setSelectedPlayerIds(prev =>
+                                                    prev.includes(p.id) ? prev.filter(id => id !== p.id) : [...prev, p.id]
+                                                );
+                                                // Optional: Set weight from first selection if empty? 
+                                                if (!weight && p.weight_class) setWeight(String(p.weight_class));
+                                            }}
+                                            style={{
+                                                display: 'flex', alignItems: 'center', gap: '12px',
+                                                padding: '10px', borderRadius: '10px',
+                                                border: isSelected ? '2px solid #2563EB' : '1px solid #E5E7EB',
+                                                background: isSelected ? '#EFF6FF' : (isDisabled ? '#F9FAFB' : 'white'),
+                                                opacity: isDisabled ? 0.6 : 1,
+                                                cursor: isDisabled ? 'not-allowed' : 'pointer',
+                                                transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            {/* Checkbox UI */}
+                                            <div style={{
+                                                width: '24px', height: '24px', borderRadius: '6px',
+                                                border: (isSelected || isDisabled) ? 'none' : '2px solid #D1D5DB',
+                                                background: (isSelected || isDisabled) ? (isDisabled ? '#9CA3AF' : '#2563EB') : 'white',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                color: 'white', fontSize: '0.8rem', fontWeight: 'bold',
+                                                flexShrink: 0
+                                            }}>
+                                                {(isSelected || isDisabled) ? '✓' : ''}
+                                            </div>
 
-                        {pendingApps.length === 0 ? (
-                            <div style={{ padding: '40px 0', textAlign: 'center', color: '#9CA3AF', background: 'white', borderRadius: '12px' }}>
-                                <div style={{ fontSize: '2rem', marginBottom: '8px' }}>📭</div>
-                                <p>새로운 신청이 없습니다.</p>
+                                            <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#F3F4F6', overflow: 'hidden', flexShrink: 0 }}>
+                                                {p.avatar_url ? <img src={p.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '👤'}
+                                            </div>
+
+                                            <div style={{ flex: 1 }}>
+                                                <div style={{ fontWeight: 'bold', fontSize: '0.95rem', color: '#111827', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    {p.player_nickname || p.name}
+                                                    {isHomePlayer ? (
+                                                        <span style={{ fontSize: '0.7rem', color: '#B91C1C', background: '#FEE2E2', padding: '2px 6px', borderRadius: '4px' }}>(매치 주최자)</span>
+                                                    ) : alreadyApplied ? (
+                                                        <span style={{ fontSize: '0.7rem', color: '#6B7280', background: '#F3F4F6', padding: '2px 6px', borderRadius: '4px' }}>(신청 완료)</span>
+                                                    ) : null}
+                                                </div>
+                                                <div style={{ fontSize: '0.8rem', color: '#6B7280' }}>
+                                                    {p.weight_class ? `${p.weight_class}kg` : '-'} · {p.position || '-'} · {p.record || '전적없음'}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                {candidates.length === 0 && <div style={{ color: '#9CA3AF', fontSize: '0.9rem', textAlign: 'center', padding: '20px' }}>선수 목록이 없습니다.</div>}
                             </div>
-                        ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                {pendingApps.map(app => (
-                                    <ApplicationCard
-                                        key={app.id}
-                                        app={app}
-                                        onChat={() => handleStartChat(app.applicant_user_id)}
-                                        onAccept={() => handleUpdateStatus(app.id, 'ACCEPTED')}
-                                        onReject={() => handleUpdateStatus(app.id, 'REJECTED')}
-                                        isPending={true}
-                                        isHost={isHost}
-                                    />
-                                ))}
-                            </div>
-                        )}
+                        </div>
+
+                        <div>
+                            <label style={{ display: 'block', fontSize: '0.95rem', fontWeight: 'bold', color: '#111827', marginBottom: '8px' }}>
+                                신청 체급 / 체중
+                            </label>
+                            <input
+                                type="text"
+                                style={{
+                                    width: '100%', backgroundColor: 'white',
+                                    border: '1px solid #E5E7EB', borderRadius: '12px',
+                                    padding: '14px 16px', fontSize: '1rem', color: '#111827',
+                                    outline: 'none'
+                                }}
+                                placeholder="예: -70kg 또는 68kg"
+                                value={weight}
+                                onChange={(e) => setWeight(e.target.value)}
+                            />
+                        </div>
+
+                        <div>
+                            <label style={{ display: 'block', fontSize: '0.95rem', fontWeight: 'bold', color: '#111827', marginBottom: '8px' }}>
+                                한마디 (Message)
+                            </label>
+                            <textarea
+                                style={{
+                                    width: '100%', backgroundColor: 'white',
+                                    border: '1px solid #E5E7EB', borderRadius: '12px',
+                                    padding: '14px 16px', fontSize: '1rem', color: '#111827',
+                                    outline: 'none', resize: 'none', minHeight: '120px'
+                                }}
+                                placeholder="상대방에게 간단한 인사나 매칭 조건을 남겨주세요."
+                                value={message}
+                                onChange={(e) => setMessage(e.target.value)}
+                            />
+                        </div>
                     </section>
+                )}
 
-                    {/* Processed (Rejected/Accepted) List */}
-                    {processedApps.length > 0 && (
-                        <section>
-                            <h2 style={{ fontSize: '1rem', fontWeight: 'bold', color: '#6B7280', marginBottom: '16px' }}>
-                                처리된 목록
-                            </h2>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', opacity: 0.8 }}>
-                                {processedApps.map(app => (
-                                    <ApplicationCard
-                                        key={app.id}
-                                        app={app}
-                                        isPending={false}
-                                        isHost={isHost}
-                                    />
-                                ))}
-                            </div>
-                        </section>
-                    )}
-                </div>
+                {/* Applicants List */}
+                {(isHost || applicants.length > 0) && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                        {(isHost || pendingApps.length > 0) && (
+                            <section>
+                                <h2 style={{ fontSize: '1rem', fontWeight: 'bold', color: '#111827', marginBottom: '16px', display: 'flex', justifyContent: 'space-between' }}>
+                                    {isHost ? "대기 중인 신청" : "대기 중인 신청"}
+                                    <span style={{ color: 'var(--primary)' }}>{pendingApps.length}건</span>
+                                </h2>
 
-                {/* Application Form Placeholder - Link to Apply Page (Moved to Bottom) */}
-                {!isHost && isCaptain && (
-                    <section style={{
-                        background: 'white', borderRadius: '16px', padding: '24px',
-                        textAlign: 'center', border: '1px solid #E5E7EB', boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                        marginTop: '16px'
-                    }}>
-                        <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#111827', marginBottom: '8px' }}>
-                            매치에 추가 참여신청을 하시고 싶으신가요?
-                        </h3>
-                        <p style={{ color: '#6B7280', marginBottom: '20px', fontSize: '0.85rem' }}>
-                            관장님은 산하 선수의 추가 신청을 할 수 있습니다.
-                        </p>
+                                {pendingApps.length === 0 ? (
+                                    <div style={{ padding: '40px 0', textAlign: 'center', color: '#9CA3AF', background: 'white', borderRadius: '12px' }}>
+                                        <div style={{ fontSize: '2rem', marginBottom: '8px' }}>📭</div>
+                                        <p>새로운 신청이 없습니다.</p>
+                                    </div>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                        {pendingApps.map(app => (
+                                            <ApplicationCard
+                                                key={app.id}
+                                                app={app}
+                                                onChat={() => handleStartChat(app.applicant_user_id)}
+                                                onAccept={() => handleUpdateStatus(app.id, 'ACCEPTED')}
+                                                onReject={() => handleUpdateStatus(app.id, 'REJECTED')}
+                                                isPending={true}
+                                                isHost={isHost}
+                                            />
+                                        ))}
+                                    </div>
+                                )}
+                            </section>
+                        )}
+
+                        {processedApps.length > 0 && (
+                            <section>
+                                <h2 style={{ fontSize: '1rem', fontWeight: 'bold', color: '#6B7280', marginBottom: '16px' }}>
+                                    처리된 목록
+                                </h2>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', opacity: 0.8 }}>
+                                    {processedApps.map(app => (
+                                        <ApplicationCard
+                                            key={app.id}
+                                            app={app}
+                                            isPending={false}
+                                            isHost={isHost}
+                                        />
+                                    ))}
+                                </div>
+                            </section>
+                        )}
+                    </div>
+                )}
+                {/* Static Bottom CTA */}
+                {!isHost && (
+                    <div style={{ marginTop: '32px' }}>
                         <button
-                            onClick={() => router.push(`/matches/${matchId}/apply`)}
+                            onClick={handleSubmit}
+                            disabled={submitting}
                             style={{
-                                background: 'var(--primary)', color: 'white',
-                                padding: '14px 24px', borderRadius: '12px',
-                                fontSize: '1rem', fontWeight: 'bold', border: 'none', cursor: 'pointer',
-                                boxShadow: '0 4px 6px rgba(37, 99, 235, 0.2)'
+                                width: '100%', padding: '16px', borderRadius: '14px',
+                                backgroundColor: submitting ? '#D1D5DB' : 'var(--primary)',
+                                color: 'white', fontSize: '1.1rem', fontWeight: 'bold',
+                                border: 'none', cursor: submitting ? 'not-allowed' : 'pointer',
+                                boxShadow: submitting ? 'none' : '0 4px 12px rgba(37, 99, 235, 0.3)',
+                                transition: 'all 0.2s ease'
                             }}
                         >
-                            매칭 추가 신청하러 가기
+                            {submitting ? "처리 중..." : "신청서 제출하기"}
                         </button>
-                    </section>
+                    </div>
                 )}
             </main>
 
-            {/* Bottom CTA */}
 
         </div>
     );

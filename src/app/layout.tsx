@@ -40,7 +40,7 @@ export default function RootLayout({
           <ToastProvider>
             <MobileContainer>
               <Header />
-              <div style={{ flex: 1, overflowY: 'auto', paddingBottom: '64px' }}>
+              <div style={{ flex: 1, overflowY: 'auto', paddingBottom: '80px' }}>
                 {children}
               </div>
               <BottomNav />

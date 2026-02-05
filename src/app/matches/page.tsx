@@ -63,6 +63,7 @@ function MatchCardItem({ match, currentUser, isManagerMode, onDelete, handleActi
   handleAction: (id: string) => void;
   sportDef: any;
 }) {
+  const router = useRouter();
   // Use host_user_id
   const ownerId = match.host_user_id;
   const isMyMatch = currentUser && ownerId === currentUser.id;
@@ -257,7 +258,7 @@ function MatchCardItem({ match, currentUser, isManagerMode, onDelete, handleActi
                   onClick={() => handleAction(match.id)}
                   style={{
                     width: '100%', padding: '0.75rem', borderRadius: '8px', marginTop: '8px',
-                    background: '#2563EB', color: 'white', fontWeight: 'bold', border: 'none', cursor: 'pointer',
+                    background: '#FEF3C7', color: '#D97706', fontWeight: 'bold', border: 'none', cursor: 'pointer',
                     boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                   }}
                 >
@@ -303,7 +304,7 @@ function MatchCardItem({ match, currentUser, isManagerMode, onDelete, handleActi
           if (myApp?.status === 'PENDING' && !isManagerMode) {
             return (
               <button
-                onClick={() => handleAction(match.id)}
+                onClick={(e) => { e.stopPropagation(); router.push('/matches/' + match.id); }}
                 style={{
                   width: '100%', padding: '0.75rem', borderRadius: '8px', marginTop: '8px',
                   background: '#FEF3C7', color: '#D97706', fontWeight: 'bold', border: 'none', cursor: 'pointer',
@@ -318,7 +319,7 @@ function MatchCardItem({ match, currentUser, isManagerMode, onDelete, handleActi
           // 5. Guest + Pending (Default)
           return (
             <button
-              onClick={() => handleAction(match.id)}
+              onClick={(e) => { e.stopPropagation(); router.push('/matches/' + match.id + '/apply'); }}
               style={{
                 width: '100%', padding: '0.75rem', borderRadius: '8px', marginTop: '8px',
                 background: isManagerMode ? '#1F2937' : '#2563EB', color: 'white', fontWeight: 'bold', border: 'none', cursor: 'pointer',
