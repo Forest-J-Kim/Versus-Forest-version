@@ -22,6 +22,8 @@ interface Match {
   match_type?: string | null; // e.g. Sparring Intensity
   rounds?: string | null;
   gear?: string | null;
+  description?: string | null;
+  tags?: string[] | null;
 
   // Relations
   home_player_id?: string | null;
@@ -49,7 +51,7 @@ interface Match {
 
   attributes: string | null; // Kept for legacy compatibility if needed
   created_at: string;
-  match_applications?: { count: number }[];
+  match_applications?: { count: number; applicant_user_id?: string; applicant_player_id?: string; status?: string }[];
 }
 
 // Sub-component for Swipe logic
@@ -76,7 +78,7 @@ function MatchCardItem({ match, currentUser, isManagerMode, onDelete, handleActi
     displayData = {
       weight: match.match_weight,
       type: match.match_type,
-      rounds: match.rounds,
+      rounds: match.rounds ? String(match.rounds).replace(/R/i, '') + 'R' : undefined,
       gear: match.gear
     };
   } else {
@@ -103,12 +105,12 @@ function MatchCardItem({ match, currentUser, isManagerMode, onDelete, handleActi
   // 3. Location Logic
   const locString = match.match_location || '장소 미정';
 
-  // 4. Display Logic (Team vs Player)
+  // 4. Display Logic (Always Player - Per Request)
   const isTeamMatch = !!match.home_team_id;
-  const displayName = isTeamMatch ? match.home_team?.team_name : match.home_player?.name;
-  const displayImage = isTeamMatch ? match.home_team?.emblem_url : match.home_player?.avatar_url;
+  const displayName = match.home_player?.name || "알 수 없음";
+  const displayImage = match.home_player?.avatar_url;
 
-  const appCount = match.match_applications?.[0]?.count || 0;
+  const appCount = match.match_applications?.length || 0;
 
   return (
     <div style={{ position: 'relative', overflow: 'hidden', borderRadius: '16px', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
@@ -201,24 +203,134 @@ function MatchCardItem({ match, currentUser, isManagerMode, onDelete, handleActi
             }}>
               {summaryDetails || <span style={{ color: '#9CA3AF' }}>상세 정보 없음</span>}
             </div>
+
+            {/* Tags Badge */}
+            {match.tags && match.tags.length > 0 && (
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '4px' }}>
+                {match.tags.map(tag => (
+                  <span key={tag} style={{
+                    background: '#F3F4F6', color: '#4B5563', fontSize: '0.75rem',
+                    padding: '4px 8px', borderRadius: '6px', fontWeight: '500'
+                  }}>
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
         {/* Actions */}
-        <button
-          onClick={() => handleAction(match.id)}
-          style={{
-            width: '100%', padding: '0.75rem', borderRadius: '8px', marginTop: '8px',
-            background: isManagerMode ? '#1F2937' : '#2563EB', color: 'white', fontWeight: 'bold', border: 'none', cursor: 'pointer',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-          }}
-        >
-          {isMyMatch
-            ? `신청자 관리 (${appCount}명 신청 중)`
-            : isManagerMode
-              ? "시합 수락하기 (Accept)"
-              : `신청하기 (${appCount}명 신청 중)`}
-        </button>
+
+        {/* Actions - Case Logic */}
+        {(() => {
+          const isScheduled = match.status === 'SCHEDULED';
+          const isCompleted = match.status === 'COMPLETED';
+
+          // My Application Status
+          // My Application Status (Sync by User ID OR Player ID for Captain Proxy Apply)
+          const myApp = match.match_applications?.find(app =>
+            (app.applicant_user_id === currentUser?.id) ||
+            (currentUser?.myPlayerIds?.includes(app.applicant_player_id))
+          );
+          const isAcceptedApplicant = myApp?.status === 'ACCEPTED';
+
+          // 1. Host Logic (Top Priority)
+          if (isMyMatch) {
+            if (isScheduled) {
+              return (
+                <button
+                  onClick={() => handleAction(match.id)}
+                  style={{
+                    width: '100%', padding: '0.75rem', borderRadius: '8px', marginTop: '8px',
+                    background: '#22C55E', color: 'white', fontWeight: 'bold', border: 'none', cursor: 'pointer',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                  }}
+                >
+                  매칭 성사됨 (상세정보)
+                </button>
+              );
+            } else {
+              // Host + Pending (Manage)
+              return (
+                <button
+                  onClick={() => handleAction(match.id)}
+                  style={{
+                    width: '100%', padding: '0.75rem', borderRadius: '8px', marginTop: '8px',
+                    background: '#2563EB', color: 'white', fontWeight: 'bold', border: 'none', cursor: 'pointer',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                  }}
+                >
+                  신청자 관리 ({appCount}명 신청 중)
+                </button>
+              );
+            }
+          }
+
+          // 2. Accepted Applicant + Scheduled
+          if (isAcceptedApplicant && isScheduled) {
+            return (
+              <button
+                onClick={() => handleAction(match.id)}
+                style={{
+                  width: '100%', padding: '0.75rem', borderRadius: '8px', marginTop: '8px',
+                  background: '#22C55E', color: 'white', fontWeight: 'bold', border: 'none', cursor: 'pointer',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                }}
+              >
+                매칭 수락됨 (상세정보)
+              </button>
+            );
+          }
+
+          // 3. Other + Scheduled or Completed
+          if (isScheduled || isCompleted) {
+            return (
+              <button
+                disabled
+                style={{
+                  width: '100%', padding: '0.75rem', borderRadius: '8px', marginTop: '8px',
+                  background: '#9CA3AF', color: 'white', fontWeight: 'bold', border: 'none', cursor: 'not-allowed',
+                  boxShadow: 'none'
+                }}
+              >
+                매칭 완료
+              </button>
+            );
+          }
+
+          // 4. Pending Logic (General User)
+          if (myApp?.status === 'PENDING' && !isManagerMode) {
+            return (
+              <button
+                onClick={() => handleAction(match.id)}
+                style={{
+                  width: '100%', padding: '0.75rem', borderRadius: '8px', marginTop: '8px',
+                  background: '#FEF3C7', color: '#D97706', fontWeight: 'bold', border: 'none', cursor: 'pointer',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                }}
+              >
+                신청 대기중... (현재 {appCount}명 신청)
+              </button>
+            );
+          }
+
+          // 5. Guest + Pending (Default)
+          return (
+            <button
+              onClick={() => handleAction(match.id)}
+              style={{
+                width: '100%', padding: '0.75rem', borderRadius: '8px', marginTop: '8px',
+                background: isManagerMode ? '#1F2937' : '#2563EB', color: 'white', fontWeight: 'bold', border: 'none', cursor: 'pointer',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+              }}
+            >
+              {isManagerMode
+                ? "시합 수락하기 (Accept)"
+                : `신청하기 (${appCount}명 신청 중)`}
+            </button>
+          );
+        })()}
       </div>
     </div>
   );
@@ -250,7 +362,7 @@ function MatchesContent() {
     // New Logic: Use sport_type, status='SCHEDULED', join players/teams
     const { data, error } = await supabase
       .from('matches')
-      .select('*, home_player:players!home_player_id(*, team:teams!players_team_id_fkey(*)), home_team:teams!home_team_id(team_name, emblem_url, location), host_user_id, match_applications(count)')
+      .select('*, home_player:players!home_player_id(*, team:teams!players_team_id_fkey(*)), home_team:teams!home_team_id(team_name, emblem_url, location), host_user_id, match_applications(applicant_user_id, applicant_player_id, status)')
       .eq('sport_type', sport) // Filter by sport_type
       .neq('status', 'DELETED') // 삭제된 것(DELETED)만 아니면 모두 조회
       .order('created_at', { ascending: false });
@@ -282,7 +394,14 @@ function MatchesContent() {
     // Fetch User for Badge logic
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      setCurrentUser(user);
+      if (user) {
+        // [Added] Fetch my player IDs to sync application status
+        const { data: ps } = await supabase.from('players').select('id').eq('user_id', user.id);
+        const pIds = ps?.map(p => p.id) || [];
+        setCurrentUser({ ...user, myPlayerIds: pIds });
+      } else {
+        setCurrentUser(null);
+      }
     };
     getUser();
   }, [sport, mode]);
@@ -292,7 +411,7 @@ function MatchesContent() {
       showToast("매칭이 수락되었습니다! (채팅방 생성)", "success");
       // Here we would actually call an API to update status
     } else {
-      router.push(`/matches/${matchId}/apply`);
+      router.push(`/matches/${matchId}`);
     }
   };
 

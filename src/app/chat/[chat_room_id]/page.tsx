@@ -368,6 +368,32 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
                                         {new Date(msg.created_at).toLocaleString()}
                                     </div>
                                 </div>
+                            ) : msg.content === "system:::match_scheduled" ? (
+                                <div style={{ width: '100%', margin: '24px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                                        <div style={{ flex: 1, height: '1px', background: '#E5E7EB' }}></div>
+                                        <div style={{ padding: '0 12px', fontSize: '0.8rem', color: '#22C55E', fontWeight: 'bold' }}>
+                                            매치가 성사되었습니다!
+                                        </div>
+                                        <div style={{ flex: 1, height: '1px', background: '#E5E7EB' }}></div>
+                                    </div>
+                                    <div style={{ fontSize: '0.7rem', color: '#9CA3AF' }}>
+                                        {new Date(msg.created_at).toLocaleString()}
+                                    </div>
+                                </div>
+                            ) : msg.content === "system:::match_rejected" ? (
+                                <div style={{ width: '100%', margin: '24px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                                        <div style={{ flex: 1, height: '1px', background: '#E5E7EB' }}></div>
+                                        <div style={{ padding: '4px 12px', fontSize: '0.8rem', color: '#4B5563', fontWeight: 'bold', background: '#F3F4F6', borderRadius: '12px' }}>
+                                            매치 신청이 거절되었습니다
+                                        </div>
+                                        <div style={{ flex: 1, height: '1px', background: '#E5E7EB' }}></div>
+                                    </div>
+                                    <div style={{ fontSize: '0.7rem', color: '#9CA3AF' }}>
+                                        {new Date(msg.created_at).toLocaleString()}
+                                    </div>
+                                </div>
                             ) : msg.content === "system:::user_left" ? (
                                 <div style={{ width: '100%', margin: '24px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>

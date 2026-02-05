@@ -53,7 +53,7 @@ export const sportConfig: Record<string, Record<string, SportDef>> = {
                     key: 'gear',
                     label: '보호구 착용',
                     type: 'toggle',
-                    options: ['풀기어 (헤드기어O)', '오픈 (헤드기어X)']
+                    options: ['오픈 (헤드기어X)', '풀기어 (헤드기어O)']
                 },
                 {
                     key: 'tags',

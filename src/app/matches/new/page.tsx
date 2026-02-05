@@ -38,50 +38,48 @@ function MatchRegisterForm() {
     const [ownedTeams, setOwnedTeams] = useState<any[]>([]);
     const [candidates, setCandidates] = useState<any[]>([]);
     const [selectedPlayerId, setSelectedPlayerId] = useState<string>("");
+    const [selectedTeamId, setSelectedTeamId] = useState<string>("");
     const [isLoading, setIsLoading] = useState(true);
 
     // --- Location Logic Effect ---
     useEffect(() => {
-        const updateLocation = async () => {
-            if (locationType === 'HOME') {
-                if (!selectedPlayerId) {
-                    setMatchLocation("🏠 선수 선택 필요 (Home)");
-                    return;
-                }
+        const fetchTeams = async () => {
+            if (!selectedPlayerId) {
+                setOwnedTeams([]);
+                return;
+            }
+            const { data } = await supabase
+                .from('team_members')
+                .select('team:teams(id, team_name, location)')
+                .eq('player_id', selectedPlayerId);
 
-                try {
-                    // [Refactor] Always fetch from DB to ensure accuracy, skipping memory cache
-                    const { data: teamData } = await (supabase
-                        .from('team_members' as any) as any)
-                        .select(`
-                            team:teams ( team_name, location ) 
-                        `)
-                        .eq('player_id', selectedPlayerId)
-                        .maybeSingle();
+            const teams = data?.map((d: any) => d.team) || [];
+            setOwnedTeams(teams);
 
-                    if (teamData?.team?.location) {
-                        const tName = teamData.team.team_name;
-                        const tLoc = teamData.team.location;
-                        // Format: "Seoul Mapo-gu" -> "Seoul Mapo-gu" (shortened)
-                        const shortLoc = tLoc.split(" ").slice(0, 2).join(" ");
-                        setMatchLocation(`🏠 ${tName} (${shortLoc})`);
-                    } else {
-                        setMatchLocation("🏠 소속 팀 정보 없음 (Home)");
-                    }
-
-                } catch (e) {
-                    console.error("Location Fetch Error:", e);
-                    setMatchLocation("🏠 위치 정보 오류 (Home)");
-                }
-            } else if (locationType === 'AWAY') {
-                setMatchLocation("상대 체육관 (Away)"); // Simplified for Away
-            } else {
-                setMatchLocation("장소 협의");
+            // Auto-select first team if available and none selected
+            if (teams.length > 0 && !selectedTeamId) {
+                setSelectedTeamId(teams[0].id);
             }
         };
+        fetchTeams();
+    }, [selectedPlayerId]);
 
-        updateLocation();
-    }, [locationType, selectedPlayerId, candidates]); // Re-run when these change
+    // Update Match Location String
+    useEffect(() => {
+        if (locationType === 'HOME') {
+            const team = ownedTeams.find(t => t.id === selectedTeamId);
+            if (team) {
+                const shortLoc = (team.location || "").split(" ").slice(0, 2).join(" ");
+                setMatchLocation(`🏠 ${team.team_name} (${shortLoc})`);
+            } else {
+                setMatchLocation("🏠 홈 (장소 선택 필요)");
+            }
+        } else if (locationType === 'AWAY') {
+            setMatchLocation("상대 체육관 (Away)");
+        } else {
+            setMatchLocation("장소 협의");
+        }
+    }, [locationType, selectedTeamId, ownedTeams]);
 
     useEffect(() => {
         const fetchCandidates = async () => {
@@ -331,9 +329,8 @@ function MatchRegisterForm() {
 
                 // [SNAP] Logic: Hard-copy Team Location for stability
                 if (locationType === 'HOME') {
-                    // Just set homeTeamId based on selection, location string is already handled by Effect
-                    const playerCandidate = candidates.find(m => m.id === selectedPlayerId);
-                    homeTeamId = playerCandidate?.team?.id || playerCandidate?.team_id || null;
+                    // Use explicitly selected team ID
+                    homeTeamId = selectedTeamId || null;
                 }
             }
 
@@ -343,15 +340,17 @@ function MatchRegisterForm() {
                 match_date: finalTargetDate.toISOString(),
                 match_location: locString,
                 sport_type: sportId,
-                status: 'SCHEDULED', // Uppercase
+                status: 'PENDING', // Uppercase, explicitly set to PENDING
                 host_user_id: currentUser.id,
                 type: 'MATCH',
 
                 // [UPDATE] Refactored from attributes JSON to individual columns
                 match_weight: Number(formData.weight),
                 match_type: formData.type, // Sparring Intensity
-                rounds: formData.rounds,
+                rounds: formData.rounds ? Number(String(formData.rounds).replace(/[^0-9]/g, '')) : null,
                 gear: formData.gear,
+                description: formData.description,
+                tags: formData.tags
 
                 // Legacy fields preservation (optional, if DB requires it, but instructed to remove attributes usage)
                 // attributes: JSON.stringify(formData) // REMOVED
@@ -505,6 +504,31 @@ function MatchRegisterForm() {
                             <span style={{ fontSize: '0.8em', fontWeight: '400', opacity: 0.9 }}>(협의해요)</span>
                         </button>
                     </div>
+
+                    {/* Team Selection Dropdown (Only for HOME) */}
+                    {locationType === 'HOME' && (
+                        <div style={{ marginTop: '12px' }}>
+                            <select
+                                value={selectedTeamId}
+                                onChange={(e) => setSelectedTeamId(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '12px',
+                                    borderRadius: '12px',
+                                    border: '1px solid #E5E7EB',
+                                    backgroundColor: 'white',
+                                    fontSize: '0.95rem'
+                                }}
+                            >
+                                <option value="">(체육관을 선택해주세요)</option>
+                                {ownedTeams.map(team => (
+                                    <option key={team.id} value={team.id}>
+                                        {team.team_name} ({team.location ? team.location.split(' ').slice(0, 2).join(' ') : '위치없음'})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
                 </div>
 
                 {/* --- Dynamic Fields --- */}
@@ -531,6 +555,39 @@ function MatchRegisterForm() {
                                     {field.options?.map(opt => (
                                         <button key={opt} className={`${styles.toggle} ${val === opt ? styles.active : ""}`} onClick={() => updateField(field.key, opt)}>{opt}</button>
                                     ))}
+                                </div>
+                            )}
+                            {field.type === 'tags' && (
+                                <div>
+                                    <div className={styles.tagsGrid}>
+                                        {field.tags?.map(tag => (
+                                            <button
+                                                key={tag}
+                                                className={`${styles.tagBtn} ${(formData.tags || []).includes(tag) ? styles.active : ""}`}
+                                                onClick={() => {
+                                                    const current = formData.tags || [];
+                                                    const next = current.includes(tag)
+                                                        ? current.filter((t: string) => t !== tag)
+                                                        : [...current, tag];
+                                                    updateField('tags', next);
+                                                }}
+                                            >
+                                                {tag}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <div style={{ marginTop: '12px' }}>
+                                        <textarea
+                                            placeholder="매칭에 대한 상세 내용을 입력해주세요 (선택)"
+                                            value={formData.description || ''}
+                                            onChange={(e) => updateField('description', e.target.value)}
+                                            style={{
+                                                width: '100%', minHeight: '80px', padding: '12px',
+                                                borderRadius: '12px', border: '1px solid #E5E7EB',
+                                                resize: 'none', fontSize: '0.9rem', outline: 'none'
+                                            }}
+                                        />
+                                    </div>
                                 </div>
                             )}
                         </div>

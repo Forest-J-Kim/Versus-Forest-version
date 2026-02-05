@@ -130,7 +130,16 @@ export default function SportRegisterPage({ params }: { params: Promise<{ id: st
                     <>
                         <div className={styles.fieldGroup}>
                             <label className={styles.label}>체급</label>
-                            <input type="text" className={styles.input} placeholder="예: -70kg, 헤비급" onChange={(e) => setSkills({ ...skills, weightClass: e.target.value })} />
+                            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                <input
+                                    type="number"
+                                    className={styles.input}
+                                    placeholder="예: 65"
+                                    onChange={(e) => setSkills({ ...skills, weightClass: e.target.value })}
+                                    style={{ paddingRight: '2.5rem' }}
+                                />
+                                <span style={{ position: 'absolute', right: '1rem', color: '#6B7280', fontSize: '0.9rem' }}>kg</span>
+                            </div>
                         </div>
                         {(sportId === 'boxing' || sportId === 'kickboxing') && (
                             <div className={styles.fieldGroup}>
@@ -255,7 +264,7 @@ export default function SportRegisterPage({ params }: { params: Promise<{ id: st
                 name: nickname,
                 location: region,
                 // Normalized Columns
-                weight_class: skills.weightClass || null,
+                weight_class: skills.weightClass ? skills.weightClass.toString().replace(/[^0-9.]/g, '') : null,
                 position: positionVal,
                 record: recordStr,
                 main_foot: foot,       // Mapped from skills.foot
