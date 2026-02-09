@@ -23,6 +23,7 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
     // Players Logic
     const [hostPlayer, setHostPlayer] = useState<any>(null);
     const [applicantPlayer, setApplicantPlayer] = useState<any>(null);
+    const [applicantUser, setApplicantUser] = useState<any>(null); // For Proxy App Display
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -52,12 +53,43 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
                 .eq('id', chatRoomId)
                 .single();
 
-            // 채팅방 자체가 없으면 에러 (이건 진짜 없는 방)
             if (roomError || !roomBasic) {
                 console.error("Chat Room Fetch Error:", roomError);
                 alert("채팅방을 찾을 수 없습니다.");
                 router.back();
                 return;
+            }
+
+            // [Step 1.5] Fetch Applicant 'Chat Partner' Profile
+            // If Proxy (Applicant User != Match Player User), we need the Applicant's Player Profile.
+            // We fetch it here regardless, or we can wait until we know if it's proxy.
+            // But to be safe, let's fetch the Applicant's Player Profile (e.g. Manager's face)
+
+            const { data: applicantManagerProfile } = await supabase
+                .from('players')
+                .select('name, player_nickname, avatar_url, user_id')
+                .eq('user_id', roomBasic.applicant_user_id)
+                .limit(1)
+                .maybeSingle(); // Get any player profile for the manager
+
+            if (applicantManagerProfile) {
+                setApplicantUser(applicantManagerProfile);
+            } else {
+                // Fallback to Profiles if no player profile found
+                // @ts-ignore
+                const { data: applicantUserProfile } = await supabase
+                    .from('profiles')
+                    .select('nickname, avatar_url')
+                    .eq('id', roomBasic.applicant_user_id)
+                    .single();
+
+                if (applicantUserProfile) {
+                    setApplicantUser({
+                        name: applicantUserProfile.nickname,
+                        avatar_url: applicantUserProfile.avatar_url,
+                        user_id: roomBasic.applicant_user_id
+                    });
+                }
             }
 
             // [Step 2] 매치 정보 및 관련 데이터 별도 조회
@@ -76,7 +108,7 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
                     match_applications (
                         applicant_user_id, applicant_player_id,
                         applicant_player:players!applicant_player_id (
-                            name, player_nickname, avatar_url, record, position
+                            name, player_nickname, avatar_url, record, position, user_id
                         )
                     )
                 `)
@@ -120,7 +152,7 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
                     .from('match_applications')
                     .select(`
                         applicant_player:players!applicant_player_id (
-                            name, player_nickname, avatar_url, record, position
+                            name, player_nickname, avatar_url, record, position, user_id
                         )
                     `)
                     .eq('match_id', room.match_id)
@@ -206,17 +238,35 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
         const isHost = chatRoom.host_id === currentUserId;
         const updateField = isHost ? 'host_out' : 'applicant_out';
 
-        const { error } = await supabase
+        // 1. Update Status
+        const { data: updatedRoom, error: updateError } = await supabase
             .from('chat_rooms')
             .update({ [updateField]: true })
-            .eq('id', chatRoomId);
+            .eq('id', chatRoomId)
+            .select()
+            .single();
 
-        if (error) {
-            console.error("Leave Chat Error:", error);
-            alert("나가기 실패: " + error.message);
-        } else {
-            router.push('/messages');
+        if (updateError) {
+            console.error("Leave Chat Error:", updateError);
+            alert("나가기 실패: " + updateError.message);
+            return;
         }
+
+        // 2. Check if Both Left -> Hard Delete
+        // @ts-ignore
+        if (updatedRoom.host_out && updatedRoom.applicant_out) {
+            const { error: deleteError } = await supabase
+                .from('chat_rooms')
+                .delete()
+                .eq('id', chatRoomId);
+
+            if (deleteError) {
+                console.error("Delete Room Error:", deleteError);
+                // Even if delete fails, redirect user
+            }
+        }
+
+        router.push('/messages');
     };
 
     if (loading) return <div className="p-8 text-center">Loading Chat...</div>;
@@ -227,12 +277,32 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
 
         // Determine if sender is Host or Applicant
         const isHostSender = chatRoom.host_id === senderId;
-        const profile = isHostSender ? hostPlayer : applicantPlayer;
 
-        return {
-            name: profile?.name || profile?.player_nickname || "알 수 없음",
-            avatar: profile?.avatar_url
-        };
+        if (isHostSender) {
+            return {
+                name: hostPlayer?.name || hostPlayer?.player_nickname || "호스트",
+                avatar: hostPlayer?.avatar_url
+            };
+        } else {
+            // Applicant Side Logic
+            // Check for Proxy: applicant_user_id vs player.user_id
+
+            const isProxy = applicantPlayer?.user_id && chatRoom.applicant_user_id !== applicantPlayer.user_id;
+
+            if (isProxy && applicantUser) {
+                // Return Manager's Profile
+                return {
+                    name: applicantUser.name || applicantUser.player_nickname || "신청자(매니저)",
+                    avatar: applicantUser.avatar_url
+                };
+            }
+
+            // Fallback / Normal: Applicant Player Profile
+            return {
+                name: applicantPlayer?.name || applicantPlayer?.player_nickname || "신청자",
+                avatar: applicantPlayer?.avatar_url
+            };
+        }
     };
 
     return (
@@ -335,7 +405,9 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
                                 <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>👤</div>
                             )}
                         </div>
-                        <span style={{ fontWeight: 'bold', fontSize: '0.9rem', color: '#111827' }}>{applicantPlayer?.name || applicantPlayer?.player_nickname || "신청자"}</span>
+                        <span style={{ fontWeight: 'bold', fontSize: '0.9rem', color: '#111827' }}>
+                            {applicantPlayer?.name || applicantPlayer?.player_nickname || "신청자"}
+                        </span>
 
                         <span style={{ fontSize: '0.75rem', color: '#6B7280' }}>
                             {applicantPlayer?.record || "-전 -승"} / {applicantPlayer?.position || "-"}
@@ -343,6 +415,27 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
                     </div>
                 </div>
             </header>
+
+            {/* [Proxy Application Alert] */}
+            {(applicantPlayer && applicantPlayer.user_id && chatRoom && chatRoom.applicant_user_id !== applicantPlayer.user_id) && (
+                <div style={{
+                    background: '#EFF6FF',
+                    color: '#1E3A8A',
+                    padding: '12px 16px',
+                    fontSize: '0.85rem',
+                    borderBottom: '1px solid #DBEAFE',
+                    lineHeight: '1.5',
+                    display: 'flex',
+                    alignItems: 'start',
+                    gap: '8px'
+                }}>
+                    <span style={{ fontSize: '1.2rem' }}>📢</span>
+                    <div>
+                        <div style={{ fontWeight: 'bold', marginBottom: '2px' }}>매치 신청자와 출전 선수가 다릅니다.</div>
+                        <div>현재 대화 상대는 신청자(<strong>{applicantUser?.name || applicantUser?.player_nickname || "매니저"}</strong>)입니다.</div>
+                    </div>
+                </div>
+            )}
 
             {/* Message List */}
             <main style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>

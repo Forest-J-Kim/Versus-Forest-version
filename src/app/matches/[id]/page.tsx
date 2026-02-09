@@ -19,6 +19,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
     const [candidates, setCandidates] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+    const [currentUser, setCurrentUser] = useState<any>(null);
 
     // Form State
     const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
@@ -94,6 +95,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                 router.push('/login');
                 return;
             }
+            setCurrentUser(user);
 
             const isOwner = user.id === matchData.host_user_id;
             setIsHost(isOwner);
@@ -107,6 +109,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                         id, 
                         name, 
                         player_nickname, 
+                        user_id,
                         weight_class, 
                         avatar_url,
                         position,
@@ -363,6 +366,23 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
 
         setApplicants(prev => prev.map(a => a.id === appId ? { ...a, status: newStatus } : a));
         showToast(newStatus === 'ACCEPTED' ? "수락되었습니다." : "거절되었습니다.", "success");
+    };
+
+    const handleCancelApplication = async (appId: string) => {
+        if (!confirm("정말 신청을 취소하시겠습니까?")) return;
+
+        const { error } = await supabase
+            .from('match_applications')
+            .delete()
+            .eq('id', appId);
+
+        if (error) {
+            alert("취소 중 오류 발생: " + error.message);
+            return;
+        }
+
+        setApplicants(prev => prev.filter(a => a.id !== appId));
+        showToast("신청이 취소되었습니다.", "success");
     };
 
     const handleSubmit = async () => {
@@ -758,6 +778,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                                         onChat={() => handleStartChat(app.applicant_user_id)}
                                         onAccept={() => handleUpdateStatus(app.id, 'ACCEPTED')}
                                         onReject={() => handleUpdateStatus(app.id, 'REJECTED')}
+                                        onCancel={(currentUser?.id === app.applicant_user_id || currentUser?.id === app.player?.user_id) ? () => handleCancelApplication(app.id) : undefined}
                                         isPending={true}
                                         isHost={isHost}
                                     />
@@ -820,7 +841,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
     );
 }
 
-function ApplicationCard({ app, onChat, onAccept, onReject, isPending, isHost }: { app: any, onChat?: () => void, onAccept?: () => void, onReject?: () => void, isPending: boolean, isHost: boolean }) {
+function ApplicationCard({ app, onChat, onAccept, onReject, onCancel, isPending, isHost }: { app: any, onChat?: () => void, onAccept?: () => void, onReject?: () => void, onCancel?: () => void, isPending: boolean, isHost: boolean }) {
     const player = app.player;
     const teamName = player?.team_members?.[0]?.team?.team_name || "소속 없음";
 
@@ -862,6 +883,21 @@ function ApplicationCard({ app, onChat, onAccept, onReject, isPending, isHost }:
                             }}>
                                 {app.status === 'ACCEPTED' ? '승인됨' : '거절됨'}
                             </span>
+                        )}
+
+                        {/* Cancel Button (For Applicant) */}
+                        {isPending && onCancel && (
+                            <button
+                                onClick={onCancel}
+                                style={{
+                                    border: 'none', background: '#F3F4F6',
+                                    color: '#6B7280', fontSize: '0.8rem', cursor: 'pointer',
+                                    padding: '6px 12px', borderRadius: '8px', fontWeight: 'bold',
+                                    marginLeft: '8px', transition: 'all 0.2s'
+                                }}
+                            >
+                                신청취소
+                            </button>
                         )}
                     </div>
 
