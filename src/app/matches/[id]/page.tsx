@@ -197,6 +197,33 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
         init();
     }, [matchId, isManagerMode, router, supabase]);
 
+    const handleEnterChat = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // Find room where I am Host OR Applicant
+        const { data: myRoom, error } = await supabase
+            .from('chat_rooms')
+            .select('id')
+            .eq('match_id', matchId)
+            .or(`host_id.eq.${user.id},applicant_user_id.eq.${user.id}`)
+            .maybeSingle();
+
+        if (myRoom) {
+            router.push(`/chat/${myRoom.id}`);
+        } else {
+            // If I am Host, maybe create it? But usually created on Accept.
+            // If I am Applicant, I can't create.
+            if (isHost) {
+                // Try create with accepted applicant?
+                // For now, just alert
+                alert("채팅방을 찾을 수 없습니다. (생성되지 않음)");
+            } else {
+                alert("채팅방이 존재하지 않습니다.");
+            }
+        }
+    };
+
     const handleStartChat = async (applicantUserId: string) => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
@@ -249,12 +276,35 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
         }
 
         if (newStatus === 'ACCEPTED') {
-            // 1. Update Match Status
-            await supabase.from('matches').update({ status: 'SCHEDULED' }).eq('id', matchId);
-            setMatch((prev: any) => ({ ...prev, status: 'SCHEDULED' }));
-
-            // 2. Send System Message
             const applicant = applicants.find(a => a.id === appId);
+            let awayTeamId = null;
+            let awayPlayerId = applicant?.applicant_player_id;
+
+            // Fetch Team ID if applicant exists
+            if (awayPlayerId) {
+                const { data: tm } = await supabase
+                    .from('team_members')
+                    .select('team_id')
+                    .eq('player_id', awayPlayerId)
+                    .maybeSingle();
+                awayTeamId = tm?.team_id;
+            }
+
+            // 1. Update Match Status AND Away Info
+            await supabase.from('matches').update({
+                status: 'SCHEDULED',
+                away_player_id: awayPlayerId,
+                away_team_id: awayTeamId
+            }).eq('id', matchId);
+
+            setMatch((prev: any) => ({
+                ...prev,
+                status: 'SCHEDULED',
+                away_player_id: awayPlayerId,
+                away_team_id: awayTeamId
+            }));
+
+            // 2. Send System Message & Check Chat Room
             if (applicant) {
                 const { data: { user } } = await supabase.auth.getUser();
                 if (user) {
@@ -268,7 +318,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                             .eq('match_id', matchId)
                             .eq('host_id', user.id)
                             .eq('applicant_user_id', applicant.applicant_user_id)
-                            .single();
+                            .maybeSingle();
 
                         if (existingRoom) {
                             chatRoomId = existingRoom.id;
@@ -282,7 +332,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                                 })
                                 .select()
                                 .single();
-                            if (newRoom) chatRoomId = newRoom.id;
+                            chatRoomId = newRoom?.id;
                         }
                     }
 
@@ -293,32 +343,23 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                             content: "system:::match_scheduled"
                         });
                     }
-                }
-            }
 
+                    // 3. Auto-Reject Other Applicants
+                    const { error: rejectError } = await supabase
+                        .from('match_applications')
+                        .update({ status: 'REJECTED' })
+                        .eq('match_id', matchId)
+                        .neq('id', appId) // Exclude the accepted application ID
+                        .eq('status', 'PENDING');
 
-            // 3. Auto-Reject Other Applicants
-            const acceptedApplicant = applicants.find(a => a.id === appId);
-            if (acceptedApplicant) {
-                const { error: rejectError } = await supabase
-                    .from('match_applications')
-                    .update({ status: 'REJECTED' })
-                    .eq('match_id', matchId)
-                    .neq('applicant_user_id', acceptedApplicant.applicant_user_id) // Exclude the accepted one
-                    .eq('status', 'PENDING'); // Only pending ones
-
-                if (rejectError) {
-                    console.error("Auto-Reject Error:", rejectError);
-                } else {
-                    // [Added] Send System Message to Auto-Rejected Applicants
-                    const { data: { user } } = await supabase.auth.getUser();
-                    if (user) {
+                    if (!rejectError) {
+                        // Send System Message to Auto-Rejected Applicants
                         const { data: rejectedRooms } = await supabase
                             .from('chat_rooms')
                             .select('id')
                             .eq('match_id', matchId)
-                            .neq('applicant_user_id', acceptedApplicant.applicant_user_id)
-                            .eq('host_id', user.id); // Ensure we are host
+                            .neq('applicant_user_id', applicant.applicant_user_id)
+                            .eq('host_id', user.id);
 
                         if (rejectedRooms && rejectedRooms.length > 0) {
                             const messages = rejectedRooms.map(room => ({
@@ -326,7 +367,6 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                                 sender_id: user.id,
                                 content: "system:::match_rejected"
                             }));
-
                             await supabase.from('messages').insert(messages);
                         }
                     }
@@ -344,7 +384,6 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
             if (applicant) {
                 const { data: { user } } = await supabase.auth.getUser();
                 if (user) {
-                    // Check if chat room exists
                     const { data: existingRoom } = await supabase
                         .from('chat_rooms')
                         .select('id')
@@ -384,6 +423,8 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
         setApplicants(prev => prev.filter(a => a.id !== appId));
         showToast("신청이 취소되었습니다.", "success");
     };
+
+
 
     const handleSubmit = async () => {
         if (selectedPlayerIds.length === 0) return alert("출전할 선수를 1명 이상 선택해주세요.");
@@ -580,17 +621,23 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
 
 
                     {/* Chat Button */}
-                    {acceptedApp && (
-                        <button
-                            onClick={() => {
-                                if (chatRoomId) router.push(`/chat/${chatRoomId}`);
-                                else handleStartChat(acceptedApp.applicant_user_id);
-                            }}
-                            style={{ width: '100%', padding: '16px', borderRadius: '16px', background: '#2563EB', color: 'white', border: 'none', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
-                        >
-                            <span>💬</span> 채팅방 이동하기
-                        </button>
-                    )}
+                    {(() => {
+                        const isApplicant = currentUser?.id && acceptedApp?.applicant_user_id === currentUser.id;
+                        const isPlayer = currentUser?.id && acceptedApp?.player?.user_id === currentUser.id; // Correct way to check player ownership
+                        const canEnterChat = isHost || isApplicant || isPlayer;
+
+                        if (acceptedApp && canEnterChat) {
+                            return (
+                                <button
+                                    onClick={handleEnterChat}
+                                    style={{ width: '100%', padding: '16px', borderRadius: '16px', background: '#2563EB', color: 'white', border: 'none', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
+                                >
+                                    <span>💬</span> 채팅방 이동하기
+                                </button>
+                            );
+                        }
+                        return null;
+                    })()}
 
                     {/* 3. Rejected List (Host Only) */}
                     {isHost && rejectedApps.length > 0 && (

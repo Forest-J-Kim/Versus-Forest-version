@@ -228,13 +228,19 @@ function MatchCardItem({ match, currentUser, isManagerMode, onDelete, handleActi
           const isScheduled = match.status === 'SCHEDULED';
           const isCompleted = match.status === 'COMPLETED';
 
-          // My Application Status
           // My Application Status (Sync by User ID OR Player ID for Captain Proxy Apply)
+          // Robust check: explicitly look for ACCEPTED status first
+          const isAcceptedApplicant = match.match_applications?.some(app =>
+            ((app.applicant_user_id === currentUser?.id) ||
+              (currentUser?.myPlayerIds?.includes(app.applicant_player_id))) &&
+            app.status === 'ACCEPTED'
+          );
+
+          // Find specific app for other states (Pending/Rejected) - Prioritize Pending if not Accepted
           const myApp = match.match_applications?.find(app =>
             (app.applicant_user_id === currentUser?.id) ||
             (currentUser?.myPlayerIds?.includes(app.applicant_player_id))
           );
-          const isAcceptedApplicant = myApp?.status === 'ACCEPTED';
 
           // 1. Host Logic (Top Priority)
           if (isMyMatch) {
@@ -408,12 +414,9 @@ function MatchesContent() {
   }, [sport, mode]);
 
   const handleAction = (matchId: string) => {
-    if (isManagerMode) {
-      showToast("매칭이 수락되었습니다! (채팅방 생성)", "success");
-      // Here we would actually call an API to update status
-    } else {
-      router.push(`/matches/${matchId}`);
-    }
+    // Both Manager and Player/Host should go to detail page
+    // The detail page handles the "Chat" or "Accept" logic
+    router.push(`/matches/${matchId}`);
   };
 
   const handleDelete = async (matchId: string) => {

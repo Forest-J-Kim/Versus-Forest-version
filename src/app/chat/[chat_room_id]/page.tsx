@@ -60,60 +60,89 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
                 return;
             }
 
-            // [Step 1.5] Fetch Applicant 'Chat Partner' Profile
-            // If Proxy (Applicant User != Match Player User), we need the Applicant's Player Profile.
-            // We fetch it here regardless, or we can wait until we know if it's proxy.
-            // But to be safe, let's fetch the Applicant's Player Profile (e.g. Manager's face)
 
-            const { data: applicantManagerProfile } = await supabase
-                .from('players')
-                .select('name, player_nickname, avatar_url, user_id')
-                .eq('user_id', roomBasic.applicant_user_id)
-                .limit(1)
-                .maybeSingle(); // Get any player profile for the manager
-
-            if (applicantManagerProfile) {
-                setApplicantUser(applicantManagerProfile);
-            } else {
-                // Fallback to Profiles if no player profile found
-                // @ts-ignore
-                const { data: applicantUserProfile } = await supabase
-                    .from('profiles')
-                    .select('nickname, avatar_url')
-                    .eq('id', roomBasic.applicant_user_id)
-                    .single();
-
-                if (applicantUserProfile) {
-                    setApplicantUser({
-                        name: applicantUserProfile.nickname,
-                        avatar_url: applicantUserProfile.avatar_url,
-                        user_id: roomBasic.applicant_user_id
-                    });
-                }
-            }
 
             // [Step 2] 매치 정보 및 관련 데이터 별도 조회
             // (status가 DELETED여도 가져오도록 maybeSingle 사용 및 Join 단순화)
             const { data: matchData } = await supabase
                 .from('matches')
                 .select(`
-                    id, match_date, match_location, sport_type, status,
+                    id, match_date, match_location, sport_type, sport, status,
                     home_player_id, home_team_id,
-                    home_player:players!home_player_id (
+                    home_player: players!home_player_id(
                         name, player_nickname, avatar_url, record, position
                     ),
-                    home_team:teams!home_team_id (
+                    home_team: teams!home_team_id(
                         team_name
                     ),
-                    match_applications (
+                    away_player_id, away_team_id,
+                    away_player: players!away_player_id(
+                        name, player_nickname, avatar_url, record, position, user_id, sport_type
+                    ),
+                    away_team: teams!away_team_id(
+                        team_name
+                    ),
+                    match_applications(
                         applicant_user_id, applicant_player_id,
-                        applicant_player:players!applicant_player_id (
+                        applicant_player: players!applicant_player_id(
                             name, player_nickname, avatar_url, record, position, user_id
                         )
                     )
-                `)
+                        `)
                 .eq('id', roomBasic.match_id)
                 .maybeSingle(); // match가 없거나 권한 문제로 안 보여도 에러 안 냄 (null 반환)
+
+            // [Step 2.5] Fetch Applicant 'Chat Partner' Profile (Manager)
+            // Fix: Filter by Sport Type first!
+            let fetchedApplicantUser = null;
+            if (roomBasic.applicant_user_id) {
+                // Priority 1: Match Sport Player Profile
+                // Use matchData.sport_type (uppercase) but match case-insensitively with player's sport_type (lowercase)
+                const targetSport = matchData?.sport_type || matchData?.sport;
+
+                if (targetSport) {
+                    const { data: sportProfile } = await supabase
+                        .from('players')
+                        .select('name, player_nickname, avatar_url, user_id, sport_type')
+                        .eq('user_id', roomBasic.applicant_user_id)
+                        .ilike('sport_type', targetSport) // Fix: Case-insensitive match!
+                        .limit(1)
+                        .maybeSingle();
+
+                    if (sportProfile) fetchedApplicantUser = sportProfile;
+                }
+
+                // Priority 2: Any Player Profile (Fallback)
+                if (!fetchedApplicantUser) {
+                    const { data: anyProfile } = await supabase
+                        .from('players')
+                        .select('name, player_nickname, avatar_url, user_id')
+                        .eq('user_id', roomBasic.applicant_user_id)
+                        .limit(1)
+                        .maybeSingle();
+
+                    if (anyProfile) fetchedApplicantUser = anyProfile;
+                }
+
+                // Priority 3: Basic Profile (Fallback)
+                if (!fetchedApplicantUser) {
+                    // @ts-ignore
+                    const { data: basicProfile } = await supabase
+                        .from('profiles')
+                        .select('nickname, avatar_url')
+                        .eq('id', roomBasic.applicant_user_id)
+                        .single();
+
+                    if (basicProfile) {
+                        fetchedApplicantUser = {
+                            name: basicProfile.nickname,
+                            avatar_url: basicProfile.avatar_url,
+                            user_id: roomBasic.applicant_user_id
+                        };
+                    }
+                }
+            }
+            if (fetchedApplicantUser) setApplicantUser(fetchedApplicantUser);
 
             // [Step 2.5] Fetch Team Info Manually (Fallback if join failed)
             let homeTeamData = matchData?.home_team;
@@ -140,27 +169,32 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
             }
 
             // Identify Applicant Player Profile
-            const apps = finalMatchInfo?.match_applications || [];
-            // @ts-ignore
-            const myApp = apps.find((a: any) => a.applicant_user_id === room.applicant_user_id);
-
-            if (myApp?.applicant_player) {
-                setApplicantPlayer(myApp.applicant_player);
+            // Priority 0: Matches table Away Player (DB Normalized)
+            if (finalMatchInfo?.away_player) {
+                setApplicantPlayer(finalMatchInfo.away_player);
             } else {
-                // Fallback: 신청자 정보가 조인으로 안 왔을 때 수동 조회
-                const { data: appData } = await supabase
-                    .from('match_applications')
-                    .select(`
-                        applicant_player:players!applicant_player_id (
+                const apps = finalMatchInfo?.match_applications || [];
+                // @ts-ignore
+                const myApp = apps.find((a: any) => a.applicant_user_id === room.applicant_user_id);
+
+                if (myApp?.applicant_player) {
+                    setApplicantPlayer(myApp.applicant_player);
+                } else {
+                    // Fallback: 신청자 정보가 조인으로 안 왔을 때 수동 조회
+                    const { data: appData } = await supabase
+                        .from('match_applications')
+                        .select(`
+                            applicant_player: players!applicant_player_id(
                             name, player_nickname, avatar_url, record, position, user_id
                         )
                     `)
-                    .eq('match_id', room.match_id)
-                    .eq('applicant_user_id', room.applicant_user_id)
-                    .maybeSingle();
+                        .eq('match_id', room.match_id)
+                        .eq('applicant_user_id', room.applicant_user_id)
+                        .maybeSingle();
 
-                if (appData?.applicant_player) {
-                    setApplicantPlayer(appData.applicant_player);
+                    if (appData?.applicant_player) {
+                        setApplicantPlayer(appData.applicant_player);
+                    }
                 }
             }
 
@@ -188,7 +222,7 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
                     event: 'INSERT',
                     schema: 'public',
                     table: 'messages',
-                    filter: `chat_room_id=eq.${chatRoomId}`
+                    filter: `chat_room_id = eq.${chatRoomId}`
                 },
                 (payload) => {
                     const newMsg = payload.new;
