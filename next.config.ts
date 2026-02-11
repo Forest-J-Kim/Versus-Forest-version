@@ -25,6 +25,7 @@ const withPWA = withPWAInit({
   workboxOptions: {
     skipWaiting: true,
   },
+  disable: process.env.NODE_ENV === 'development',
 });
 
 export default withPWA(nextConfig);

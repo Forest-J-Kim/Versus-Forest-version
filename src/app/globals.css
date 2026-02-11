@@ -1,19 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   /* Clean Light Mode Base */
-  --background: #F8FAFC; /* Slate-50 */
-  --foreground: #0F172A; /* Slate-900 */
-  
+  --background: #F8FAFC;
+  /* Slate-50 */
+  --foreground: #0F172A;
+  /* Slate-900 */
+
   --card-bg: #FFFFFF;
-  --card-border: #E2E8F0; /* Slate-200 */
+  --card-border: #E2E8F0;
+  /* Slate-200 */
 
   /* Brand Colors - Royal Blue */
-  --primary: #2563EB; /* Bright Royal Blue */
-  --primary-hover: #1E40AF; /* Darker Blue */
-  --primary-light: #EFF6FF; /* Blue-50 for backgrounds */
+  --primary: #2563EB;
+  /* Bright Royal Blue */
+  --primary-hover: #1E40AF;
+  /* Darker Blue */
+  --primary-light: #EFF6FF;
+  /* Blue-50 for backgrounds */
   --primary-glow: rgba(37, 99, 235, 0.15);
 
-  --secondary: #64748B; /* Slate-500 */
-  --accent: #F59E0B; /* Amber-500 */
+  --secondary: #64748B;
+  /* Slate-500 */
+  --accent: #F59E0B;
+  /* Amber-500 */
 
   /* Status Colors */
   --success-bg: #DCFCE7;

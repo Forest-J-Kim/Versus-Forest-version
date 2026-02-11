@@ -169,32 +169,28 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
             }
 
             // Identify Applicant Player Profile
-            // Priority 0: Matches table Away Player (DB Normalized)
-            if (finalMatchInfo?.away_player) {
-                setApplicantPlayer(finalMatchInfo.away_player);
+            // Priority 1: Find matching applicant from applications list
+            const apps = finalMatchInfo?.match_applications || [];
+            // @ts-ignore
+            const myApp = apps.find((a: any) => a.applicant_user_id === room.applicant_user_id);
+
+            if (myApp?.applicant_player) {
+                setApplicantPlayer(myApp.applicant_player);
             } else {
-                const apps = finalMatchInfo?.match_applications || [];
-                // @ts-ignore
-                const myApp = apps.find((a: any) => a.applicant_user_id === room.applicant_user_id);
+                // Fallback: 신청자 정보가 조인으로 안 왔을 때 수동 조회
+                const { data: appData } = await supabase
+                    .from('match_applications')
+                    .select(`
+                        applicant_player: players!applicant_player_id(
+                        name, player_nickname, avatar_url, record, position, user_id
+                    )
+                `)
+                    .eq('match_id', room.match_id)
+                    .eq('applicant_user_id', room.applicant_user_id)
+                    .maybeSingle();
 
-                if (myApp?.applicant_player) {
-                    setApplicantPlayer(myApp.applicant_player);
-                } else {
-                    // Fallback: 신청자 정보가 조인으로 안 왔을 때 수동 조회
-                    const { data: appData } = await supabase
-                        .from('match_applications')
-                        .select(`
-                            applicant_player: players!applicant_player_id(
-                            name, player_nickname, avatar_url, record, position, user_id
-                        )
-                    `)
-                        .eq('match_id', room.match_id)
-                        .eq('applicant_user_id', room.applicant_user_id)
-                        .maybeSingle();
-
-                    if (appData?.applicant_player) {
-                        setApplicantPlayer(appData.applicant_player);
-                    }
+                if (appData?.applicant_player) {
+                    setApplicantPlayer(appData.applicant_player);
                 }
             }
 
@@ -475,7 +471,15 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
             <main style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {messages.map((msg, idx) => {
                     const isMyMessage = msg.sender_id === currentUserId;
-                    const showProfile = !isMyMessage && (idx === 0 || messages[idx - 1].sender_id !== msg.sender_id);
+                    const prevMsg = idx > 0 ? messages[idx - 1] : null;
+                    // System messages break the visual grouping chain
+                    const isPrevSystem = prevMsg && String(prevMsg.content).startsWith("system:::");
+
+                    const showProfile = !isMyMessage && (
+                        idx === 0 ||
+                        prevMsg?.sender_id !== msg.sender_id ||
+                        isPrevSystem
+                    );
                     const profileData = !isMyMessage ? getMessageProfile(msg.sender_id) : null;
 
                     return (

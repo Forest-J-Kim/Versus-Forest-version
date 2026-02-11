@@ -224,6 +224,85 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                 return;
             }
             chatRoomId = newRoom.id;
+
+            // Send Chat Invite Notification (Bidirectional)
+            if (newRoom) {
+                // 1. Prepare Common Data
+                const matchDate = new Date(match.match_date).toLocaleString('ko-KR', {
+                    month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                });
+                const commonMessage = `${matchDate} 매치에 대해 대화를 요청해 채팅방이 개설되었습니다.`;
+
+                const SPORT_LABELS: Record<string, string> = {
+                    BOXING: "🥊 복싱", MMA: "🤼 MMA", JIUJITSU: "🥋 주짓수",
+                    KICKBOXING: "🦵 킥복싱", WRESTLING: "🤼 레슬링", MUAYTHAI: "🥊 무에타이",
+                    SOCCER: "⚽ 축구", FUTSAL: "⚽ 풋살", BASEBALL: "⚾ 야구",
+                    BASKETBALL: "🏀 농구", BADMINTON: "🏸 배드민턴", TENNIS: "🎾 테니스",
+                    VOLLEYBALL: "🏐 배구", PINGPONG: "🏓 탁구"
+                };
+                const displayTitle = SPORT_LABELS[match.sport_type] || match.sport_type || '매치';
+
+                // 2. Prepare Names
+                // Host Name (Target)
+                let hostName = '호스트';
+                // match.home_player should be available in match object if joined properly
+                // Let's try to fetch if not available, OR rely on match object structure.
+                // Assuming match.home_player might be joined (it is usually joined in this page load)
+                if ((match as any).home_player) {
+                    const hp = (match as any).home_player;
+                    hostName = hp.player_nickname || hp.name;
+                } else {
+                    // Fallback fetch if needed
+                    const { data: hp } = await supabase.from('players').select('player_nickname, name').eq('id', match.home_player_id).maybeSingle();
+                    if (hp) hostName = hp.player_nickname || hp.name;
+                }
+
+                // Applicant Name (Me)
+                let applicantName = user.user_metadata?.name || '신청자';
+                const { data: myPlayer } = await supabase
+                    .from('players')
+                    .select('player_nickname, name')
+                    .eq('user_id', user.id)
+                    .limit(1)
+                    .maybeSingle();
+                if (myPlayer) applicantName = myPlayer.player_nickname || myPlayer.name;
+
+                // 3. Send Notifications
+                const notifications = [
+                    // A. To Host (Target) -> Show Applicant Name
+                    {
+                        receiver_id: match.host_user_id,
+                        type: 'CHAT_OPEN',
+                        content: '채팅방이 개설되었습니다.',
+                        redirect_url: `/chat/${newRoom.id}`,
+                        is_read: false,
+                        metadata: {
+                            type: "CHAT_OPEN",
+                            match_title: displayTitle,
+                            applicant_name: applicantName,
+                            message: commonMessage,
+                            request_date: new Date().toISOString()
+                        }
+                    },
+                    // B. To Applicant (Me) -> Show Host Name
+                    {
+                        receiver_id: user.id,
+                        type: 'CHAT_OPEN',
+                        content: '채팅방이 개설되었습니다.',
+                        redirect_url: `/chat/${newRoom.id}`,
+                        is_read: false,
+                        metadata: {
+                            type: "CHAT_OPEN",
+                            match_title: displayTitle,
+                            applicant_name: hostName,
+                            message: commonMessage,
+                            request_date: new Date().toISOString()
+                        }
+                    }
+                ];
+
+                await supabase.from('notifications').insert(notifications);
+            }
         }
 
         // C. Redirect to Chat Page
@@ -391,13 +470,46 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
             await Promise.all(promises);
 
             // B. Insert Notification (Once for the host? Or per application? let's do once)
+            // B. Insert Notification (Once for the host? Or per application? let's do once)
             if (match.host_user_id) {
+                const SPORT_LABELS: Record<string, string> = {
+                    // 격투기
+                    BOXING: "🥊 복싱",
+                    MMA: "🤼 MMA",
+                    JIUJITSU: "🥋 주짓수",
+                    KICKBOXING: "🦵 킥복싱",
+                    WRESTLING: "🤼 레슬링",
+                    MUAYTHAI: "🥊 무에타이",
+                    // 구기 종목
+                    SOCCER: "⚽ 축구",
+                    FUTSAL: "⚽ 풋살",
+                    BASEBALL: "⚾ 야구",
+                    BASKETBALL: "🏀 농구",
+                    BADMINTON: "🏸 배드민턴",
+                    TENNIS: "🎾 테니스",
+                    VOLLEYBALL: "🏐 배구",
+                    PINGPONG: "🏓 탁구"
+                };
+
+                const displayTitle = SPORT_LABELS[match.sport_type] || match.sport_type || match.match_type || '매치';
+                const selectedPlayer = candidates.find(c => c.id === selectedPlayerIds[0]);
+                const realName = selectedPlayer ? (selectedPlayer.player_nickname || selectedPlayer.name) : user.user_metadata?.name;
+                const applicantWeight = weight + (weight.includes('kg') ? '' : 'kg');
+
                 await supabase.from('notifications').insert({
                     receiver_id: match.host_user_id,
                     type: 'MATCH_APPLY',
-                    content: `새로운 매칭 신청이 도착했습니다. (${selectedPlayerIds.length}명)`,
-                    redirect_url: `/matches`,
-                    is_read: false
+                    content: `새로운 매칭 신청이 도착했습니다.`,
+                    redirect_url: `/matches/${matchId}`,
+                    is_read: false,
+                    metadata: {
+                        type: "MATCH_APPLY",
+                        match_title: displayTitle,
+                        applicant_name: realName,
+                        applicant_weight: applicantWeight,
+                        message: message,
+                        request_date: new Date().toISOString()
+                    }
                 });
             }
 

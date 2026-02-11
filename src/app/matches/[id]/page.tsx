@@ -256,6 +256,80 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                 return;
             }
             chatRoomId = newRoom.id;
+
+            // Send Chat Invite Notification (Bidirectional)
+            if (newRoom) {
+                // 1. Prepare Common Data
+                const matchDate = new Date(match.match_date).toLocaleString('ko-KR', {
+                    month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                });
+                const commonMessage = `${matchDate} 매치에 대해 대화를 요청해 채팅방이 개설되었습니다.`;
+
+                const SPORT_LABELS: Record<string, string> = {
+                    BOXING: "🥊 복싱", MMA: "🤼 MMA", JIUJITSU: "🥋 주짓수",
+                    KICKBOXING: "🦵 킥복싱", WRESTLING: "🤼 레슬링", MUAYTHAI: "🥊 무에타이",
+                    SOCCER: "⚽ 축구", FUTSAL: "⚽ 풋살", BASEBALL: "⚾ 야구",
+                    BASKETBALL: "🏀 농구", BADMINTON: "🏸 배드민턴", TENNIS: "🎾 테니스",
+                    VOLLEYBALL: "🏐 배구", PINGPONG: "🏓 탁구"
+                };
+                const displayTitle = SPORT_LABELS[match.sport_type] || match.sport_type || '매치';
+
+                // 2. Prepare Names
+                // Host Name (Me)
+                let hostName = user.user_metadata?.name || '호스트';
+                const { data: myPlayer } = await supabase
+                    .from('players')
+                    .select('player_nickname, name')
+                    .eq('id', match.home_player_id)
+                    .maybeSingle();
+                if (myPlayer) hostName = myPlayer.player_nickname || myPlayer.name;
+
+                // Applicant Name (Target)
+                let applicantName = '신청자';
+                // Try to find in candidates/applicants list if available in scope, otherwise fallback
+                // In Host View, 'applicants' state might be available? 
+                // Let's check 'applicants' from state.
+                const targetApp = applicants.find(a => a.applicant_user_id === applicantUserId);
+                if (targetApp?.player) {
+                    applicantName = targetApp.player.player_nickname || targetApp.player.name;
+                }
+
+                // 3. Send Notifications
+                const notifications = [
+                    // A. To Host (Me) -> Show Applicant Name
+                    {
+                        receiver_id: user.id, // Host ID
+                        type: 'CHAT_OPEN',
+                        content: '채팅방이 개설되었습니다.',
+                        redirect_url: `/chat/${newRoom.id}`,
+                        is_read: false,
+                        metadata: {
+                            type: "CHAT_OPEN",
+                            match_title: displayTitle,
+                            applicant_name: applicantName,
+                            message: commonMessage,
+                            request_date: new Date().toISOString()
+                        }
+                    },
+                    // B. To Applicant (Target) -> Show Host Name
+                    {
+                        receiver_id: applicantUserId,
+                        type: 'CHAT_OPEN',
+                        content: '채팅방이 개설되었습니다.',
+                        redirect_url: `/chat/${newRoom.id}`,
+                        is_read: false,
+                        metadata: {
+                            type: "CHAT_OPEN",
+                            match_title: displayTitle,
+                            applicant_name: hostName,
+                            message: commonMessage,
+                            request_date: new Date().toISOString()
+                        }
+                    }
+                ];
+
+                await supabase.from('notifications').insert(notifications);
+            }
         }
 
         // C. Redirect to Chat Page
@@ -304,37 +378,47 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                 away_team_id: awayTeamId
             }));
 
-            // 2. Send System Message & Check Chat Room
+            // 2. Send System Message & Check Chat Room & Send Notification
             if (applicant) {
                 const { data: { user } } = await supabase.auth.getUser();
                 if (user) {
-                    // Ensure Chat Room exists
-                    let chatRoomId = match.chat_rooms?.[0]?.id;
+                    // Ensure Chat Room exists for the Accepted Applicant (Safe Logic)
+                    let chatRoomId = null;
 
-                    if (!chatRoomId) {
-                        const { data: existingRoom } = await supabase
+                    // 1. Try to find existing room for this specific applicant
+                    const { data: targetRoom } = await supabase
+                        .from('chat_rooms')
+                        .select('id')
+                        .eq('match_id', matchId)
+                        .eq('host_id', user.id)
+                        .eq('applicant_user_id', applicant.applicant_user_id)
+                        .maybeSingle();
+
+                    if (targetRoom) {
+                        chatRoomId = targetRoom.id;
+                    } else {
+                        // 2. Create new room if not exists
+                        const { data: newRoom } = await supabase
                             .from('chat_rooms')
-                            .select('id')
-                            .eq('match_id', matchId)
-                            .eq('host_id', user.id)
-                            .eq('applicant_user_id', applicant.applicant_user_id)
-                            .maybeSingle();
-
-                        if (existingRoom) {
-                            chatRoomId = existingRoom.id;
-                        } else {
-                            const { data: newRoom } = await supabase
-                                .from('chat_rooms')
-                                .insert({
-                                    match_id: matchId,
-                                    host_id: user.id,
-                                    applicant_user_id: applicant.applicant_user_id
-                                })
-                                .select()
-                                .single();
-                            chatRoomId = newRoom?.id;
-                        }
+                            .insert({
+                                match_id: matchId,
+                                host_id: user.id,
+                                applicant_user_id: applicant.applicant_user_id
+                            })
+                            .select()
+                            .single();
+                        chatRoomId = newRoom?.id;
                     }
+
+                    const SPORT_LABELS: Record<string, string> = {
+                        BOXING: "🥊 복싱", MMA: "🤼 MMA", JIUJITSU: "🥋 주짓수",
+                        KICKBOXING: "🦵 킥복싱", WRESTLING: "🤼 레슬링", MUAYTHAI: "🥊 무에타이",
+                        SOCCER: "⚽ 축구", FUTSAL: "⚽ 풋살", BASEBALL: "⚾ 야구",
+                        BASKETBALL: "🏀 농구", BADMINTON: "🏸 배드민턴", TENNIS: "🎾 테니스",
+                        VOLLEYBALL: "🏐 배구", PINGPONG: "🏓 탁구"
+                    };
+                    const displayTitle = SPORT_LABELS[match.sport_type] || match.sport_type || '매치';
+                    let hostName = match.home_player?.player_nickname || match.home_player?.name || '호스트';
 
                     if (chatRoomId) {
                         await supabase.from('messages').insert({
@@ -342,9 +426,71 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                             sender_id: user.id,
                             content: "system:::match_scheduled"
                         });
+
+
+                        // [NOTIFICATION] 1. Send Accepted Notification to Applicant
+                        await supabase.from('notifications').insert({
+                            receiver_id: applicant.applicant_user_id,
+                            type: 'MATCH_ACCEPTED',
+                            content: '매치 신청이 수락되었습니다! 세부 내용을 확인해 보세요.',
+                            redirect_url: `/matches/${matchId}`, // Redirect to Match Detail
+                            is_read: false,
+                            metadata: {
+                                type: "MATCH_ACCEPTED",
+                                match_title: displayTitle,
+                                applicant_name: hostName,
+                                message: "매치 신청이 수락되었습니다! 세부 내용을 확인해 보세요.",
+                                request_date: new Date().toISOString()
+                            }
+                        });
+
+                        // [NOTIFICATION] 2. Send Confirmation Notification to Host
+                        let applicantName = applicant.applicant_player?.player_nickname || applicant.applicant_player?.name || '신청자';
+                        await supabase.from('notifications').insert({
+                            receiver_id: user.id, // Host
+                            type: 'MATCH_ACCEPTED',
+                            content: '매치가 성사되었습니다. 세부내용을 확인해보세요.',
+                            redirect_url: `/matches/${matchId}`,
+                            is_read: false,
+                            metadata: {
+                                type: "MATCH_ACCEPTED",
+                                match_title: displayTitle,
+                                applicant_name: applicantName,
+                                message: "매치가 성사되었습니다. 세부내용을 확인해보세요.",
+                                request_date: new Date().toISOString()
+                            }
+                        });
                     }
 
                     // 3. Auto-Reject Other Applicants
+
+                    // [NOTIFICATION] Send Rejected Notification to Auto-Rejected Applicants
+                    const { data: rejectTargets } = await supabase
+                        .from('match_applications')
+                        .select('applicant_user_id')
+                        .eq('match_id', matchId)
+                        .neq('id', appId) // Exclude the accepted application ID
+                        .eq('status', 'PENDING');
+
+                    if (rejectTargets && rejectTargets.length > 0) {
+                        const notifications = rejectTargets.map(target => ({
+                            receiver_id: target.applicant_user_id,
+                            type: 'MATCH_REJECTED',
+                            content: '아쉽게도 매치 신청이 거절되었습니다.',
+                            redirect_url: `/matches/${matchId}`,
+                            is_read: false,
+                            metadata: {
+                                type: "MATCH_REJECTED",
+                                match_title: displayTitle,
+                                applicant_name: hostName,
+                                message: "다른 매칭으로 찾아뵙겠습니다. (자동 거절)",
+                                request_date: new Date().toISOString()
+                            }
+                        }));
+
+                        await supabase.from('notifications').insert(notifications);
+                    }
+
                     const { error: rejectError } = await supabase
                         .from('match_applications')
                         .update({ status: 'REJECTED' })
@@ -399,6 +545,32 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                             content: "system:::match_rejected"
                         });
                     }
+
+                    // [NOTIFICATION] Send Rejected Notification
+                    const SPORT_LABELS: Record<string, string> = {
+                        BOXING: "🥊 복싱", MMA: "🤼 MMA", JIUJITSU: "🥋 주짓수",
+                        KICKBOXING: "🦵 킥복싱", WRESTLING: "🤼 레슬링", MUAYTHAI: "🥊 무에타이",
+                        SOCCER: "⚽ 축구", FUTSAL: "⚽ 풋살", BASEBALL: "⚾ 야구",
+                        BASKETBALL: "🏀 농구", BADMINTON: "🏸 배드민턴", TENNIS: "🎾 테니스",
+                        VOLLEYBALL: "🏐 배구", PINGPONG: "🏓 탁구"
+                    };
+                    const displayTitle = SPORT_LABELS[match.sport_type] || match.sport_type || '매치';
+                    let hostName = match.home_player?.player_nickname || match.home_player?.name || '호스트';
+
+                    await supabase.from('notifications').insert({
+                        receiver_id: applicant.applicant_user_id,
+                        type: 'MATCH_REJECTED',
+                        content: '매치 신청이 거절되었습니다.',
+                        redirect_url: `/matches/${matchId}`,
+                        is_read: false,
+                        metadata: {
+                            type: "MATCH_REJECTED",
+                            match_title: displayTitle,
+                            applicant_name: hostName,
+                            message: "아쉽게도 매치 신청이 거절되었습니다.",
+                            request_date: new Date().toISOString()
+                        }
+                    });
                 }
             }
         }
