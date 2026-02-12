@@ -224,7 +224,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
         }
     };
 
-    const handleStartChat = async (applicantUserId: string) => {
+    const handleStartChat = async (applicantUserId: string, applicantPlayerId: string) => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
@@ -235,7 +235,8 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
             .eq('match_id', matchId)
             .eq('host_id', user.id)
             .eq('applicant_user_id', applicantUserId)
-            .single();
+            .eq('applicant_player_id', applicantPlayerId)
+            .maybeSingle();
 
         let chatRoomId = existingRoom?.id;
 
@@ -246,7 +247,8 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                 .insert({
                     match_id: matchId,
                     host_id: user.id,
-                    applicant_user_id: applicantUserId
+                    applicant_user_id: applicantUserId,
+                    applicant_player_id: applicantPlayerId
                 })
                 .select()
                 .single();
@@ -289,7 +291,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                 // Try to find in candidates/applicants list if available in scope, otherwise fallback
                 // In Host View, 'applicants' state might be available? 
                 // Let's check 'applicants' from state.
-                const targetApp = applicants.find(a => a.applicant_user_id === applicantUserId);
+                const targetApp = applicants.find(a => a.applicant_player_id === applicantPlayerId);
                 if (targetApp?.player) {
                     applicantName = targetApp.player.player_nickname || targetApp.player.name;
                 }
@@ -392,6 +394,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                         .eq('match_id', matchId)
                         .eq('host_id', user.id)
                         .eq('applicant_user_id', applicant.applicant_user_id)
+                        .eq('applicant_player_id', applicant.applicant_player_id)
                         .maybeSingle();
 
                     if (targetRoom) {
@@ -403,7 +406,8 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                             .insert({
                                 match_id: matchId,
                                 host_id: user.id,
-                                applicant_user_id: applicant.applicant_user_id
+                                applicant_user_id: applicant.applicant_user_id,
+                                applicant_player_id: applicant.applicant_player_id
                             })
                             .select()
                             .single();
@@ -426,7 +430,6 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                             sender_id: user.id,
                             content: "system:::match_scheduled"
                         });
-
 
                         // [NOTIFICATION] 1. Send Accepted Notification to Applicant
                         await supabase.from('notifications').insert({
@@ -582,6 +585,18 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
     const handleCancelApplication = async (appId: string) => {
         if (!confirm("정말 신청을 취소하시겠습니까?")) return;
 
+        // 1. Fetch Application Details (Before Deletion)
+        const { data: appData } = await supabase
+            .from('match_applications')
+            .select(`
+                match_id,
+                applicant_player:players!applicant_player_id ( name, player_nickname ),
+                match:matches!match_id ( host_user_id, sport_type, match_type )
+            `)
+            .eq('id', appId)
+            .single();
+
+        // 2. Delete Application
         const { error } = await supabase
             .from('match_applications')
             .delete()
@@ -592,8 +607,104 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
             return;
         }
 
+        // 3. Send Notification to Host (Using fetched data)
+        // @ts-ignore
+        if (appData && appData.match?.host_user_id) {
+            const SPORT_LABELS: Record<string, string> = {
+                BOXING: "🥊 복싱", MMA: "🤼 MMA", JIUJITSU: "🥋 주짓수",
+                KICKBOXING: "🦵 킥복싱", WRESTLING: "🤼 레슬링", MUAYTHAI: "🥊 무에타이",
+                SOCCER: "⚽ 축구", FUTSAL: "⚽ 풋살", BASEBALL: "⚾ 야구",
+                BASKETBALL: "🏀 농구", BADMINTON: "🏸 배드민턴", TENNIS: "🎾 테니스",
+                VOLLEYBALL: "🏐 배구", PINGPONG: "🏓 탁구"
+            };
+
+            // @ts-ignore
+            const sType = appData.match.sport_type || '';
+            // @ts-ignore
+            const displayTitle = SPORT_LABELS[sType] || sType || appData.match.match_type || '매치';
+            // @ts-ignore
+            const applicantName = appData.applicant_player?.player_nickname || appData.applicant_player?.name || "신청자";
+
+            await supabase.from('notifications').insert({
+                // @ts-ignore
+                receiver_id: appData.match.host_user_id,
+                type: 'MATCH_CANCEL',
+                content: `${applicantName}님이 신청을 취소했습니다.`,
+                // @ts-ignore
+                redirect_url: `/matches/${appData.match_id}`,
+                is_read: false,
+                metadata: {
+                    type: "MATCH_CANCEL",
+                    match_title: displayTitle,
+                    applicant_name: applicantName,
+                    message: "매치 신청을 취소했습니다.",
+                    request_date: new Date().toISOString()
+                }
+            });
+        }
+
         setApplicants(prev => prev.filter(a => a.id !== appId));
         showToast("신청이 취소되었습니다.", "success");
+    };
+
+    const handleDeleteMatch = async () => {
+        if (!confirm("매치를 취소하시겠습니까? 목록에서 숨겨지며, 채팅방 기록은 보존됩니다.")) return;
+
+        try {
+            setSubmitting(true);
+
+            // 1. 알림 대상자(게스트) 조회
+            const { data: targetApp } = await supabase
+                .from('match_applications')
+                .select('applicant_user_id')
+                .eq('match_id', matchId)
+                .eq('status', 'ACCEPTED')
+                .maybeSingle();
+
+            // 2. 알림 발송
+            if (targetApp) {
+                const SPORT_LABELS: Record<string, string> = {
+                    BOXING: "🥊 복싱", SOCCER: "⚽ 축구", BASEBALL: "⚾ 야구",
+                    BASKETBALL: "🏀 농구", BADMINTON: "🏸 배드민턴", TENNIS: "🎾 테니스",
+                    VOLLEYBALL: "🏐 배구", PINGPONG: "🏓 탁구",
+                    MMA: "🤼 MMA", JIUJITSU: "🥋 주짓수", KICKBOXING: "🦵 킥복싱", WRESTLING: "🤼 레슬링", MUAYTHAI: "🥊 무에타이"
+                };
+                const sType = match.sport_type || '';
+                const displayTitle = SPORT_LABELS[sType] || sType || '매치';
+
+                await supabase.from('notifications').insert({
+                    receiver_id: targetApp.applicant_user_id,
+                    type: 'MATCH_CANCEL',
+                    content: '호스트 사정으로 매치가 취소되었습니다.',
+                    redirect_url: '/matches',
+                    is_read: false,
+                    metadata: {
+                        type: "MATCH_CANCEL",
+                        match_title: displayTitle,
+                        applicant_name: "호스트",
+                        message: "매치가 취소(삭제)되었습니다.",
+                        request_date: new Date().toISOString()
+                    }
+                });
+            }
+
+            // 3. Soft Delete 실행
+            const { error: updateError } = await supabase
+                .from('matches')
+                .update({ status: 'DELETED' })
+                .eq('id', matchId);
+
+            if (updateError) throw updateError;
+
+            alert("매치가 취소되었습니다.");
+            router.replace('/matches');
+
+        } catch (error: any) {
+            console.error("매치 취소 실패:", error);
+            alert("오류 발생: " + error.message);
+        } finally {
+            setSubmitting(false);
+        }
     };
 
 
@@ -649,6 +760,70 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
     };
 
     if (loading) return <div className="p-8 text-center">Loading...</div>;
+
+    // [Fix] 삭제된 매치 전용 뷰 (Early Return)
+    if (match && match.status === 'DELETED') {
+        return (
+            <div style={{
+                height: '100vh',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: '#F3F4F6', // 회색 배경
+                padding: '20px'
+            }}>
+                <div style={{
+                    border: '6px solid #EF4444', // 빨간 테두리
+                    padding: '40px 30px',
+                    borderRadius: '16px',
+                    // transform: 'rotate(-10deg)', // 도장 기울기 삭제
+                    textAlign: 'center',
+                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                    boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
+                    maxWidth: '320px',
+                    width: '100%'
+                }}>
+                    <div style={{
+                        fontSize: '2rem',
+                        fontWeight: '900',
+                        color: '#EF4444',
+                        marginBottom: '16px',
+                        lineHeight: '1.2'
+                    }}>
+                        🚫 삭제된<br />매치입니다
+                    </div>
+                    <div style={{
+                        fontSize: '1.1rem',
+                        fontWeight: '700',
+                        color: '#EF4444',
+                        opacity: 0.9,
+                        wordBreak: 'keep-all'
+                    }}>
+                        호스트의 사정으로<br />매치가 취소되었습니다.
+                    </div>
+                </div>
+
+                <button
+                    onClick={() => router.back()}
+                    style={{
+                        marginTop: '40px',
+                        padding: '14px 24px',
+                        background: 'white', // 흰색 버튼
+                        color: '#111827', // 검은색 글씨
+                        border: '1px solid #E5E7EB', // 연한 테두리
+                        borderRadius: '12px',
+                        fontWeight: 'bold',
+                        fontSize: '1rem',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 6px rgba(0,0,0,0.05)'
+                    }}
+                >
+                    ← 목록으로 돌아가기
+                </button>
+            </div>
+        );
+    }
 
     // --- SCHEDULED MODE VIEW ---
     if (match.status === 'SCHEDULED') {
@@ -994,7 +1169,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                                     <ApplicationCard
                                         key={app.id}
                                         app={app}
-                                        onChat={() => handleStartChat(app.applicant_user_id)}
+                                        onChat={() => handleStartChat(app.applicant_user_id, app.applicant_player_id)}
                                         onAccept={() => handleUpdateStatus(app.id, 'ACCEPTED')}
                                         onReject={() => handleUpdateStatus(app.id, 'REJECTED')}
                                         onCancel={(currentUser?.id === app.applicant_user_id || currentUser?.id === app.player?.user_id) ? () => handleCancelApplication(app.id) : undefined}

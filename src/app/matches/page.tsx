@@ -420,9 +420,52 @@ function MatchesContent() {
   };
 
   const handleDelete = async (matchId: string) => {
-    if (!confirm("정말 이 매칭을 삭제하시겠습니까?")) return;
+    if (!confirm("정말 이 매칭을 삭제하시겠습니까? (상대방에게 취소 알림이 전송됩니다)")) return;
 
-    // 1. Optimistic Update (Immediate Feedback)
+    // 1. [New] 알림 발송 로직 추가 (삭제 전 실행)
+    const { data: targetApp } = await supabase
+      .from('match_applications')
+      .select('applicant_user_id')
+      .eq('match_id', matchId)
+      .eq('status', 'ACCEPTED')
+      .maybeSingle();
+
+    if (targetApp) {
+      // 리스트에서 매치 정보 찾기
+      const targetMatch = matches?.find(m => m.id === matchId);
+
+      // 1. 종목명 한글 매핑
+      const SPORT_LABELS: Record<string, string> = {
+        BOXING: "🥊 복싱", SOCCER: "⚽ 축구", BASEBALL: "⚾ 야구",
+        BASKETBALL: "🏀 농구", BADMINTON: "🏸 배드민턴", TENNIS: "🎾 테니스",
+        VOLLEYBALL: "🏐 배구", PINGPONG: "🏓 탁구",
+        MMA: "🤼 MMA", JIUJITSU: "🥋 주짓수", KICKBOXING: "🦵 킥복싱", WRESTLING: "🤼 레슬링", MUAYTHAI: "🥊 무에타이",
+        FUTSAL: "⚽ 풋살"
+      };
+      const sType = targetMatch?.sport_type || '';
+      const displayTitle = SPORT_LABELS[sType] || sType || '매치';
+
+      // 2. 호스트 닉네임 추출 (Player 정보 우선)
+      const hostNickname = targetMatch?.home_player?.name
+        || "알 수 없는 호스트";
+
+      await supabase.from('notifications').insert({
+        receiver_id: targetApp.applicant_user_id,
+        type: 'MATCH_CANCEL',
+        content: `${hostNickname}님의 사정으로 매치가 취소되었습니다.`,
+        redirect_url: '/matches',
+        is_read: false,
+        metadata: {
+          type: "MATCH_CANCEL",
+          match_title: displayTitle,
+          applicant_name: hostNickname,
+          message: "매치가 삭제되었습니다.",
+          request_date: new Date().toISOString()
+        }
+      });
+    }
+
+    // 2. Optimistic Update (Immediate Feedback)
     await mutate(
       ['matches', sport, mode],
       (currentMatches: Match[] | undefined) => {
@@ -431,7 +474,7 @@ function MatchesContent() {
       false
     );
 
-    // 2. Execute Delete (Soft Delete)
+    // 3. Execute Delete (Soft Delete)
     const { error } = await supabase
       .from('matches')
       .update({ status: 'DELETED' }) // Soft delete
@@ -442,7 +485,7 @@ function MatchesContent() {
       // Revert / Revalidate on error
       mutate(['matches', sport, mode]);
     } else {
-      // [System Message] Notify chat rooms about deletion
+      // 4. [System Message] Notify chat rooms about deletion
       // Find chat rooms associated with this match
       const { data: chatRooms } = await supabase
         .from('chat_rooms')
@@ -463,7 +506,7 @@ function MatchesContent() {
         }
       }
 
-      showToast("매칭이 삭제되었습니다.", "success");
+      showToast("매칭이 취소(삭제)되었습니다.", "success");
       mutate(['matches', sport, mode]);
     }
   };

@@ -169,28 +169,44 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
             }
 
             // Identify Applicant Player Profile
-            // Priority 1: Find matching applicant from applications list
-            const apps = finalMatchInfo?.match_applications || [];
+            // Fix: Use 'applicant_player_id' from chat_room directly if available (Priority 1)
+
             // @ts-ignore
-            const myApp = apps.find((a: any) => a.applicant_user_id === room.applicant_user_id);
+            if (room.applicant_player_id) {
+                const { data: specificPlayer } = await supabase
+                    .from('players')
+                    .select('name, player_nickname, avatar_url, record, position, user_id')
+                    .eq('id', room.applicant_player_id)
+                    .single();
 
-            if (myApp?.applicant_player) {
-                setApplicantPlayer(myApp.applicant_player);
-            } else {
-                // Fallback: 신청자 정보가 조인으로 안 왔을 때 수동 조회
-                const { data: appData } = await supabase
-                    .from('match_applications')
-                    .select(`
-                        applicant_player: players!applicant_player_id(
-                        name, player_nickname, avatar_url, record, position, user_id
-                    )
-                `)
-                    .eq('match_id', room.match_id)
-                    .eq('applicant_user_id', room.applicant_user_id)
-                    .maybeSingle();
+                if (specificPlayer) {
+                    setApplicantPlayer(specificPlayer);
+                }
+            }
+            else {
+                // Priority 2 (Legacy/Fallback): Find matching applicant from applications list
+                const apps = finalMatchInfo?.match_applications || [];
+                // @ts-ignore
+                const myApp = apps.find((a: any) => a.applicant_user_id === room.applicant_user_id);
 
-                if (appData?.applicant_player) {
-                    setApplicantPlayer(appData.applicant_player);
+                if (myApp?.applicant_player) {
+                    setApplicantPlayer(myApp.applicant_player);
+                } else {
+                    // Priority 3: Fetch manually via match_applications
+                    const { data: appData } = await supabase
+                        .from('match_applications')
+                        .select(`
+                            applicant_player: players!applicant_player_id(
+                                name, player_nickname, avatar_url, record, position, user_id
+                            )
+                        `)
+                        .eq('match_id', room.match_id)
+                        .eq('applicant_user_id', room.applicant_user_id)
+                        .maybeSingle();
+
+                    if (appData?.applicant_player) {
+                        setApplicantPlayer(appData.applicant_player);
+                    }
                 }
             }
 
