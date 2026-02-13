@@ -21,27 +21,19 @@ export default function MessageListPage() {
 
             // 1. Fetch Chat Rooms where I am involved
             // We join 'matches' to get sport_type, location, etc.
-            // We also try to join 'match_applications' via 'matches' to get the applicant player info.
-            // Note: match_applications is 1:N with matches. Filtering specific application in the join is hard.
-            // So we fetch all applications for the match and filtering in JS is safer/easier.
+            // We directly join 'applicant_player' from 'chat_rooms' to get the player info (since we added applicant_player_id to chat_rooms)
             const { data: rooms, error } = await supabase
                 .from('chat_rooms')
                 .select(`
                     *,
                     match:matches!match_id (
-                        sport_type,
-                        match_location,
-                        match_date,
-                        home_player_id,
-                        match_applications (
-                            applicant_user_id,
-                            applicant_player_id
-                        )
+                        sport_type, match_location, match_date, home_player_id,
+                        home_player:players!home_player_id(name, player_nickname, avatar_url)
                     ),
-                    messages (
-                        content,
-                        created_at
-                    )
+                    applicant_player:players!applicant_player_id (
+                        name, player_nickname, avatar_url, user_id
+                    ),
+                    messages ( content, created_at )
                 `)
                 .or(`host_id.eq.${user.id},applicant_user_id.eq.${user.id}`)
                 .order('created_at', { ascending: false });
@@ -69,66 +61,74 @@ export default function MessageListPage() {
             const enrichedRooms = await Promise.all(activeRooms.map(async (room) => {
                 const isHost = room.host_id === user.id;
 
-                // Determine Partner's SPECIFIC Player ID
-                let partnerPlayerId = null;
-                const partnerUserId = isHost ? room.applicant_user_id : room.host_id;
-
-                if (isHost) {
-                    // I am Host. Partner is Applicant.
-                    // Find the application for this specific applicant_user_id from the nested match_applications array
-                    const apps = room.match?.match_applications || [];
-                    const myApp = apps.find((a: any) => a.applicant_user_id === room.applicant_user_id);
-
-                    partnerPlayerId = myApp?.applicant_player_id;
-
-                    // Fallback: If not found in nested array (e.g. maybe limit reached or join issue), try manual fetch
-                    if (!partnerPlayerId) {
-                        const { data: appData } = await supabase
-                            .from('match_applications')
-                            .select('applicant_player_id')
-                            .eq('match_id', room.match_id)
-                            .eq('applicant_user_id', room.applicant_user_id)
-                            .maybeSingle();
-                        partnerPlayerId = appData?.applicant_player_id;
-                    }
-                } else {
-                    // I am Applicant. Partner is Host.
-                    // Host's player ID is in match table (home_player_id)
-                    partnerPlayerId = room.match?.home_player_id;
-                }
-
-                // Fetch Partner Profile (Try players first for updated info, else profiles)
                 let partnerName = "알 수 없음";
                 let partnerAvatar = null;
+                let sportType = room.match?.sport_type;
 
-                if (partnerPlayerId) {
-                    const { data: player } = await supabase
-                        .from('players')
-                        .select('player_nickname, name, avatar_url')
-                        .eq('id', partnerPlayerId)
-                        .limit(1)
-                        .maybeSingle();
+                if (isHost) {
+                    // [CASE A] 나는 호스트 -> 상대방은 '신청 선수' (또는 매니저)
+                    const player = room.applicant_player; // 쿼리에서 가져온 선수 정보
 
                     if (player) {
-                        partnerName = player.name || player.player_nickname || "알 수 없음";
+                        // 1. 기본은 선수 정보 표시
+                        partnerName = player.player_nickname || player.name || "알 수 없음";
                         partnerAvatar = player.avatar_url;
-                    }
-                }
 
-                // Fallback (if player fetch failed or ID missing)
-                if (partnerName === "알 수 없음") {
-                    const { data: profile } = await supabase
-                        .from('profiles' as any)
-                        .select('username, avatar_url')
-                        .eq('user_id', partnerUserId)
-                        .single();
-                    if (profile) {
-                        partnerName = (profile as any).username || "알 수 없음";
-                        partnerAvatar = (profile as any).avatar_url;
+                        // 2. 대리 신청 확인 (선수 계정 != 신청자 계정)
+                        if (player.user_id !== room.applicant_user_id) {
+                            let managerName = "매니저";
+                            const currentSportType = room.match?.sport_type; // 예: "BOXING"
+
+                            // [Step 1] 해당 종목의 선수 프로필 우선 조회 (가장 정확함)
+                            if (currentSportType) {
+                                const { data: managerPlayer } = await supabase
+                                    .from('players')
+                                    .select('player_nickname, name')
+                                    .eq('user_id', room.applicant_user_id)
+                                    .ilike('sport_type', currentSportType) // ★ 대소문자 무시하고 종목 매칭 (boxing == BOXING)
+                                    .maybeSingle();
+
+                                if (managerPlayer) {
+                                    managerName = managerPlayer.player_nickname || managerPlayer.name;
+                                }
+                            }
+
+                            // [Step 2] 종목 프로필이 없으면 기본 프로필(Profiles) 조회 (Fallback)
+                            if (managerName === "매니저") {
+                                const { data: managerProfile } = await supabase
+                                    // @ts-ignore
+                                    .from('profiles')
+                                    .select('nickname') // nickname 컬럼이 없으면 username 사용 등 유연하게 대처
+                                    .eq('id', room.applicant_user_id)
+                                    .maybeSingle();
+
+                                // @ts-ignore
+                                if (managerProfile?.nickname) {
+                                    // @ts-ignore
+                                    managerName = managerProfile.nickname;
+                                }
+                            }
+
+                            // 3. 이름 포맷 변경: "선수이름 (매니저: 뚝섬 타이슨)"
+                            partnerName = `${partnerName} (매니저: ${managerName})`;
+                        }
+                    } else {
+                        // Legacy Fallback (선수 정보 없을 때)
+                        partnerName = "신청자 (정보 없음)";
+                    }
+                } else {
+                    // [CASE B] 나는 게스트(선수/매니저) -> 상대방은 '호스트'
+                    const hostPlayer = room.match?.home_player;
+                    if (hostPlayer) {
+                        partnerName = hostPlayer.player_nickname || hostPlayer.name || "알 수 없음";
+                        partnerAvatar = hostPlayer.avatar_url;
+                    } else {
+                        partnerName = "호스트";
                     }
                 }
 
                 // Get Last Message
+                // @ts-ignore
                 const sortedMessages = room.messages?.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
                 const lastMsg = sortedMessages?.[0]?.content || (room.match ? "매칭이 생성되었습니다." : "대화가 시작되었습니다.");
                 const lastTime = sortedMessages?.[0]?.created_at || room.created_at;
@@ -139,7 +139,7 @@ export default function MessageListPage() {
                     partnerAvatar,
                     lastMessage: lastMsg,
                     time: lastTime,
-                    sportType: room.match?.sport_type
+                    sportType
                 };
             }));
 

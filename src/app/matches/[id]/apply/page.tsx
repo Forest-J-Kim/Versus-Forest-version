@@ -254,7 +254,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                 } else {
                     // Fallback fetch if needed
                     const { data: hp } = await supabase.from('players').select('player_nickname, name').eq('id', match.home_player_id).maybeSingle();
-                    if (hp) hostName = hp.player_nickname || hp.name;
+                    if (hp) hostName = hp.player_nickname || hp.name || '호스트';
                 }
 
                 // Applicant Name (Me)
@@ -471,52 +471,48 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
 
             // B. Insert Notification (Once for the host? Or per application? let's do once)
             // B. Insert Notification (Once for the host? Or per application? let's do once)
+            // [Step 2] 알림 발송 로직 (완전 수정)
             if (match.host_user_id) {
+                // 종목 이름 매핑 (한글 변환)
                 const SPORT_LABELS: Record<string, string> = {
-                    // 격투기
-                    BOXING: "🥊 복싱",
-                    MMA: "🤼 MMA",
-                    JIUJITSU: "🥋 주짓수",
-                    KICKBOXING: "🦵 킥복싱",
-                    WRESTLING: "🤼 레슬링",
-                    MUAYTHAI: "🥊 무에타이",
-                    // 구기 종목
-                    SOCCER: "⚽ 축구",
-                    FUTSAL: "⚽ 풋살",
-                    BASEBALL: "⚾ 야구",
-                    BASKETBALL: "🏀 농구",
-                    BADMINTON: "🏸 배드민턴",
-                    TENNIS: "🎾 테니스",
-                    VOLLEYBALL: "🏐 배구",
-                    PINGPONG: "🏓 탁구"
+                    BOXING: "🥊 복싱", MMA: "🤼 MMA", JIUJITSU: "🥋 주짓수",
+                    KICKBOXING: "🦵 킥복싱", WRESTLING: "🤼 레슬링", MUAYTHAI: "🥊 무에타이",
+                    SOCCER: "⚽ 축구", FUTSAL: "⚽ 풋살", BASEBALL: "⚾ 야구",
+                    BASKETBALL: "🏀 농구", BADMINTON: "🏸 배드민턴", TENNIS: "🎾 테니스",
+                    VOLLEYBALL: "🏐 배구", PINGPONG: "🏓 탁구"
                 };
+                const sType = match.sport_type || '';
+                const displayTitle = SPORT_LABELS[sType] || sType || '매치';
 
-                const displayTitle = SPORT_LABELS[match.sport_type] || match.sport_type || match.match_type || '매치';
-                const selectedPlayer = candidates.find(c => c.id === selectedPlayerIds[0]);
-                const realName = selectedPlayer ? (selectedPlayer.player_nickname || selectedPlayer.name) : user.user_metadata?.name;
-                const applicantWeight = weight + (weight.includes('kg') ? '' : 'kg');
+                // 선택된 선수 ID를 기반으로 알림 객체 배열 생성
+                const notifications = selectedPlayerIds.map(pid => {
+                    // candidates 목록에서 해당 ID를 가진 선수의 정보(이름) 찾기
+                    const playerInfo = candidates.find(c => c.id === pid);
+                    const playerName = playerInfo?.player_nickname || playerInfo?.name || "선수";
 
-                await supabase.from('notifications').insert({
-                    receiver_id: match.host_user_id,
-                    type: 'MATCH_APPLY',
-                    content: `새로운 매칭 신청이 도착했습니다.`,
-                    redirect_url: `/matches/${matchId}`,
-                    is_read: false,
-                    metadata: {
-                        type: "MATCH_APPLY",
-                        match_title: displayTitle,
-                        applicant_name: realName,
-                        applicant_weight: applicantWeight,
-                        message: message,
-                        request_date: new Date().toISOString()
-                    }
+                    return {
+                        receiver_id: match.host_user_id,
+                        type: 'MATCH_APPLY',
+                        content: `[${displayTitle}] '${playerName}' 선수가 매치를 신청했습니다.`, // 구체적인 선수 이름 명시
+                        redirect_url: `/matches/${matchId}`, // 클릭 시 매치 상세로 이동
+                        is_read: false,
+                        metadata: {
+                            type: "MATCH_APPLY",
+                            match_title: displayTitle,
+                            applicant_name: playerName, // 캡틴 이름이 아닌 '선수 이름'을 넣음
+                            message: message || "매치 신청합니다.",
+                            request_date: new Date().toISOString()
+                        }
+                    };
                 });
+
+                // 알림 일괄 전송 (Bulk Insert)
+                await supabase.from('notifications').insert(notifications);
             }
 
             showToast(`${selectedPlayerIds.length}명의 신청이 완료되었습니다!`, "success");
-            router.push('/matches'); // Or reload? Plan said reload. But router push is fine.
-            // window.location.reload(); // Redirecting to list is safer to see status? 
-            // Actually router.push('/matches') is existing behavior. Keep it.
+            router.refresh();
+            router.back();
         } catch (e: any) {
             console.error("Apply Error:", e);
             alert("신청 중 오류 발생: " + e.message);

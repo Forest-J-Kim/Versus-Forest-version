@@ -325,7 +325,8 @@ export default function SportRegisterPage({ params }: { params: Promise<{ id: st
             }
 
             alert("프로필 등록이 완료되었습니다!");
-            router.push('/profile');
+            router.refresh();
+            router.replace('/profile');
 
         } catch (error: any) {
             console.error(error);

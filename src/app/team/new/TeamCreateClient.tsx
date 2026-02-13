@@ -123,7 +123,8 @@ export default function TeamCreateClient({
             }
 
             alert(`${teamName} 팀이 창단되었습니다!`);
-            router.replace(`/team/${newTeam.id}`); // Go to new team page
+            router.refresh();
+            router.back(); // Return to list/profile context
 
         } catch (e: any) {
             console.error(e);

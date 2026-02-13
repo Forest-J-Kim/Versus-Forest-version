@@ -13,6 +13,15 @@ function MatchRegisterForm() {
     const { showToast } = useToast();
     const supabase = createClient();
 
+    const getSimpleAddress = (fullAddress: string) => {
+        if (!fullAddress) return "";
+        const parts = fullAddress.split(' ');
+        const regions = parts.filter(p =>
+            p.endsWith('시') || p.endsWith('도') || p.endsWith('구') || p.endsWith('군')
+        );
+        return [...new Set(regions)].join(' ') || fullAddress;
+    };
+
     const mode = searchParams.get("mode") || "SOLO";
     const sportId = searchParams.get("sport") || "BOXING";
     const sportDef = sportConfig[mode]?.[sportId];
@@ -69,7 +78,7 @@ function MatchRegisterForm() {
         if (locationType === 'HOME') {
             const team = ownedTeams.find(t => t.id === selectedTeamId);
             if (team) {
-                const shortLoc = (team.location || "").split(" ").slice(0, 2).join(" ");
+                const shortLoc = getSimpleAddress(team.location);
                 setMatchLocation(`🏠 ${team.team_name} (${shortLoc})`);
             } else {
                 setMatchLocation("🏠 홈 (장소 선택 필요)");
@@ -367,7 +376,8 @@ function MatchRegisterForm() {
 
             console.log("✅ Success:", data);
             alert("✅ 매칭이 등록되었습니다!");
-            router.push("/matches"); // Next.js routing
+            router.refresh();
+            router.back(); // Return to previous context (List)
 
         } catch (err: any) {
             console.error(err);
@@ -505,6 +515,9 @@ function MatchRegisterForm() {
                         </button>
                     </div>
 
+                    {/* Google Maps Placeholder */}
+
+
                     {/* Team Selection Dropdown (Only for HOME) */}
                     {locationType === 'HOME' && (
                         <div style={{ marginTop: '12px' }}>
@@ -523,7 +536,7 @@ function MatchRegisterForm() {
                                 <option value="">(체육관을 선택해주세요)</option>
                                 {ownedTeams.map(team => (
                                     <option key={team.id} value={team.id}>
-                                        {team.team_name} ({team.location ? team.location.split(' ').slice(0, 2).join(' ') : '위치없음'})
+                                        {team.team_name} ({getSimpleAddress(team.location)})
                                     </option>
                                 ))}
                             </select>

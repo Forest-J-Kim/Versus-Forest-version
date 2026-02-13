@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import styles from './EditTeamInfoModal.module.css';
-import NaverLocationPicker from '@/components/common/NaverLocationPicker';
+// import NaverLocationPicker from '@/components/common/NaverLocationPicker'; // Removed for Google Maps migration
 
 interface EditTeamInfoModalProps {
     isOpen: boolean;
@@ -52,7 +52,15 @@ export default function EditTeamInfoModal({ isOpen, onClose, team, captainName, 
                     </div>
 
                     <div className={styles.field}>
-                        <NaverLocationPicker onLocationSelect={setLocation} initialAddress={location} />
+                        <div className={styles.field}>
+                            <label>팀 위치</label>
+                            <div style={{ width: '100%', height: '150px', background: '#f3f4f6', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280', border: '1px solid #e5e7eb', marginBottom: '8px' }}>
+                                Google Maps 준비 중... (현재: {location})
+                            </div>
+                            {/* 
+                        <NaverLocationPicker onLocationSelect={setLocation} initialAddress={location} /> 
+                        */}
+                        </div>
                     </div>
 
                     <div className={styles.field}>

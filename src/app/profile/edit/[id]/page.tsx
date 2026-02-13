@@ -432,7 +432,8 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
             }
 
             alert("프로필 수정이 완료되었습니다!");
-            router.push(`/profile`);
+            router.refresh();
+            router.back();
 
         } catch (error: any) {
             console.error(error);

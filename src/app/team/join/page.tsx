@@ -193,7 +193,7 @@ function TeamJoinContent() {
             if (error) throw error;
 
             alert("가입 신청을 보냈습니다. 팀장의 승인을 기다려주세요.");
-            router.push('/profile'); // Return to profile
+            router.replace('/profile'); // Return to profile
 
         } catch (e: any) {
             console.error(e);

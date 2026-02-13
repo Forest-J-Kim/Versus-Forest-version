@@ -5,12 +5,29 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { useMode } from "@/components/providers/ModeProvider";
 import { useToast } from "@/components/providers/ToastProvider";
+import GoogleMapViewer from "@/components/common/GoogleMapViewer";
 
 export default function ApplyMatchPage({ params }: { params: Promise<{ id: string }> }) {
     const router = useRouter();
     const supabase = createClient();
     const { isManagerMode } = useMode();
     const { showToast } = useToast();
+
+    // Helper for address formatting
+    const getSimpleAddress = (fullAddress: string) => {
+        if (!fullAddress) return "";
+
+        // [수정] 괄호 등 특수문자 제거 후 파싱
+        const cleanAddress = fullAddress.replace(/[()[\]]/g, ' ').trim();
+        const parts = cleanAddress.split(/[\s,]+/);
+
+        const regions = parts.filter(p =>
+            p.endsWith('시') || p.endsWith('도') || p.endsWith('구') || p.endsWith('군') || p.endsWith('읍') || p.endsWith('면')
+        );
+
+        const simple = [...new Set(regions)].join(' ');
+        return simple || cleanAddress;
+    };
 
     const unwrappedParams = use(params);
     const matchId = unwrappedParams.id;
@@ -845,64 +862,111 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
 
                 <main style={{ padding: '24px 20px', maxWidth: '480px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '32px' }}>
 
-                    {/* VS Match Card (New) */}
+                    {/* VS Match Card (New Design: Intense Fighting Arena with Webtoon Bg) */}
                     <section style={{
-                        padding: '3px',
-                        background: 'linear-gradient(to right, #EF4444, #3B82F6)',
-                        borderRadius: '16px',
-                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+                        padding: '4px',
+                        background: 'radial-gradient(ellipse at center, #7f1d1d 0%, #1a0505 70%, #000000 100%)',
+                        borderRadius: '18px',
+                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 30px rgba(239, 68, 68, 0.3)',
+                        border: '1px solid #333',
+                        position: 'relative',
+                        overflow: 'hidden',
+                        minHeight: '600px', // 세로로 더 길게 (인스타 스토리 비율 고려)
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center'
                     }}>
-                        <div style={{ background: 'white', borderRadius: '13px', padding: '24px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        {/* Background Image Layer (User Provided) */}
+                        <div style={{
+                            position: 'absolute',
+                            top: 0, left: 0, right: 0, bottom: 0,
+                            backgroundImage: 'url("/images/match_bg.png")',
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                            opacity: 0.5, // 배경 이미지 밝기 증가 (0.2 -> 0.)
+                            filter: 'grayscale(100%) contrast(120%)', // 웹툰 느낌 유지
+                            zIndex: 0
+                        }}></div>
 
-                            {/* Top: Emblem */}
-                            <div style={{ width: '60px', height: '60px', marginBottom: '16px', borderRadius: '50%', overflow: 'hidden', border: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <div style={{
+                            background: 'rgba(20, 20, 20, 0.3)', // 내부 박스 투명도 증가 (0.7 -> 0.3)
+                            backdropFilter: 'blur(3px)',
+                            borderRadius: '14px',
+                            padding: '40px 20px',
+                            display: 'flex', flexDirection: 'column', alignItems: 'center',
+                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                            boxShadow: 'inset 0 0 20px rgba(0,0,0,0.5)',
+                            position: 'relative',
+                            zIndex: 1,
+                            margin: '10px'
+                        }}>
+
+                            {/* Top: Emblem (Size Doubled: 60px -> 120px) */}
+                            <div style={{ width: '120px', height: '120px', marginBottom: '24px', borderRadius: '50%', overflow: 'hidden', border: '2px solid #555', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000', boxShadow: '0 0 15px rgba(0,0,0,0.8)' }}>
                                 {match.home_team?.emblem_url ? <img src={match.home_team.emblem_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '🏆'}
                             </div>
 
                             {/* Date & Location */}
-                            <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-                                <h3 style={{ fontSize: '1.2rem', fontWeight: '800', color: '#111827', marginBottom: '4px' }}>
-                                    {new Date(match.match_date).toLocaleDateString()} {new Date(match.match_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+                                <h3 style={{ fontSize: '1.4rem', fontWeight: '800', color: '#FFFFFF', marginBottom: '8px', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>
+                                    {new Date(match.match_date).toLocaleDateString()}
                                 </h3>
-                                <p style={{ fontSize: '0.9rem', color: '#6B7280', fontWeight: '500' }}>{match.home_team?.location || match.match_location || "장소 미정"}</p>
+                                <h3 style={{ fontSize: '1.2rem', fontWeight: '800', color: '#E5E7EB', marginBottom: '12px', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>
+                                    {new Date(match.match_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
+                                </h3>
+                                <div style={{ fontSize: '1.5rem', fontWeight: '900', color: '#F3F4F6', marginBottom: '6px', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>
+                                    {match.home_team?.team_name || "장소 정보 없음"}
+                                </div>
+                                <div style={{ fontSize: '1rem', color: '#9CA3AF' }}>
+                                    {match.home_team?.location || match.match_location}
+                                </div>
                             </div>
 
                             {/* VS Section */}
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', width: '100%', gap: '12px', alignItems: 'center' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', width: '100%', gap: '8px', alignItems: 'center' }}>
 
                                 {/* Red Corner (Host) */}
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                                    <div style={{ width: '80px', height: '80px', borderRadius: '50%', border: '3px solid #EF4444', padding: '2px', marginBottom: '8px' }}>
-                                        <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: '#F3F4F6' }}>
+                                    <div style={{ width: '88px', height: '88px', borderRadius: '50%', border: '3px solid #EF4444', padding: '2px', marginBottom: '12px', boxShadow: '0 0 25px rgba(239, 68, 68, 0.7)' }}>
+                                        <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: '#333' }}>
                                             {match.home_player?.avatar_url ? <img src={match.home_player.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : null}
                                         </div>
                                     </div>
-                                    <span style={{ fontWeight: 'bold', fontSize: '1rem', color: '#111827', marginBottom: '4px' }}>
+                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'white', marginBottom: '6px', textShadow: '0 1px 3px rgba(0,0,0,0.9)' }}>
                                         {match.home_player?.name || "Host"}
                                     </span>
-                                    <div style={{ fontSize: '0.75rem', color: '#6B7280', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                    <div style={{ fontSize: '0.8rem', color: '#D1D5DB', display: 'flex', flexDirection: 'column', gap: '2px', fontWeight: '500' }}>
                                         <span>{match.home_player?.weight_class ? `${match.home_player.weight_class}kg` : '-'}</span>
                                         <span>{match.home_player?.position || '-'}</span>
                                         <span>{match.home_player?.record || '-'}</span>
                                     </div>
                                 </div>
 
-                                {/* VS Text */}
-                                <div style={{ fontSize: '3rem', fontStyle: 'italic', fontWeight: '900', color: '#111827', textShadow: '2px 2px 0px rgba(0,0,0,0.1)' }}>
+                                {/* VS Text (The Impact) */}
+                                <div style={{
+                                    fontSize: '4.5rem',
+                                    fontStyle: 'italic',
+                                    fontWeight: '900',
+                                    color: '#FFD700',
+                                    textShadow: '0 0 10px #FF4500, 0 0 20px #FF4500, 0 0 40px #EF4444, 4px 4px 4px rgba(0,0,0,0.9)',
+                                    transform: 'skew(-10deg) rotate(-5deg)',
+                                    zIndex: 10,
+                                    margin: '0 -10px' // 간격 좁히기
+                                }}>
                                     VS
                                 </div>
 
                                 {/* Blue Corner (Opponent) */}
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                                    <div style={{ width: '80px', height: '80px', borderRadius: '50%', border: '3px solid #3B82F6', padding: '2px', marginBottom: '8px' }}>
-                                        <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: '#F3F4F6' }}>
+                                    <div style={{ width: '88px', height: '88px', borderRadius: '50%', border: '3px solid #3B82F6', padding: '2px', marginBottom: '12px', boxShadow: '0 0 25px rgba(59, 130, 246, 0.7)' }}>
+                                        <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: '#333' }}>
                                             {acceptedApp?.player?.avatar_url ? <img src={acceptedApp.player.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : null}
                                         </div>
                                     </div>
-                                    <span style={{ fontWeight: 'bold', fontSize: '1rem', color: '#111827', marginBottom: '4px' }}>
+                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'white', marginBottom: '6px', textShadow: '0 1px 3px rgba(0,0,0,0.9)' }}>
                                         {acceptedApp?.player?.name || "Opponent"}
                                     </span>
-                                    <div style={{ fontSize: '0.75rem', color: '#6B7280', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                    <div style={{ fontSize: '0.8rem', color: '#D1D5DB', display: 'flex', flexDirection: 'column', gap: '2px', fontWeight: '500' }}>
                                         <span>{acceptedApp?.player?.weight_class ? `${acceptedApp.player.weight_class}kg` : '-'}</span>
                                         <span>{acceptedApp?.player?.position || '-'}</span>
                                         <span>{acceptedApp?.player?.record || '-'}</span>
@@ -965,7 +1029,34 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                         </div>
                     </section>
 
-
+                    {/* Map Section (Added for Scheduled Match) */}
+                    {(match.match_type === 'HOME' || match.match_location) && (
+                        <section style={{ background: 'white', borderRadius: '16px', padding: '20px', border: '1px solid #E5E7EB', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                            <h2 style={{ fontSize: '0.875rem', fontWeight: 600, color: '#6B7280', marginBottom: '12px' }}>
+                                매치 장소
+                            </h2>
+                            <div style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid #E5E7EB' }}>
+                                <GoogleMapViewer
+                                    address={
+                                        ((match.match_type === 'HOME' || match.match_location?.includes('🏠')) && match.home_team?.location)
+                                            ? match.home_team.location
+                                            : (match.match_location || match.location)
+                                    }
+                                    height="200px"
+                                />
+                            </div>
+                            <div style={{ marginTop: '12px', fontSize: '0.9rem', color: '#374151', display: 'flex', gap: '4px' }}>
+                                <span>📍</span>
+                                <span>
+                                    {
+                                        ((match.match_type === 'HOME' || match.match_location?.includes('🏠')) && match.home_team?.location)
+                                            ? match.home_team.location
+                                            : (match.match_location || match.location)?.replace('🏠', '').trim()
+                                    }
+                                </span>
+                            </div>
+                        </section>
+                    )}
 
                     {/* Chat Button */}
                     {(() => {
@@ -1084,14 +1175,46 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                             <span style={{ margin: '0 8px', color: '#D1D5DB' }}>|</span>
                             <span>{new Date(match.match_date).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })}</span>
                         </div>
-                        <div style={{ display: 'flex', color: '#374151', fontSize: '0.9rem', alignItems: 'flex-start' }}>
-                            <span style={{ width: '24px', marginRight: '8px', textAlign: 'center', marginTop: '1px' }}>📍</span>
-                            <span style={{ lineHeight: '1.4' }}>
-                                {match.match_location || "장소 미정"}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.95rem', color: '#4B5563', marginTop: '4px' }}>
+                            <span>📍</span>
+                            <span style={{ fontWeight: '600', color: '#111827' }}>
+                                {match.home_team?.team_name || "장소 미정"}
                             </span>
+                            {/* 주소가 있을 때만 괄호와 함께 표시 */}
+                            {match.match_location && (
+                                <span style={{ fontWeight: '400', color: '#6B7280' }}>
+                                    ({getSimpleAddress(match.match_location)})
+                                </span>
+                            )}
                         </div>
                     </div>
                 </section>
+
+                {/* Map Section - Show only for Home Matches */}
+                {(match.match_location && (match.match_type === 'HOME' || match.match_location.includes('🏠'))) && (
+                    <section style={{ marginBottom: '20px' }}>
+                        <h3 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '8px', color: '#374151' }}>
+                            매치 장소
+                        </h3>
+                        <div style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid #E5E7EB' }}>
+                            <GoogleMapViewer
+                                address={
+                                    (match.match_location.includes('🏠') && match.home_team?.location)
+                                        ? match.home_team.location
+                                        : (match.match_location || match.location)
+                                }
+                                height="200px"
+                            />
+                        </div>
+                        <div style={{ marginTop: '8px', fontSize: '0.85rem', color: '#6B7280' }}>
+                            📍 {
+                                (match.match_location.includes('🏠') && match.home_team?.location)
+                                    ? match.home_team.location
+                                    : (match.match_location || match.location)?.replace('🏠', '').trim()
+                            }
+                        </div>
+                    </section>
+                )}
 
                 {/* New Section: Match Detail Info */}
                 <section style={{ background: 'white', borderRadius: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', border: '1px solid #E5E7EB', padding: '20px' }}>

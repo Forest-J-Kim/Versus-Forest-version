@@ -4,7 +4,7 @@ import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import styles from "./team.module.css";
-import NaverMapViewer from "@/components/common/NaverMapViewer";
+import GoogleMapViewer from "@/components/common/GoogleMapViewer";
 
 interface PageProps {
     params: Promise<{ teamId: string }>;
@@ -201,7 +201,10 @@ export default function TeamDetailPage({ params }: PageProps) {
             {team.location && (
                 <section className={styles.section}>
                     <h3 className={styles.subTitle}>{isTeamSport ? '홈 구장' : '체육관 위치'}</h3>
-                    <NaverMapViewer address={team.location} />
+                    <div style={{ marginBottom: '8px', fontSize: '0.9rem', color: '#4B5563' }}>
+                        📍 {team.location}
+                    </div>
+                    <GoogleMapViewer address={team.location} height="240px" />
                 </section>
             )}
 
