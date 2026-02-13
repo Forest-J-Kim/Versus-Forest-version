@@ -6,7 +6,7 @@ import { createClient } from "@/utils/supabase/client";
 import styles from './team-new.module.css';
 import Cropper from 'react-easy-crop';
 import getCroppedImg from '@/utils/canvasUtils';
-import NaverLocationPicker from '@/components/common/NaverLocationPicker';
+import GoogleLocationPicker from '@/components/common/GoogleLocationPicker';
 
 interface TeamCreateClientProps {
     userId: string;
@@ -32,7 +32,9 @@ export default function TeamCreateClient({
     // Form Fields
     const [teamName, setTeamName] = useState("");
     const [teamDesc, setTeamDesc] = useState("");
-    const [location, setLocation] = useState("");
+    const [location, setLocation] = useState(""); // Stores address string
+    const [lat, setLat] = useState<number | null>(null);
+    const [lng, setLng] = useState<number | null>(null);
     const [emblemUrl, setEmblemUrl] = useState<string | null>(null);
 
     // Image Upload
@@ -42,6 +44,13 @@ export default function TeamCreateClient({
     const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
     const [isCropModalOpen, setIsCropModalOpen] = useState(false);
     const emblemInputRef = useRef<HTMLInputElement>(null);
+
+    // Handle Location Selection
+    const handleLocationSelect = (address: string, latitude: number, longitude: number) => {
+        setLocation(address);
+        setLat(latitude);
+        setLng(longitude);
+    };
 
     // Image Handlers
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -99,7 +108,9 @@ export default function TeamCreateClient({
                 team_name: teamName,
                 description: teamDesc,
                 emblem_url: emblemUrl,
-                location: location // Add location
+                location: location, // Add location
+                lat: lat, // Add lat
+                lng: lng  // Add lng
             }).select().single();
 
             if (teamError) throw teamError;
@@ -159,7 +170,7 @@ export default function TeamCreateClient({
                 </div>
 
                 {/* Location Picker */}
-                <NaverLocationPicker onLocationSelect={setLocation} initialAddress={location} />
+                <GoogleLocationPicker onLocationSelect={handleLocationSelect} initialAddress={location} />
 
                 <div className={styles.fieldGroup}>
                     <label className={styles.label}>한줄 소개</label>
