@@ -77,12 +77,19 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                     ),
                     match_weight,
                     match_type,
+                    match_mode,
                     rounds,
                     gear,
+                    cost,
+                    uniform_color,
+                    team_level,
+                    match_format,
+                    has_pitch,
                     home_team:teams!home_team_id(
                         team_name,
                         emblem_url,
-                        location
+                        location,
+                        description
                     ),
                     match_applications(id),
                     chat_rooms(id)
@@ -122,6 +129,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                 .from('match_applications')
                 .select(`
                     *,
+                    applicant_team:teams!applicant_team_id ( team_name, emblem_url, description ),
                     player:players!applicant_player_id (
                         id, 
                         name, 
@@ -778,6 +786,11 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
 
     if (loading) return <div className="p-8 text-center">Loading...</div>;
 
+    // [New] Define isTeamSport for rendering logic (Global Scope)
+    const TEAM_SPORTS = ['SOCCER', 'FUTSAL', 'BASEBALL', 'BASKETBALL'];
+    const currentSport = (match?.sport_type || '').toUpperCase();
+    const isTeamSport = TEAM_SPORTS.includes(currentSport);
+
     // [Fix] 삭제된 매치 전용 뷰 (Early Return)
     if (match && match.status === 'DELETED') {
         return (
@@ -1030,18 +1043,14 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                     </section>
 
                     {/* Map Section (Added for Scheduled Match) */}
-                    {(match.match_type === 'HOME' || match.match_location) && (
+                    {(match.match_mode === 'HOME' && match.home_team?.location) && (
                         <section style={{ background: 'white', borderRadius: '16px', padding: '20px', border: '1px solid #E5E7EB', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
                             <h2 style={{ fontSize: '0.875rem', fontWeight: 600, color: '#6B7280', marginBottom: '12px' }}>
                                 매치 장소
                             </h2>
                             <div style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid #E5E7EB' }}>
                                 <GoogleMapViewer
-                                    address={
-                                        ((match.match_type === 'HOME' || match.match_location?.includes('🏠')) && match.home_team?.location)
-                                            ? match.home_team.location
-                                            : (match.match_location || match.location)
-                                    }
+                                    address={match.home_team!.location!}
                                     height="200px"
                                 />
                             </div>
@@ -1049,9 +1058,9 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                                 <span>📍</span>
                                 <span>
                                     {
-                                        ((match.match_type === 'HOME' || match.match_location?.includes('🏠')) && match.home_team?.location)
-                                            ? match.home_team.location
-                                            : (match.match_location || match.location)?.replace('🏠', '').trim()
+                                        match.match_mode === 'HOME'
+                                            ? match.home_team?.location
+                                            : (match.match_mode === 'AWAY' ? '원정 경기 (장소 조율 필요)' : (match.match_location || '장소 미정'))
                                     }
                                 </span>
                             </div>
@@ -1083,7 +1092,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                             <h2 style={{ fontSize: '1rem', fontWeight: 'bold', color: '#6B7280', marginBottom: '16px' }}>거절한 매치 상대</h2>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', opacity: 0.7 }}>
                                 {rejectedApps.map(app => (
-                                    <ApplicationCard key={app.id} app={app} isPending={false} isHost={true} />
+                                    <ApplicationCard key={app.id} app={app} isPending={false} isHost={true} isTeamSport={isTeamSport} />
                                 ))}
                             </div>
                         </section>
@@ -1133,84 +1142,145 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                     border: '1px solid #E5E7EB',
                     padding: '20px'
                 }}>
-                    <h2 style={{
-                        fontSize: '0.875rem', fontWeight: 600, color: '#6B7280',
-                        marginBottom: '12px', display: 'flex', alignItems: 'center'
-                    }}>
-                        <span style={{
-                            background: '#EFF6FF', color: 'var(--primary)',
-                            padding: '2px 8px', borderRadius: '6px', fontSize: '0.75rem', marginRight: '8px'
-                        }}>HOST</span>
-                        상대 정보
-                    </h2>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
-                        {/* Avatar Placeholder */}
-                        <div style={{
-                            width: '56px', height: '56px', borderRadius: '50%',
-                            background: '#F3F4F6', border: '1px solid #E5E7EB',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem',
-                            overflow: 'hidden'
-                        }}>
-                            {(match.home_player?.avatar_url) ? (
-                                <img
-                                    src={match.home_player?.avatar_url}
-                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                />
-                            ) : '🛡️'}
-                        </div>
-                        <div>
-                            <p style={{ fontSize: '1.125rem', fontWeight: 'bold', color: '#111827', lineHeight: '1.2' }}>
-                                {match.home_player?.player_nickname || match.home_player?.name || "알 수 없음"}
-                            </p>
-                            <p style={{ fontSize: '0.875rem', color: '#9CA3AF', marginTop: '4px' }}>
-                                {match.home_player?.team_members?.[0]?.team?.team_name || "소속 없음"}
-                            </p>
-                        </div>
-                    </div>
+                    {(() => {
+                        const TEAM_SPORTS = ['SOCCER', 'FUTSAL', 'BASEBALL', 'BASKETBALL'];
+                        const currentSport = (match.sport_type || '').toUpperCase();
+                        const isTeamSport = TEAM_SPORTS.includes(currentSport);
 
-                    <div style={{ background: '#F9FAFB', borderRadius: '12px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', color: '#374151', fontSize: '0.9rem' }}>
-                            <span style={{ width: '24px', marginRight: '8px', textAlign: 'center' }}>📅</span>
-                            <span style={{ fontWeight: 500 }}>{new Date(match.match_date).toLocaleDateString()}</span>
-                            <span style={{ margin: '0 8px', color: '#D1D5DB' }}>|</span>
-                            <span>{new Date(match.match_date).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })}</span>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.95rem', color: '#4B5563', marginTop: '4px' }}>
-                            <span>📍</span>
-                            <span style={{ fontWeight: '600', color: '#111827' }}>
-                                {match.home_team?.team_name || "장소 미정"}
-                            </span>
-                            {/* 주소가 있을 때만 괄호와 함께 표시 */}
-                            {match.match_location && (
-                                <span style={{ fontWeight: '400', color: '#6B7280' }}>
-                                    ({getSimpleAddress(match.match_location)})
-                                </span>
-                            )}
-                        </div>
-                    </div>
+                        if (isTeamSport) {
+                            // --- TEAM SPORT HOST PROFILE ---
+                            return (
+                                <>
+                                    <h2 style={{
+                                        fontSize: '0.875rem', fontWeight: 600, color: '#6B7280',
+                                        marginBottom: '12px', display: 'flex', alignItems: 'center'
+                                    }}>
+                                        <span style={{
+                                            background: '#EFF6FF', color: 'var(--primary)',
+                                            padding: '2px 8px', borderRadius: '6px', fontSize: '0.75rem', marginRight: '8px'
+                                        }}>HOST</span>
+                                        팀 정보
+                                    </h2>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
+                                        {/* Team Emblem */}
+                                        <div style={{
+                                            width: '60px', height: '60px', borderRadius: '50%',
+                                            background: '#F9FAFB', border: '1px solid #E5E7EB',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem',
+                                            overflow: 'hidden'
+                                        }}>
+                                            {(match.home_team?.emblem_url) ? (
+                                                <img
+                                                    src={match.home_team.emblem_url}
+                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                />
+                                            ) : '🛡️'}
+                                        </div>
+                                        <div>
+                                            <p style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#111827', lineHeight: '1.2' }}>
+                                                {match.home_team?.team_name || "알 수 없는 팀"}
+                                            </p>
+                                            <p style={{ fontSize: '0.85rem', color: '#6B7280', marginTop: '4px' }}>
+                                                주장: {match.home_player?.name || "미정"}
+                                                {match.home_team?.description && ` | ${match.home_team.description}`}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ background: '#F9FAFB', borderRadius: '12px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', color: '#374151', fontSize: '0.9rem' }}>
+                                            <span style={{ width: '24px', marginRight: '8px', textAlign: 'center' }}>📅</span>
+                                            <span style={{ fontWeight: 500 }}>{new Date(match.match_date).toLocaleDateString()}</span>
+                                            <span style={{ margin: '0 8px', color: '#D1D5DB' }}>|</span>
+                                            <span>{new Date(match.match_date).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', color: '#374151', fontSize: '0.9rem', alignItems: 'flex-start' }}>
+                                            <span style={{ width: '24px', marginRight: '8px', textAlign: 'center', marginTop: '1px' }}>📍</span>
+                                            <span style={{ lineHeight: '1.4' }}>
+                                                {match.match_mode === 'HOME' && match.home_team?.location
+                                                    ? match.home_team.location
+                                                    : (match.match_location || "장소 미정")}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </>
+                            );
+                        } else {
+                            // --- ORIGINAL HOST PROFILE (Individual) ---
+                            return (
+                                <>
+                                    <h2 style={{
+                                        fontSize: '0.875rem', fontWeight: 600, color: '#6B7280',
+                                        marginBottom: '12px', display: 'flex', alignItems: 'center'
+                                    }}>
+                                        <span style={{
+                                            background: '#EFF6FF', color: 'var(--primary)',
+                                            padding: '2px 8px', borderRadius: '6px', fontSize: '0.75rem', marginRight: '8px'
+                                        }}>HOST</span>
+                                        상대 정보
+                                    </h2>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
+                                        {/* Avatar Placeholder */}
+                                        <div style={{
+                                            width: '56px', height: '56px', borderRadius: '50%',
+                                            background: '#F3F4F6', border: '1px solid #E5E7EB',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem',
+                                            overflow: 'hidden'
+                                        }}>
+                                            {(match.home_player?.avatar_url) ? (
+                                                <img
+                                                    src={match.home_player?.avatar_url}
+                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                />
+                                            ) : '🛡️'}
+                                        </div>
+                                        <div>
+                                            <p style={{ fontSize: '1.125rem', fontWeight: 'bold', color: '#111827', lineHeight: '1.2' }}>
+                                                {match.home_player?.player_nickname || match.home_player?.name || "알 수 없음"}
+                                            </p>
+                                            <p style={{ fontSize: '0.875rem', color: '#9CA3AF', marginTop: '4px' }}>
+                                                {match.home_player?.team_members?.[0]?.team?.team_name || "소속 없음"}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ background: '#F9FAFB', borderRadius: '12px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', color: '#374151', fontSize: '0.9rem' }}>
+                                            <span style={{ width: '24px', marginRight: '8px', textAlign: 'center' }}>📅</span>
+                                            <span style={{ fontWeight: 500 }}>{new Date(match.match_date).toLocaleDateString()}</span>
+                                            <span style={{ margin: '0 8px', color: '#D1D5DB' }}>|</span>
+                                            <span>{new Date(match.match_date).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', color: '#374151', fontSize: '0.9rem', alignItems: 'flex-start' }}>
+                                            <span style={{ width: '24px', marginRight: '8px', textAlign: 'center', marginTop: '1px' }}>📍</span>
+                                            <span style={{ lineHeight: '1.4' }}>
+                                                {match.match_location || "장소 미정"}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </>
+                            );
+                        }
+                    })()}
                 </section>
 
                 {/* Map Section - Show only for Home Matches */}
-                {(match.match_location && (match.match_type === 'HOME' || match.match_location.includes('🏠'))) && (
+                {(match.match_mode === 'HOME' && match.home_team?.location) && (
                     <section style={{ marginBottom: '20px' }}>
                         <h3 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '8px', color: '#374151' }}>
                             매치 장소
                         </h3>
                         <div style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid #E5E7EB' }}>
                             <GoogleMapViewer
-                                address={
-                                    (match.match_location.includes('🏠') && match.home_team?.location)
-                                        ? match.home_team.location
-                                        : (match.match_location || match.location)
-                                }
+                                address={match.home_team!.location!}
                                 height="200px"
                             />
                         </div>
                         <div style={{ marginTop: '8px', fontSize: '0.85rem', color: '#6B7280' }}>
                             📍 {
-                                (match.match_location.includes('🏠') && match.home_team?.location)
-                                    ? match.home_team.location
-                                    : (match.match_location || match.location)?.replace('🏠', '').trim()
+                                match.match_mode === 'HOME'
+                                    ? match.home_team?.location
+                                    : (match.match_mode === 'AWAY' ? '원정 경기 (장소 조율 필요)' : (match.match_location || '장소 미정'))
                             }
                         </div>
                     </section>
@@ -1221,24 +1291,110 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                     <h2 style={{ fontSize: '0.875rem', fontWeight: 600, color: '#6B7280', marginBottom: '12px' }}>매치 상세 정보</h2>
 
                     {/* Specs Grid */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <span style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>체급</span>
-                            <span style={{ fontSize: '1rem', fontWeight: 'bold', color: '#1F2937' }}>{match.match_weight ? `${match.match_weight}kg` : '-'}</span>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <span style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>스파링</span>
-                            <span style={{ fontSize: '1rem', fontWeight: 'bold', color: '#1F2937' }}>{match.match_type || '-'}</span>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <span style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>라운드</span>
-                            <span style={{ fontSize: '1rem', fontWeight: 'bold', color: '#1F2937' }}>{match.rounds ? `${match.rounds}R` : '-'}</span>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <span style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>보호구</span>
-                            <span style={{ fontSize: '1rem', fontWeight: 'bold', color: '#1F2937' }}>{match.gear || '-'}</span>
-                        </div>
-                    </div>
+                    {(() => {
+                        const TEAM_SPORTS = ['SOCCER', 'FUTSAL', 'BASEBALL', 'BASKETBALL'];
+                        const currentSport = (match.sport_type || '').toUpperCase();
+                        const isTeamSport = TEAM_SPORTS.includes(currentSport);
+
+                        if (isTeamSport) {
+                            // Team Sport Specs
+                            const LEVEL_MAP: Record<number, string> = {
+                                1: "🐣 Lv.1 병아리",
+                                2: "🏃 Lv.2 동네 에이스",
+                                3: "🎖️ Lv.3 지역구 강자",
+                                4: "🏆 Lv.4 전국구 고수",
+                                5: "👽 Lv.5 우주방위대"
+                            };
+                            const levelText = match.team_level ? LEVEL_MAP[match.team_level] : '-';
+                            const genderMap: Record<string, string> = { 'MALE': '남성', 'FEMALE': '여성', 'MIXED': '혼성' };
+
+                            return (
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        <span style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>참가비 (팀당)</span>
+                                        <span style={{ fontSize: '1rem', fontWeight: 'bold', color: '#1F2937' }}>
+                                            {match.cost === 0 ? '무료' : `${(match.cost || 0).toLocaleString()}원`}
+                                        </span>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        <span style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>홈 유니폼</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            {(() => {
+                                                const color = match.uniform_color || '미정';
+                                                const colorCodeMap: Record<string, string> = {
+                                                    '흰색': '#FFFFFF',
+                                                    '검정': '#000000',
+                                                    '빨강': '#EF4444',
+                                                    '파랑': '#3B82F6',
+                                                    '노랑': '#EAB308',
+                                                    '형광': '#CCFF00',
+                                                    '주황': '#F97316',
+                                                    '보라': '#8B5CF6',
+                                                    '초록': '#22C55E'
+                                                };
+                                                const bg = colorCodeMap[color] || '#9CA3AF';
+                                                const isWhite = color === '흰색' || color === '형광'; // Add border for light colors
+
+                                                return (
+                                                    <span style={{
+                                                        display: 'inline-block',
+                                                        width: '14px', height: '14px',
+                                                        borderRadius: '50%',
+                                                        backgroundColor: bg,
+                                                        border: isWhite ? '1px solid #E5E7EB' : 'none',
+                                                        boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                                                    }} />
+                                                );
+                                            })()}
+                                            <span style={{ fontSize: '1rem', fontWeight: 'bold', color: '#1F2937' }}>{match.uniform_color || '미정'}</span>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        <span style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>성별</span>
+                                        <span style={{ fontSize: '1rem', fontWeight: 'bold', color: '#1F2937' }}>
+                                            {genderMap[match.match_gender] || match.match_gender || '-'}
+                                        </span>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        <span style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>경기 방식</span>
+                                        <span style={{ fontSize: '1rem', fontWeight: 'bold', color: '#1F2937' }}>{match.match_format || '-'}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        <span style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>구장 확보</span>
+                                        <span style={{ fontSize: '1rem', fontWeight: 'bold', color: '#1F2937' }}>
+                                            {match.has_pitch ? '구장 확보' : '원정/미확보'}
+                                        </span>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        <span style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>팀 수준</span>
+                                        <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#1F2937' }}>{levelText}</span>
+                                    </div>
+                                </div>
+                            );
+                        } else {
+                            // Original Specs (Individual)
+                            return (
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        <span style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>체급</span>
+                                        <span style={{ fontSize: '1rem', fontWeight: 'bold', color: '#1F2937' }}>{match.match_weight ? `${match.match_weight}kg` : '-'}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        <span style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>스파링</span>
+                                        <span style={{ fontSize: '1rem', fontWeight: 'bold', color: '#1F2937' }}>{match.match_type || '-'}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        <span style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>라운드</span>
+                                        <span style={{ fontSize: '1rem', fontWeight: 'bold', color: '#1F2937' }}>{match.rounds ? `${match.rounds}R` : '-'}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        <span style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>보호구</span>
+                                        <span style={{ fontSize: '1rem', fontWeight: 'bold', color: '#1F2937' }}>{match.gear || '-'}</span>
+                                    </div>
+                                </div>
+                            );
+                        }
+                    })()}
 
                     {/* Tags */}
                     {match.tags && match.tags.length > 0 && (
@@ -1298,6 +1454,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                                         onCancel={(currentUser?.id === app.applicant_user_id || currentUser?.id === app.player?.user_id) ? () => handleCancelApplication(app.id) : undefined}
                                         isPending={true}
                                         isHost={isHost}
+                                        isTeamSport={isTeamSport}
                                     />
                                 ))}
                             </div>
@@ -1317,6 +1474,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                                         app={app}
                                         isPending={false}
                                         isHost={isHost}
+                                        isTeamSport={isTeamSport}
                                     />
                                 ))}
                             </div>
@@ -1358,9 +1516,31 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
     );
 }
 
-function ApplicationCard({ app, onChat, onAccept, onReject, onCancel, isPending, isHost }: { app: any, onChat?: () => void, onAccept?: () => void, onReject?: () => void, onCancel?: () => void, isPending: boolean, isHost: boolean }) {
+function ApplicationCard({ app, onChat, onAccept, onReject, onCancel, isPending, isHost, isTeamSport }: { app: any, onChat?: () => void, onAccept?: () => void, onReject?: () => void, onCancel?: () => void, isPending: boolean, isHost: boolean, isTeamSport: boolean }) {
     const player = app.player;
-    const teamName = player?.team_members?.[0]?.team?.team_name || "소속 없음";
+    const appTeam = app.applicant_team; // Newly joined team info
+
+    // Display Logic
+    const displayTeamName = isTeamSport ? (appTeam?.team_name || "팀 정보 없음") : (player?.team_members?.[0]?.team?.team_name || "소속 없음");
+    const displayEmblem = isTeamSport ? appTeam?.emblem_url : player?.avatar_url;
+    const displayDesc = isTeamSport ? appTeam?.description : "";
+    const displayTitle = isTeamSport ? displayTeamName : (player?.player_nickname || player?.name || "알 수 없음");
+    const captainName = player?.player_nickname || player?.name;
+
+    // Structured Data
+    const uniformColor = app.away_uniform_color;
+    const memberCount = app.participant_count;
+
+    // Uniform Color Swatch Helper
+    const getUndoColor = (colorName: string) => {
+        const colorCodeMap: Record<string, string> = {
+            '흰색': '#FFFFFF', '검정': '#000000', '빨강': '#EF4444', '파랑': '#3B82F6',
+            '노랑': '#EAB308', '형광': '#CCFF00', '주황': '#F97316', '보라': '#8B5CF6', '초록': '#22C55E'
+        };
+        return colorCodeMap[colorName] || '#9CA3AF';
+    };
+    const uniformHex = getUndoColor(uniformColor);
+    const isWhite = uniformColor === '흰색' || uniformColor === '형광';
 
     return (
         <div style={{
@@ -1372,13 +1552,14 @@ function ApplicationCard({ app, onChat, onAccept, onReject, onCancel, isPending,
         }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px', marginBottom: '16px' }}>
                 <div style={{
-                    width: '56px', height: '56px', borderRadius: '50%',
-                    background: '#F3F4F6', overflow: 'hidden', flexShrink: 0
+                    width: '80px', height: '80px', borderRadius: '50%',
+                    background: '#F3F4F6', overflow: 'hidden', flexShrink: 0,
+                    border: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'center'
                 }}>
-                    {player?.avatar_url ? (
-                        <img src={player.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    {displayEmblem ? (
+                        <img src={displayEmblem} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
-                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>👤</div>
+                        <div style={{ fontSize: '2rem' }}>{isTeamSport ? '🛡️' : '👤'}</div>
                     )}
                 </div>
 
@@ -1386,42 +1567,76 @@ function ApplicationCard({ app, onChat, onAccept, onReject, onCancel, isPending,
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div>
                             <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#111827', marginBottom: '4px' }}>
-                                {player?.player_nickname || player?.name || "알 수 없음"}
+                                {displayTitle}
                             </h3>
-                            <p style={{ fontSize: '0.9rem', color: '#6B7280' }}>
-                                {teamName}
-                            </p>
+                            {isTeamSport ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                    <p style={{ fontSize: '0.9rem', color: '#4B5563', fontWeight: '500' }}>
+                                        주장: {captainName}
+                                    </p>
+                                    {displayDesc && (
+                                        <p style={{ fontSize: '0.85rem', color: '#6B7280' }}>
+                                            {displayDesc}
+                                        </p>
+                                    )}
+                                </div>
+                            ) : (
+                                <p style={{ fontSize: '0.85rem', color: '#6B7280' }}>
+                                    {displayTeamName}
+                                </p>
+                            )}
                         </div>
-                        {!isPending && (
-                            <span style={{
-                                padding: '4px 10px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 600,
-                                background: app.status === 'ACCEPTED' ? '#ECFDF5' : '#F3F4F6',
-                                color: app.status === 'ACCEPTED' ? '#059669' : '#9CA3AF'
-                            }}>
-                                {app.status === 'ACCEPTED' ? '승인됨' : '거절됨'}
-                            </span>
-                        )}
 
-                        {/* Cancel Button (For Applicant) */}
-                        {isPending && onCancel && (
-                            <button
-                                onClick={onCancel}
-                                style={{
-                                    border: 'none', background: '#F3F4F6',
-                                    color: '#6B7280', fontSize: '0.8rem', cursor: 'pointer',
-                                    padding: '6px 12px', borderRadius: '8px', fontWeight: 'bold',
-                                    marginLeft: '8px', transition: 'all 0.2s'
-                                }}
-                            >
-                                신청취소
-                            </button>
-                        )}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                            {!isPending && (
+                                <span style={{
+                                    padding: '4px 10px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 600,
+                                    background: app.status === 'ACCEPTED' ? '#ECFDF5' : '#F3F4F6',
+                                    color: app.status === 'ACCEPTED' ? '#059669' : '#9CA3AF'
+                                }}>
+                                    {app.status === 'ACCEPTED' ? '승인됨' : '거절됨'}
+                                </span>
+                            )}
+
+                            {/* Cancel Button (For Applicant) */}
+                            {isPending && onCancel && (
+                                <button
+                                    onClick={onCancel}
+                                    style={{
+                                        border: 'none', background: '#F3F4F6',
+                                        color: '#6B7280', fontSize: '0.75rem', cursor: 'pointer',
+                                        padding: '4px 8px', borderRadius: '6px', fontWeight: '600',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    취소
+                                </button>
+                            )}
+                        </div>
                     </div>
 
-                    <div style={{ marginTop: '12px', display: 'flex', gap: '12px', fontSize: '0.9rem' }}>
-                        <span style={{ background: '#F9FAFB', padding: '4px 8px', borderRadius: '6px', color: '#374151' }}>
-                            체급: {app.application_weight || player?.weight_class || '-'}
-                        </span>
+                    <div style={{ marginTop: '12px', display: 'flex', gap: '12px', fontSize: '0.85rem', flexWrap: 'wrap' }}>
+                        {isTeamSport ? (
+                            <>
+                                {uniformColor && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#F9FAFB', padding: '4px 10px', borderRadius: '6px', color: '#374151', border: '1px solid #F3F4F6' }}>
+                                        <span style={{ color: '#9CA3AF' }}>유니폼:</span>
+                                        <span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: uniformHex, border: isWhite ? '1px solid #E5E7EB' : 'none' }} />
+                                        <span style={{ fontWeight: 600 }}>{uniformColor}</span>
+                                    </div>
+                                )}
+                                {memberCount > 0 && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#F9FAFB', padding: '4px 10px', borderRadius: '6px', color: '#374151', border: '1px solid #F3F4F6' }}>
+                                        <span style={{ color: '#9CA3AF' }}>참여:</span>
+                                        <span style={{ fontWeight: 600 }}>🏃‍♂️ {memberCount}명</span>
+                                    </div>
+                                )}
+                            </>
+                        ) : (
+                            <span style={{ background: '#F9FAFB', padding: '4px 8px', borderRadius: '6px', color: '#374151' }}>
+                                체급: {app.application_weight || player?.weight_class || '-'}
+                            </span>
+                        )}
                     </div>
                 </div>
             </div>
@@ -1473,8 +1688,6 @@ function ApplicationCard({ app, onChat, onAccept, onReject, onCancel, isPending,
                     </div>
                 </div>
             )}
-
-
         </div>
     );
 }

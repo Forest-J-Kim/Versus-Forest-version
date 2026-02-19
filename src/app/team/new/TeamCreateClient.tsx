@@ -108,9 +108,7 @@ export default function TeamCreateClient({
                 team_name: teamName,
                 description: teamDesc,
                 emblem_url: emblemUrl,
-                location: location, // Add location
-                lat: lat, // Add lat
-                lng: lng  // Add lng
+                location: location // Add location
             }).select().single();
 
             if (teamError) throw teamError;

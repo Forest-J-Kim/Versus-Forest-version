@@ -24,6 +24,9 @@ interface Match {
   gear?: string | null;
   description?: string | null;
   tags?: string[] | null;
+  match_format?: string | null;
+  team_level?: number | null;
+  match_mode?: 'HOME' | 'AWAY' | 'NEUTRAL' | string | null;
 
   // Relations
   home_player_id?: string | null;
@@ -43,6 +46,7 @@ interface Match {
     team_name: string;
     emblem_url: string | null;
     location?: string;
+    description?: string | null;
   } | null;
 
   // User
@@ -156,59 +160,188 @@ function MatchCardItem({ match, currentUser, isManagerMode, onDelete, handleActi
           </div>
         )}
 
-        {/* Header: Date & Time */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: '1.05rem', fontWeight: 'bold', color: '#111827' }}>
-            {dateStr} <span style={{ color: '#4B5563', fontWeight: 'normal' }}>{timeStr}</span>
-          </span>
-        </div>
-        {/* Location */}
-        <div style={{ fontSize: '0.9rem', color: '#4B5563', marginTop: '-4px' }}>
-          {locString}
-        </div>
+        {/* --- Team Sport UI --- */}
+        {(() => {
+          // Check if Team Sport
+          // Check if Team Sport (Robust: UpperCase)
+          const TEAM_SPORTS = ['SOCCER', 'FUTSAL', 'BASEBALL', 'BASKETBALL'];
+          const currentSport = (match.sport_type || sportDef?.id || '').toUpperCase();
+          const isTeamSport = TEAM_SPORTS.includes(currentSport);
 
-        {/* Dynamic Warning: If incompatible */}
-        {(!match.home_player && !match.home_team) && (
-          <div style={{ fontSize: '0.75rem', color: 'red' }}>⚠️ 데이터 로드 실패 (ID 연결 오류)</div>
-        )}
+          if (!isTeamSport) {
+            // [Generic UI] Original Implementation
+            return (
+              <>
+                {/* Header: Date & Time */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '1.05rem', fontWeight: 'bold', color: '#111827' }}>
+                    {dateStr} <span style={{ color: '#4B5563', fontWeight: 'normal' }}>{timeStr}</span>
+                  </span>
+                </div>
+                {/* Location */}
+                <div style={{ fontSize: '0.9rem', color: '#4B5563', marginTop: '-4px' }}>
+                  {locString}
+                </div>
 
-        {/* Divider */}
-        <div style={{ height: '1px', background: '#F3F4F6', margin: '4px 0' }} />
+                {/* Divider */}
+                <div style={{ height: '1px', background: '#F3F4F6', margin: '4px 0' }} />
 
-        {/* Main Info: Image + Name + Specs */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginTop: '4px' }}>
-          {/* Avatar / Emblem */}
-          <div style={{
-            width: '48px', height: '48px', borderRadius: '50%', overflow: 'hidden',
-            background: '#F3F4F6', border: '1px solid #E5E7EB', flexShrink: 0
-          }}>
-            {displayImage ? (
-              <img src={displayImage} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : (
-              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>
-                {isTeamMatch ? '🛡️' : '👤'}
+                {/* Main Info: Image + Name + Specs */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginTop: '4px' }}>
+                  {/* Avatar */}
+                  <div style={{
+                    width: '60px', height: '60px', borderRadius: '50%', overflow: 'hidden',
+                    background: '#F3F4F6', border: '1px solid #E5E7EB', flexShrink: 0
+                  }}>
+                    {displayImage ? (
+                      <img src={displayImage} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>
+                        👤
+                      </div>
+                    )}
+                  </div>
+                  {/* Texts */}
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 'bold', fontSize: '1rem', color: '#1F2937' }}>
+                      {displayName || '이름 없음'}
+                    </div>
+                    {/* Specs */}
+                    <div style={{
+                      fontSize: '0.85rem', color: '#4B5563', marginTop: '4px', lineHeight: '1.4',
+                      background: '#F9FAFB', padding: '6px 10px', borderRadius: '8px', display: 'inline-block'
+                    }}>
+                      {summaryDetails || <span style={{ color: '#9CA3AF' }}>상세 정보 없음</span>}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tags */}
+                {match.tags && match.tags.length > 0 && (
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}>
+                    {match.tags.map(tag => (
+                      <span key={tag} style={{
+                        background: '#F3F4F6', color: '#4B5563', fontSize: '0.75rem',
+                        padding: '4px 8px', borderRadius: '6px', fontWeight: '500'
+                      }}>
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </>
+            );
+          }
+
+          // [Team Sport UI] New Implementation
+          // 1. Clean Location Logic
+          let cleanLocation = locString;
+          // [Refined Logic] If Team Sport + HOME Match -> Use raw address from team table to avoid duplication
+          if (isTeamSport && match.match_mode === 'HOME' && match.home_team?.location) {
+            cleanLocation = match.home_team.location;
+          } else {
+            // Fallback: Remove emojis if present in typical format
+            cleanLocation = cleanLocation.replace(/^[\u{1F300}-\u{1F9FF}] /u, '');
+          }
+
+          // 2. Team Profile
+          const teamName = match.home_team?.team_name || "알 수 없는 팀";
+          const teamEmblem = match.home_team?.emblem_url;
+          const captainName = match.home_player?.name || "주장 미정";
+
+          // 3. Badges Processing
+          // Level Text Map
+          const LEVEL_MAP: Record<number, string> = {
+            1: "🐣 Lv.1 병아리",
+            2: "🏃 Lv.2 동네 에이스",
+            3: "🎖️ Lv.3 지역구 강자",
+            4: "🏆 Lv.4 전국구 고수",
+            5: "👽 Lv.5 우주방위대"
+          };
+          const levelText = match.team_level ? LEVEL_MAP[match.team_level] : null;
+
+          return (
+            <>
+              {/* [1] Date & Time (Generic Style Reverted) */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '1.05rem', fontWeight: 'bold', color: '#111827' }}>
+                  {dateStr} <span style={{ color: '#4B5563', fontWeight: 'normal' }}>{timeStr}</span>
+                </span>
               </div>
-            )}
-          </div>
 
-          {/* Texts */}
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 'bold', fontSize: '1rem', color: '#1F2937' }}>
-              {displayName || '이름 없음'}
-            </div>
+              {/* [2] Location */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '-4px' }}>
+                <span style={{ fontSize: '0.85rem' }}>📍</span>
+                <span style={{ fontSize: '0.9rem', color: '#4B5563', textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+                  {cleanLocation}
+                </span>
+              </div>
 
-            {/* Detailed Specs (Summary Style) */}
-            <div style={{
-              fontSize: '0.85rem', color: '#4B5563', marginTop: '4px', lineHeight: '1.4',
-              background: '#F9FAFB', padding: '6px 10px', borderRadius: '8px', display: 'inline-block'
-            }}>
-              {summaryDetails || <span style={{ color: '#9CA3AF' }}>상세 정보 없음</span>}
-            </div>
+              {/* Divider */}
+              <div style={{ height: '1px', background: '#F3F4F6', margin: '4px 0' }} />
 
-            {/* Tags Badge */}
-            {match.tags && match.tags.length > 0 && (
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '4px' }}>
-                {match.tags.map(tag => (
+              {/* [3] Team Profile */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px' }}>
+                {/* Emblem */}
+                <div style={{
+                  width: '80px', height: '80px', borderRadius: '50%', // Circle & Larger
+                  background: '#F9FAFB', border: '1px solid #E5E7EB',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+                  flexShrink: 0
+                }}>
+                  {teamEmblem ? (
+                    <img src={teamEmblem} alt="Team" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <span style={{ fontSize: '1.5rem' }}>🛡️</span>
+                  )}
+                </div>
+
+                {/* Texts */}
+                <div style={{ flex: 1 }}>
+                  {/* Row 1: Team Name */}
+                  <div style={{ fontSize: '1.05rem', fontWeight: 'bold', color: '#111827' }}>
+                    {teamName}
+                  </div>
+                  {/* Row 2: Captain */}
+                  <div style={{ fontSize: '0.85rem', color: '#6B7280', marginTop: '2px' }}>
+                    주장: {captainName}
+                  </div>
+                  {/* Row 3: Team Intro (One-liner from DB) */}
+                  {match.home_team?.description && (
+                    <div style={{
+                      fontSize: '0.8rem', color: '#9CA3AF', marginTop: '4px',
+                      display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden'
+                    }}>
+                      {match.home_team.description}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* [4] Badges (Format, Level, Tags) */}
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '12px' }}>
+                {/* Badge 1: Format */}
+                {match.match_format && (
+                  <span style={{
+                    background: '#EFF6FF', color: '#2563EB', fontSize: '0.75rem',
+                    padding: '4px 8px', borderRadius: '6px', fontWeight: '700', border: '1px solid #BFDBFE'
+                  }}>
+                    {match.match_format}
+                  </span>
+                )}
+
+                {/* Badge 2: Level */}
+                {levelText && (
+                  <span style={{
+                    background: '#FFF7ED', color: '#C2410C', fontSize: '0.75rem',
+                    padding: '4px 8px', borderRadius: '6px', fontWeight: '600', border: '1px solid #FED7AA'
+                  }}>
+                    {levelText}
+                  </span>
+                )}
+
+                {/* Badge 3+: Tags (Limit 2) */}
+                {match.tags && match.tags.slice(0, 2).map(tag => (
                   <span key={tag} style={{
                     background: '#F3F4F6', color: '#4B5563', fontSize: '0.75rem',
                     padding: '4px 8px', borderRadius: '6px', fontWeight: '500'
@@ -217,9 +350,9 @@ function MatchCardItem({ match, currentUser, isManagerMode, onDelete, handleActi
                   </span>
                 ))}
               </div>
-            )}
-          </div>
-        </div>
+            </>
+          );
+        })()}
 
         {/* Actions */}
 
@@ -369,7 +502,7 @@ function MatchesContent() {
     // New Logic: Use sport_type, status='SCHEDULED', join players/teams
     const { data, error } = await supabase
       .from('matches')
-      .select('*, home_player:players!home_player_id(*, team:teams!players_team_id_fkey(*)), home_team:teams!home_team_id(team_name, emblem_url, location), host_user_id, match_applications(applicant_user_id, applicant_player_id, status)')
+      .select('*, home_player:players!home_player_id(*, team:teams!players_team_id_fkey(*)), home_team:teams!home_team_id(team_name, emblem_url, location, description), host_user_id, match_applications(applicant_user_id, applicant_player_id, status)')
       .eq('sport_type', sport) // Filter by sport_type
       .neq('status', 'DELETED') // 삭제된 것(DELETED)만 아니면 모두 조회
       .order('created_at', { ascending: false });
@@ -511,6 +644,11 @@ function MatchesContent() {
     }
   };
 
+  // Dynamic Terminology
+  const FIGHTING_SPORTS = ['BOXING', 'MMA', 'KICKBOXING'];
+  const isFighting = FIGHTING_SPORTS.includes(sport.toUpperCase());
+  const matchTerm = isFighting ? '스파링' : '매치';
+
   return (
     <main style={{ padding: '1.5rem', paddingBottom: '6rem' }}>
       <header style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -519,7 +657,7 @@ function MatchesContent() {
             {isManagerMode ? "받은 신청 (Inbox)" : `${sportDef?.icon || ''} ${sportName} 매칭 찾기`}
           </h1>
           <p style={{ color: '#6B7280', fontSize: '0.9rem' }}>
-            {isManagerMode ? "체육관으로 들어온 스파링 제안" : "지금 참여 가능한 스파링"}
+            {isManagerMode ? "체육관으로 들어온 스파링 제안" : `지금 참여 가능한 ${matchTerm}`}
           </p>
         </div>
         {!isManagerMode && (
@@ -534,10 +672,10 @@ function MatchesContent() {
       ) : !matches || matches.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '4rem 1rem', background: 'white', borderRadius: '16px', border: '1px dashed #E5E7EB' }}>
           <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>📭</div>
-          <h3>등록된 매칭이 없습니다.</h3>
-          <p style={{ color: '#6B7280', fontSize: '0.9rem', marginBottom: '1.5rem' }}>첫 번째 대결을 주선해보세요!</p>
+          <h3>등록된 {matchTerm}가 없습니다.</h3>
+          <p style={{ color: '#6B7280', fontSize: '0.9rem', marginBottom: '1.5rem' }}>첫 번째 {matchTerm}를 주선해보세요!</p>
           <Link href={`/matches/new?sport=${sport}&mode=${mode}`} style={{ background: '#2563EB', color: 'white', padding: '10px 20px', borderRadius: '8px', fontWeight: 'bold' }}>
-            매칭 등록하기
+            {matchTerm} 등록하기
           </Link>
         </div>
       ) : (

@@ -31,6 +31,9 @@ export default function MyMatchesPage() {
                     home_player:players!home_player_id (
                         player_nickname, name, avatar_url
                     ),
+                    home_team:teams!home_team_id (
+                        team_name, emblem_url, location
+                    ),
                     match_applications ( id, status ) 
                 `)
                 .eq('host_user_id', user.id)
@@ -48,10 +51,16 @@ export default function MyMatchesPage() {
                         *,
                         home_player:players!home_player_id (
                             player_nickname, name, avatar_url
+                        ),
+                        home_team:teams!home_team_id (
+                            team_name, emblem_url, location
                         )
                     ),
                     player:players!applicant_player_id (
                         player_nickname, name, avatar_url
+                    ),
+                    applicant_team:teams!applicant_team_id (
+                        team_name, emblem_url
                     )
                 `)
                 .eq('applicant_user_id', user.id)
@@ -87,6 +96,16 @@ export default function MyMatchesPage() {
         SOCCER: "⚽ 축구", FUTSAL: "⚽ 풋살", BASEBALL: "⚾ 야구",
         BASKETBALL: "🏀 농구", BADMINTON: "🏸 배드민턴", TENNIS: "🎾 테니스",
         VOLLEYBALL: "🏐 배구", PINGPONG: "🏓 탁구"
+    };
+
+    const TEAM_SPORTS = ['SOCCER', 'FUTSAL', 'BASEBALL', 'BASKETBALL'];
+
+    const LEVEL_MAP: Record<number, string> = {
+        1: "🐣 Lv.1 병아리",
+        2: "🏃 Lv.2 동네 에이스",
+        3: "🎖️ Lv.3 지역구 강자",
+        4: "🏆 Lv.4 전국구 고수",
+        5: "👽 Lv.5 우주방위대"
     };
 
     if (loading) return <div style={{ padding: '40px', textAlign: 'center' }}>로딩 중...</div>;
@@ -137,6 +156,16 @@ export default function MyMatchesPage() {
                             const hostName = hostPlayer?.player_nickname || hostPlayer?.name || "내 선수";
                             const applicantCount = match.match_applications ? match.match_applications.length : 0;
                             const sportLabel = SPORT_LABELS[match.sport_type] || match.sport_type;
+
+                            // [Step 2] 종목 판별
+                            const isTeamSport = TEAM_SPORTS.includes((match.sport_type || '').toUpperCase());
+
+                            // [Step 3] UI Data Preparation
+                            const displayImage = isTeamSport ? (match.home_team?.emblem_url) : (hostPlayer?.avatar_url);
+                            const displayImagePlaceholder = isTeamSport ? '🛡️' : '👤';
+
+                            const displayNameLabel = isTeamSport ? 'HOST TEAM' : 'HOST (My Player)';
+                            const displayName = isTeamSport ? (match.home_team?.team_name || "팀 정보 없음") : (hostName);
 
                             return (
                                 <div
@@ -194,31 +223,35 @@ export default function MyMatchesPage() {
                                         })()}
                                     </div>
 
-                                    {/* 2. Main: 주최 선수(나/내 선수) 프로필 */}
+                                    {/* 2. Main: 주최 정보 (Team or Player) */}
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                                        <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#F3F4F6', overflow: 'hidden', border: '1px solid #E5E7EB' }}>
-                                            {hostPlayer?.avatar_url ? (
-                                                <img src={hostPlayer.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#F3F4F6', overflow: 'hidden', border: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            {displayImage ? (
+                                                <img src={displayImage} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                             ) : (
-                                                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>👤</div>
+                                                <div style={{ fontSize: '1.5rem' }}>{displayImagePlaceholder}</div>
                                             )}
                                         </div>
                                         <div>
-                                            <div style={{ fontSize: '0.8rem', color: '#6B7280', marginBottom: '2px' }}>HOST (My Player)</div>
-                                            <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#111827' }}>{hostName}</div>
+                                            <div style={{ fontSize: '0.8rem', color: '#6B7280', marginBottom: '2px' }}>{displayNameLabel}</div>
+                                            <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#111827' }}>{displayName}</div>
                                         </div>
                                     </div>
 
-                                    {/* 3. Details: 장소, 날짜, 매치체급 */}
+                                    {/* 3. Details: 장소, 날짜, 스펙 */}
                                     <div style={{ background: '#F9FAFB', padding: '12px', borderRadius: '12px', fontSize: '0.85rem', color: '#4B5563', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                            <span>📍</span> {match.match_location || "장소 미정"}
+                                            <span>📍</span> {isTeamSport ? (match.home_team?.location || match.match_location || "장소 미정") : (match.match_location || "장소 미정")}
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                             <span>📅</span> {new Date(match.match_date).toLocaleDateString()} {new Date(match.match_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#2563EB', fontWeight: '600' }}>
-                                            <span>⚖️</span> 매치 체급: {match.match_weight}kg
+                                            {isTeamSport ? (
+                                                <><span>⚽</span> 경기 방식: {match.match_format || '-'} | {match.team_level ? (LEVEL_MAP[match.team_level] || `Lv.${match.team_level}`) : '-'}</>
+                                            ) : (
+                                                <><span>⚖️</span> 매치 체급: {match.match_weight}kg</>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -246,6 +279,23 @@ export default function MyMatchesPage() {
 
                             const sportLabel = SPORT_LABELS[match.sport_type] || match.sport_type;
 
+                            // [Step 2] 종목 판별
+                            const isTeamSport = TEAM_SPORTS.includes((match.sport_type || '').toUpperCase());
+
+                            // [Step 4] UI Data Preparation for Applied (Guest View)
+                            // Left: HOST
+                            const leftImage = isTeamSport ? (match.home_team?.emblem_url) : (hostPlayer?.avatar_url);
+                            const leftPlaceholder = isTeamSport ? '🛡️' : '👤';
+                            const leftLabel = isTeamSport ? 'HOST TEAM' : 'HOST';
+                            const leftName = isTeamSport ? (match.home_team?.team_name || "팀 정보 없음") : (hostName);
+
+                            // Right: APPLICANT (Me)
+                            const rightImage = isTeamSport ? (app.applicant_team?.emblem_url) : (applicantPlayer?.avatar_url);
+                            const rightPlaceholder = isTeamSport ? '🛡️' : '🧑‍✈️';
+                            const rightLabel = isTeamSport ? 'MY TEAM' : 'MY PLAYER';
+                            const rightName = isTeamSport ? (app.applicant_team?.team_name || "팀 정보 없음") : (applicantName);
+
+
                             return (
                                 <div
                                     key={app.id}
@@ -258,53 +308,57 @@ export default function MyMatchesPage() {
                                         {getStatusBadge(app.status)}
                                     </div>
 
-                                    {/* 2. Main: [HOST] vs [MY PLAYER] 페이스오프 UI */}
+                                    {/* 2. Main: [HOST] vs [MY PLAYER/TEAM] 페이스오프 UI */}
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', padding: '0 4px' }}>
 
                                         {/* 좌측: 호스트 */}
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
-                                            <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#F3F4F6', overflow: 'hidden', border: '1px solid #E5E7EB', flexShrink: 0 }}>
-                                                {hostPlayer?.avatar_url ? (
-                                                    <img src={hostPlayer.avatar_url} alt={hostName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#F3F4F6', overflow: 'hidden', border: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                {leftImage ? (
+                                                    <img src={leftImage} alt={leftName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                 ) : (
-                                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>👤</div>
+                                                    <div style={{ fontSize: '1.5rem' }}>{leftPlaceholder}</div>
                                                 )}
                                             </div>
                                             <div style={{ minWidth: 0 }}>
-                                                <div style={{ fontSize: '0.8rem', color: '#6B7280', marginBottom: '2px' }}>HOST</div>
-                                                <div style={{ fontSize: '1.0rem', fontWeight: 'bold', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hostName}</div>
+                                                <div style={{ fontSize: '0.8rem', color: '#6B7280', marginBottom: '2px' }}>{leftLabel}</div>
+                                                <div style={{ fontSize: '1.0rem', fontWeight: 'bold', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{leftName}</div>
                                             </div>
                                         </div>
 
                                         {/* 중앙: VS */}
                                         <div style={{ fontWeight: '900', color: '#EF4444', fontStyle: 'italic', fontSize: '1.2rem', padding: '0 10px' }}>VS</div>
 
-                                        {/* 우측: 내 선수 (신청자) */}
+                                        {/* 우측: 내 선수/팀 (신청자) */}
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, justifyContent: 'flex-end' }}>
                                             <div style={{ minWidth: 0, textAlign: 'right' }}>
-                                                <div style={{ fontSize: '0.8rem', color: '#3B82F6', marginBottom: '2px', fontWeight: '600' }}>MY PLAYER</div>
-                                                <div style={{ fontSize: '1.0rem', fontWeight: 'bold', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{applicantName}</div>
+                                                <div style={{ fontSize: '0.8rem', color: '#3B82F6', marginBottom: '2px', fontWeight: '600' }}>{rightLabel}</div>
+                                                <div style={{ fontSize: '1.0rem', fontWeight: 'bold', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rightName}</div>
                                             </div>
-                                            <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#EFF6FF', overflow: 'hidden', border: '2px solid #3B82F6', flexShrink: 0 }}>
-                                                {applicantPlayer?.avatar_url ? (
-                                                    <img src={applicantPlayer.avatar_url} alt={applicantName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#EFF6FF', overflow: 'hidden', border: '2px solid #3B82F6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                {rightImage ? (
+                                                    <img src={rightImage} alt={rightName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                 ) : (
-                                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>🧑✈️</div>
+                                                    <div style={{ fontSize: '1.5rem' }}>{rightPlaceholder}</div>
                                                 )}
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* 3. Details: 장소, 날짜, 체급 */}
+                                    {/* 3. Details: 장소, 날짜, 체급/스펙 */}
                                     <div style={{ background: '#F9FAFB', padding: '12px', borderRadius: '12px', fontSize: '0.85rem', color: '#4B5563', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                            <span>📍</span> {match.match_location || "장소 미정"}
+                                            <span>📍</span> {isTeamSport ? (match.home_team?.location || match.match_location || "장소 미정") : (match.match_location || "장소 미정")}
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                             <span>📅</span> {new Date(match.match_date).toLocaleDateString()} {new Date(match.match_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#2563EB', fontWeight: '600' }}>
-                                            <span>⚖️</span> 내 신청 체급: {app.application_weight}
+                                            {isTeamSport ? (
+                                                <><span>⚽</span> 경기 방식: {match.match_format || '-'} | {match.team_level ? (LEVEL_MAP[match.team_level] || `Lv.${match.team_level}`) : '-'}</>
+                                            ) : (
+                                                <><span>⚖️</span> 내 신청 체급: {app.application_weight}kg</>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
