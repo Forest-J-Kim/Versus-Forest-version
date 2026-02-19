@@ -1,6 +1,6 @@
 import type { NextConfig } from "next";
 
-import withPWAInit from "@ducanh2912/next-pwa";
+import withPWAInit, { runtimeCaching as defaultRuntimeCaching } from "@ducanh2912/next-pwa";
 
 const nextConfig: NextConfig = {
   eslint: {
@@ -24,6 +24,17 @@ const withPWA = withPWAInit({
   register: true,
   workboxOptions: {
     skipWaiting: true,
+    runtimeCaching: [
+      {
+        urlPattern: /^https:\/\/maps\.googleapis\.com\/.*$/,
+        handler: 'NetworkOnly',
+      },
+      {
+        urlPattern: /^https:\/\/maps\.gstatic\.com\/.*$/,
+        handler: 'NetworkOnly',
+      },
+      ...(defaultRuntimeCaching || []),
+    ],
   },
   disable: process.env.NODE_ENV === 'development',
 });
