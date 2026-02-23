@@ -11,7 +11,7 @@ export default function BottomNav() {
     // 특정 페이지(로그인, 회원가입 등)에서는 하단바 숨김 처리
     const isAuthPage = ['/welcome', '/login', '/signup'].some((path => pathname.startsWith(path)));
     // 팀/선수 편집 페이지 등에서도 숨길 경우 추가 가능
-    const isEditPage = pathname.includes('/team/edit/');
+    const isEditPage = pathname.includes('/team/edit/') || pathname.includes('/profile/edit/');
 
     if (isAuthPage || isEditPage) return null;
 

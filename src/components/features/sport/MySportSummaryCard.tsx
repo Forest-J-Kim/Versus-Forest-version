@@ -323,7 +323,7 @@ export default function MySportSummaryCard({
                             gymName={location}
                             tags={tags}
                             imageUrl={userAvatarUrl}
-                            onEdit={isManageMode ? undefined : onEditProfile} // Hide edit in manage mode
+                            onViewProfile={isManageMode ? undefined : () => router.push(`/player/${playerData.id}`)} // Hide link in manage mode
                             hasTeam={teamList && teamList.length > 0}
                             requestStatus={requestStatus}
                             onFindTeam={() => setIsJoinModalOpen(true)}

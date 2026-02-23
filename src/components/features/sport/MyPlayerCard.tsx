@@ -8,7 +8,7 @@ interface MyPlayerCardProps {
     gymName: string;
     tags: string[];
     imageUrl?: string;
-    onEdit?: () => void;
+    onViewProfile?: () => void;
     hasTeam?: boolean;
     requestStatus?: string | null;
     onFindTeam?: () => void;
@@ -17,12 +17,20 @@ interface MyPlayerCardProps {
     metaContent?: React.ReactNode;
 }
 
-export default function MyPlayerCard({ name, gymName, tags, imageUrl, onEdit, hasTeam = false, requestStatus = null, onFindTeam, isManageMode, onDelete, metaContent }: MyPlayerCardProps) {
+export default function MyPlayerCard({ name, gymName, tags, imageUrl, onViewProfile, hasTeam = false, requestStatus = null, onFindTeam, isManageMode, onDelete, metaContent }: MyPlayerCardProps) {
     return (
         <div className={styles.card} style={{ position: 'relative' }}>
             <div className={styles.headerRow} style={{ alignItems: 'center' }}>
                 <span className={styles.sectionTitle}>내 정보</span>
-                {!isManageMode && onEdit && <span className={styles.editLink} onClick={onEdit}>수정</span>}
+                {!isManageMode && onViewProfile && (
+                    <span
+                        className={styles.editLink}
+                        onClick={onViewProfile}
+                        style={{ fontSize: '0.875rem', color: '#6B7280', textDecoration: 'none', cursor: 'pointer' }}
+                    >
+                        + 더보기
+                    </span>
+                )}
                 {isManageMode && onDelete && (
                     <button
                         onClick={(e) => { e.stopPropagation(); onDelete(); }}

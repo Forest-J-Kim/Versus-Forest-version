@@ -243,8 +243,10 @@ export default function SportRegisterPage({ params }: { params: Promise<{ id: st
             // Prepare Data
             const wins = parseInt(skills.wins || '0', 10);
             const losses = parseInt(skills.losses || '0', 10);
-            const total = wins + losses;
-            const recordStr = (wins > 0 || losses > 0) ? `${total}전 ${wins}승 ${losses}패` : null;
+            // 복싱 등 무승부가 없는 종목은 draws를 0으로 고정, 추후 종목별 무승부 폼 추가 시 연동
+            const draws = parseInt(skills.draws || '0', 10);
+            const total = wins + draws + losses;
+            const recordStr = (wins > 0 || draws > 0 || losses > 0) ? `${total}전 ${wins}승 ${draws > 0 ? draws + '무 ' : ''}${losses}패` : null;
 
             // Mapping for Position/Stance
             let positionVal = null;
@@ -267,6 +269,9 @@ export default function SportRegisterPage({ params }: { params: Promise<{ id: st
                 weight_class: skills.weightClass ? skills.weightClass.toString().replace(/[^0-9.]/g, '') : null,
                 position: positionVal,
                 record: recordStr,
+                wins: wins,
+                draws: draws,
+                losses: losses,
                 main_foot: foot,       // Mapped from skills.foot
                 skill_level: level,    // Mapped from skills.level
 

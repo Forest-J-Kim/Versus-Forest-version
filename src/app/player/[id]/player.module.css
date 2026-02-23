@@ -1,0 +1,292 @@
+.container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 1rem;
+    padding-bottom: 6rem;
+    background-color: #fff;
+    min-height: 100vh;
+}
+
+.topHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.pageTitle {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #111827;
+}
+
+.editButton {
+    font-size: 0.85rem;
+    color: #6B7280;
+    background: white;
+    padding: 0.35rem 0.85rem;
+    border: 1px solid #D1D5DB;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.header {
+    background-color: transparent;
+    margin-bottom: 2rem;
+    position: relative;
+    padding: 1rem 0;
+}
+
+.headerContent {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.emblem {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background-color: #E5E7EB;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3rem;
+    border: 3px solid #F3F4F6;
+    flex-shrink: 0;
+}
+
+.teamInfo {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.teamName {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #111827;
+    margin-bottom: 0.25rem;
+    line-height: 1.2;
+}
+
+.teamDesc {
+    font-size: 0.95rem;
+    color: #6B7280;
+    margin-bottom: 0.75rem;
+    line-height: 1.4;
+}
+
+.metaInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.metaItem {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: #374151;
+}
+
+.metaLabel {
+    font-weight: 600;
+    color: #4B5563;
+}
+
+.metaValue {
+    font-weight: 500;
+}
+
+.section {
+    margin-bottom: 2rem;
+}
+
+.sectionTitle {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #1F2937;
+    margin-bottom: 1rem;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.subTitle {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 0.5rem;
+}
+
+.descriptionBox {
+    font-size: 0.95rem;
+    color: #4B5563;
+    line-height: 1.6;
+    white-space: pre-line;
+    min-height: 4rem;
+    background: #F9FAFB;
+    padding: 1rem;
+    border-radius: 0.75rem;
+    border: 1px solid #E5E7EB;
+}
+
+.matchList {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.matchCard {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    background: white;
+    border: 1px solid #E5E7EB;
+    border-radius: 0.75rem;
+    justify-content: space-between;
+}
+
+.matchDate {
+    font-size: 0.8rem;
+    color: #6B7280;
+    margin-bottom: 0.25rem;
+}
+
+.matchContent {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.score {
+    font-size: 1rem;
+    font-weight: 800;
+}
+
+.resultBadge {
+    padding: 0.2rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: bold;
+    border-radius: 0.25rem;
+    color: white;
+}
+
+.win {
+    background-color: #10B981;
+}
+
+.loss {
+    background-color: #EF4444;
+}
+
+.draw {
+    background-color: #6B7280;
+}
+
+/* Specs Vertical List UI */
+.specList {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-top: 0.5rem;
+    background: white;
+    border: 1px solid #E5E7EB;
+    border-radius: 0.75rem;
+    padding: 0.5rem 0;
+}
+
+.specRow {
+    display: flex;
+    align-items: center;
+    background: transparent;
+    padding: 0.6rem 1rem;
+    border-radius: 0;
+    border: none;
+    border-bottom: 1px solid #F3F4F6;
+}
+
+.specRow:last-child {
+    border-bottom: none;
+}
+
+.specRowLabel {
+    width: 80px;
+    font-size: 0.9rem;
+    color: #6B7280;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.specRowValue {
+    font-size: 1rem;
+    color: #111827;
+    font-weight: 700;
+}
+
+/* Career Table Row UI */
+.careerRow {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #F3F4F6;
+    min-height: 2.5rem;
+    /* Ensure row height consistency */
+}
+
+.careerRow:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.careerIcon {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.careerName {
+    flex-grow: 1;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #1F2937;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    line-height: 1.2;
+}
+
+.careerYear {
+    font-size: 0.85rem;
+    color: #9CA3AF;
+    font-weight: 500;
+    text-align: right;
+    width: 40px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+/* Tags Container */
+.tagsContainer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.tagBadge {
+    background: #EFF6FF;
+    color: #1D4ED8;
+    border: 1px solid #BFDBFE;
+    font-size: 0.85rem;
+    font-weight: 700;
+    padding: 0.4rem 0.8rem;
+    border-radius: 999px;
+}

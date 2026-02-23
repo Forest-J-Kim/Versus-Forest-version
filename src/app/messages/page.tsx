@@ -5,6 +5,17 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import styles from '@/components/features/chat/ChatLayout.module.css';
 
+const SPORT_MAP: Record<string, string> = {
+    SOCCER: '⚽ 축구/풋살',
+    BOXING: '🥊 복싱',
+    BASKETBALL: '🏀 농구',
+    BASEBALL: '⚾ 야구',
+    BADMINTON: '🏸 배드민턴/테니스',
+    KICKBOXING: '🦵 킥복싱/MMA',
+    JUDO: '🥋 유도/주짓수',
+    HEALTH: '🏋️ 헬스'
+};
+
 export default function MessageListPage() {
     const router = useRouter();
     const supabase = createClient();
@@ -197,9 +208,11 @@ export default function MessageListPage() {
                                 <div className={styles.topRow}>
                                     <span className={styles.name}>
                                         {conv.partnerName}
-                                        {conv.sportType && <span style={{ fontSize: '0.7em', color: '#6B7280', marginLeft: '6px', fontWeight: 'normal' }}>{conv.sportType}</span>}
                                     </span>
-                                    <span className={styles.time}>{formatTime(conv.time)}</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        {conv.sportType && <span style={{ fontSize: '0.85em', color: '#6B7280', fontWeight: 'normal' }}>{SPORT_MAP[(conv.sportType as string).toUpperCase()] || conv.sportType}</span>}
+                                        <span className={styles.time}>{formatTime(conv.time)}</span>
+                                    </div>
                                 </div>
                                 <div className={styles.messagePreview}>{conv.lastMessage}</div>
                             </div>

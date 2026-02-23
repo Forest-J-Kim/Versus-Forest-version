@@ -470,8 +470,7 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
                                 {matchInfo?.home_team?.team_name || "홈 팀"}
                             </span>
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', fontSize: '0.8rem', color: '#6B7280', marginTop: '4px' }}>
-                                <span>주장: {hostPlayer?.player_nickname || hostPlayer?.name || "미정"}</span>
-                                <span>📍 {getSimpleLocation(matchInfo?.home_team?.location)}</span>
+                                <span>👑 {hostPlayer?.player_nickname || hostPlayer?.name || "미정"}</span>
                                 <span>⚔️ {formatTeamRecord(matchInfo?.home_team?.wins, matchInfo?.home_team?.draws, matchInfo?.home_team?.losses)}</span>
                             </div>
                         </div>
@@ -500,8 +499,7 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
                                 {applicantTeam?.team_name || "상대 팀"}
                             </span>
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', fontSize: '0.8rem', color: '#6B7280', marginTop: '4px' }}>
-                                <span>주장: {applicantPlayer?.player_nickname || applicantPlayer?.name || "미정"}</span>
-                                <span>📍 {getSimpleLocation(applicantTeam?.location)}</span>
+                                <span>👑 {applicantPlayer?.player_nickname || applicantPlayer?.name || "미정"}</span>
                                 <span>⚔️ {formatTeamRecord(applicantTeam?.wins, applicantTeam?.draws, applicantTeam?.losses)}</span>
                             </div>
                         </div>
@@ -524,8 +522,9 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
                             </div>
                             <span style={{ fontWeight: 'bold', fontSize: '0.9rem', color: '#111827' }}>{hostPlayer?.name || hostPlayer?.player_nickname || "호스트"}</span>
 
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', fontSize: '0.8rem', color: '#6B7280', marginTop: '4px' }}>
-                                <span>🥊 {formatIndividualRecord(hostPlayer?.wins, hostPlayer?.losses)} | {hostPlayer?.position || '-'}</span>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', fontSize: '0.8rem', color: '#6B7280', marginTop: '4px', textAlign: 'center', wordBreak: 'keep-all' }}>
+                                <span>🥊 {formatIndividualRecord(hostPlayer?.wins, hostPlayer?.losses)}</span>
+                                <span style={{ fontSize: '0.75rem' }}>{hostPlayer?.position || '-'}</span>
                             </div>
                         </div>
 
@@ -553,8 +552,9 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
                                 {applicantPlayer?.name || applicantPlayer?.player_nickname || "신청자"}
                             </span>
 
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', fontSize: '0.8rem', color: '#6B7280', marginTop: '4px' }}>
-                                <span>🥊 {formatIndividualRecord(applicantPlayer?.wins, applicantPlayer?.losses)} | {applicantPlayer?.position || '-'}</span>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', fontSize: '0.8rem', color: '#6B7280', marginTop: '4px', textAlign: 'center', wordBreak: 'keep-all' }}>
+                                <span>🥊 {formatIndividualRecord(applicantPlayer?.wins, applicantPlayer?.losses)}</span>
+                                <span style={{ fontSize: '0.75rem' }}>{applicantPlayer?.position || '-'}</span>
                             </div>
                         </div>
                     </div>

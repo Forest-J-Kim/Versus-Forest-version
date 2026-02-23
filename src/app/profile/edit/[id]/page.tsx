@@ -1,5 +1,7 @@
 "use client";
 
+export const dynamic = 'force-dynamic';
+
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from "@/utils/supabase/client";
@@ -41,8 +43,10 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
     const [nickname, setNickname] = useState("");
     const [region, setRegion] = useState("");
 
-    // Dynamic Fields (JSON)
     const [skills, setSkills] = useState<any>({});
+
+    // Dynamic Career Array
+    const [careerList, setCareerList] = useState<{ type: string; name: string; year: string }[]>([]);
 
     // Captain Fields
     const [isCaptain, setIsCaptain] = useState(false);
@@ -110,12 +114,35 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
                 if (playerData.main_foot) loadedSkills.foot = playerData.main_foot;
                 if (playerData.skill_level) loadedSkills.level = playerData.skill_level;
 
-                // Parse Record "X전 Y승 Z패"
-                if (playerData.record) {
+                // [Refactor] Load Record Columns (wins, draws, losses) Priority over JSON/String
+                if (playerData.wins !== null && playerData.wins !== undefined) loadedSkills.wins = playerData.wins;
+                if (playerData.draws !== null && playerData.draws !== undefined) loadedSkills.draws = playerData.draws;
+                if (playerData.losses !== null && playerData.losses !== undefined) loadedSkills.losses = playerData.losses;
+
+                // Parse legacy Record "X전 Y승 Z패" if columns are empty (Migration fallback)
+                if (playerData.record && !loadedSkills.wins && !loadedSkills.losses) {
                     const winsMatch = playerData.record.match(/(\d+)승/);
                     const lossesMatch = playerData.record.match(/(\d+)패/);
                     if (winsMatch) loadedSkills.wins = winsMatch[1];
                     if (lossesMatch) loadedSkills.losses = lossesMatch[1];
+                }
+
+                if (playerData.description) loadedSkills.description = playerData.description;
+                if (playerData.short_intro) loadedSkills.short_intro = playerData.short_intro;
+                if (playerData.birth_year) loadedSkills.birth_year = playerData.birth_year;
+                if (playerData.height) loadedSkills.height = playerData.height;
+                if (playerData.reach) loadedSkills.reach = playerData.reach;
+
+                // Parse Career History JSONB
+                if (playerData.career_history) {
+                    try {
+                        let parsedCareers = typeof playerData.career_history === 'string' ? JSON.parse(playerData.career_history) : playerData.career_history;
+                        if (Array.isArray(parsedCareers)) {
+                            setCareerList(parsedCareers);
+                        }
+                    } catch (e) {
+                        console.error("Failed to parse career_history JSON", e);
+                    }
                 }
 
                 setSkills(loadedSkills);
@@ -171,120 +198,7 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
 
 
     // --- Dynamic Field Renders ---
-    const renderSportFields = () => {
-        // Helper to update specific skill
-        const updateSkill = (key: string, value: any) => {
-            setSkills((prev: any) => ({ ...prev, [key]: value }));
-        };
 
-        switch (sportId) {
-            case 'soccer':
-                return (
-                    <>
-                        <div className={styles.fieldGroup}>
-                            <label className={styles.label}>포지션</label>
-                            <select className={styles.select} value={skills.position || ""} onChange={(e) => updateSkill('position', e.target.value)}>
-                                <option value="">선택하세요</option>
-                                <option value="FW">공격수 (FW)</option>
-                                <option value="MF">미드필더 (MF)</option>
-                                <option value="DF">수비수 (DF)</option>
-                                <option value="GK">골키퍼 (GK)</option>
-                            </select>
-                        </div>
-                        <div className={styles.fieldGroup}>
-                            <label className={styles.label}>주발</label>
-                            <select className={styles.select} value={skills.foot || ""} onChange={(e) => updateSkill('foot', e.target.value)}>
-                                <option value="">선택하세요</option>
-                                <option value="Right">오른발</option>
-                                <option value="Left">왼발</option>
-                                <option value="Both">양발</option>
-                            </select>
-                        </div>
-                        <div className={styles.fieldGroup}>
-                            <label className={styles.label}>실력</label>
-                            <select className={styles.select} value={skills.level || ""} onChange={(e) => updateSkill('level', e.target.value)}>
-                                <option value="">선택하세요</option>
-                                <option value="High">상 (선수출신)</option>
-                                <option value="Mid">중 (동호회)</option>
-                                <option value="Low">하 (초보)</option>
-                            </select>
-                        </div>
-                    </>
-                );
-            case 'boxing':
-            case 'kickboxing':
-            case 'judo':
-                return (
-                    <>
-                        <div className={styles.fieldGroup}>
-                            <label className={styles.label}>체급</label>
-                            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                                <input
-                                    type="number"
-                                    className={styles.input}
-                                    placeholder="예: 65"
-                                    value={skills.weightClass || ""}
-                                    onChange={(e) => updateSkill('weightClass', e.target.value)}
-                                    style={{ paddingRight: '2.5rem' }}
-                                />
-                                <span style={{ position: 'absolute', right: '1rem', color: '#6B7280', fontSize: '0.9rem' }}>kg</span>
-                            </div>
-                        </div>
-                        {(sportId === 'boxing' || sportId === 'kickboxing') && (
-                            <div className={styles.fieldGroup}>
-                                <label className={styles.label}>스탠스</label>
-                                <select className={styles.select} value={skills.stance || ""} onChange={(e) => updateSkill('stance', e.target.value)}>
-                                    <option value="">선택하세요</option>
-                                    <option value="Orthodox">오소독스 (오른손잡이)</option>
-                                    <option value="Southpaw">사우스포 (왼손잡이)</option>
-                                </select>
-                            </div>
-                        )}
-                        <div className={styles.fieldGroup}>
-                            <label className={styles.label}>전적 (승/패)</label>
-                            <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                <input type="number" className={styles.input} placeholder="승" value={skills.wins || ""} onChange={(e) => updateSkill('wins', e.target.value)} />
-                                <input type="number" className={styles.input} placeholder="패" value={skills.losses || ""} onChange={(e) => updateSkill('losses', e.target.value)} />
-                            </div>
-                        </div>
-                    </>
-                );
-            case 'health':
-                return (
-                    <>
-                        <div className={styles.fieldGroup}>
-                            <label className={styles.label}>3대 운동 중량 (Total)</label>
-                            <input type="number" className={styles.input} placeholder="kg" value={skills.totalWeight || ""} onChange={(e) => updateSkill('totalWeight', e.target.value)} />
-                        </div>
-                        <div className={styles.fieldGroup}>
-                            <label className={styles.label}>운동 스타일</label>
-                            <select className={styles.select} value={skills.style || ""} onChange={(e) => updateSkill('style', e.target.value)}>
-                                <option value="">선택하세요</option>
-                                <option value="Bodybuilding">보디빌딩</option>
-                                <option value="Powerlifting">파워리프팅</option>
-                                <option value="Crossfit">크로스핏</option>
-                                <option value="Diet">다이어트/건강</option>
-                            </select>
-                        </div>
-                    </>
-                );
-            case 'racket':
-                return (
-                    <>
-                        <div className={styles.fieldGroup}>
-                            <label className={styles.label}>구력 (년)</label>
-                            <input type="number" className={styles.input} placeholder="년" value={skills.years || ""} onChange={(e) => updateSkill('years', e.target.value)} />
-                        </div>
-                        <div className={styles.fieldGroup}>
-                            <label className={styles.label}>급수 (NTRP / A~D조)</label>
-                            <input type="text" className={styles.input} placeholder="예: A조, NTRP 4.0" value={skills.level || ""} onChange={(e) => updateSkill('level', e.target.value)} />
-                        </div>
-                    </>
-                );
-            default:
-                return <p style={{ color: '#999', fontSize: '0.9rem' }}>기본 정보만 입력합니다.</p>;
-        }
-    };
 
     // --- Image Handling ---
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'avatar' | 'emblem') => {
@@ -332,8 +246,9 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
             // Prepare Data
             const wins = parseInt(skills.wins || '0', 10);
             const losses = parseInt(skills.losses || '0', 10);
-            const total = wins + losses;
-            const recordStr = (wins > 0 || losses > 0) ? `${total}전 ${wins}승 ${losses}패` : null;
+            const draws = parseInt(skills.draws || '0', 10); // 복싱 등 무승부가 없는 종목은 0, 추후 확장을 위함
+            const total = wins + draws + losses;
+            const recordStr = (wins > 0 || draws > 0 || losses > 0) ? `${total}전 ${wins}승 ${draws > 0 ? draws + '무 ' : ''}${losses}패` : null;
 
             // Mapping for Position/Stance
             let positionVal = null;
@@ -346,7 +261,7 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
 
             // Clean skills (Remove migrated fields if desired, or keep for safety? User said "skills: {} or misc")
             // To be safe and compliant:
-            const { weightClass, stance, wins: _w, losses: _l, position: _p, foot, level, ...restSkills } = skills;
+            const { weightClass, stance, wins: _w, losses: _l, position: _p, foot, level, short_intro: _si, birth_year: _by, height: _h, reach: _r, career_history: _ch, ...restSkills } = skills;
             // Actually, keep other fields. 
 
             // 1. Update Player Profile
@@ -354,10 +269,19 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
                 .update({
                     name: nickname,
                     location: region,
+                    description: skills.description || null,
+                    short_intro: skills.short_intro || null,
+                    birth_year: skills.birth_year ? parseInt(skills.birth_year, 10) : null,
+                    height: skills.height ? parseInt(skills.height, 10) : null,
+                    reach: skills.reach ? parseInt(skills.reach, 10) : null,
+                    career_history: careerList.length > 0 ? careerList : null,
                     // [Refactor] Migrated Columns
                     weight_class: skills.weightClass ? skills.weightClass.toString().replace(/[^0-9.]/g, '') : null,
                     position: positionVal,
                     record: recordStr,
+                    wins: wins,
+                    draws: draws,
+                    losses: losses,
                     main_foot: foot,       // Mapped from skills.foot
                     skill_level: level,    // Mapped from skills.level
 
@@ -445,55 +369,184 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
 
     return (
         <main className={styles.container}>
-            <div className={styles.titleSection}>
-                <h1 className={styles.title}>
+            <div className={styles.topHeader}>
+                <h1 className={styles.pageTitle}>
                     <span style={{ marginRight: '0.5rem' }}>{sportIcon}</span>
                     {sportName} 프로필 수정
                 </h1>
-                <p className={styles.subtitle}>입력된 정보를 수정할 수 있습니다.</p>
             </div>
 
-            <div className={styles.formSection}>
-                <span className={styles.sectionLabel}>기본 정보</span>
-
-                {/* Avatar Upload UI */}
-                <div className={styles.avatarUploadSection}>
-                    <div className={styles.avatarPreview} onClick={() => avatarInputRef.current?.click()}>
-                        {avatarUrl ? <img src={avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: '2rem' }}>👤</span>}
+            <header className={styles.header}>
+                <div className={styles.headerContent}>
+                    <div className={styles.avatarUploadSection}>
+                        <div className={styles.avatarPreview} onClick={() => avatarInputRef.current?.click()}>
+                            {avatarUrl ? <img src={avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: '2rem' }}>👤</span>}
+                        </div>
+                        <div className={styles.avatarUploadOverlay} onClick={() => avatarInputRef.current?.click()}>📷</div>
                     </div>
-                    <button className={styles.avatarUploadButton} onClick={() => avatarInputRef.current?.click()}>
-                        {sportName} 프로필 사진 등록
-                    </button>
                     <input type="file" hidden ref={avatarInputRef} onChange={(e) => handleFileChange(e, 'avatar')} accept="image/*" />
-                </div>
 
-                <div className={styles.fieldGroup}>
-                    <label className={styles.label}>활동 닉네임</label>
-                    <input
-                        type="text"
-                        className={styles.input}
-                        value={nickname}
-                        onChange={(e) => setNickname(e.target.value)}
-                    />
-                </div>
-                <div className={styles.fieldGroup}>
-                    <label className={styles.label}>주 활동 지역</label>
-                    <input
-                        type="text"
-                        className={styles.input}
-                        placeholder="예: 서울시 성동구"
-                        value={region}
-                        onChange={(e) => setRegion(e.target.value)}
-                    />
-                </div>
-            </div>
+                    <div className={styles.teamInfo}>
+                        <div className={styles.nameInputWrapper}>
+                            <input
+                                type="text"
+                                className={styles.nameInput}
+                                value={nickname}
+                                onChange={(e) => setNickname(e.target.value)}
+                                placeholder="활동 닉네임 입력"
+                            />
+                            <span style={{ fontSize: '1rem', color: '#9CA3AF' }}>✏️</span>
+                        </div>
+                        <div className={styles.metaInfo} style={{ marginBottom: '0.5rem' }}>
+                            <div className={styles.metaItem}>
+                                <span className={styles.metaLabel}>전적: 🥊</span>
+                                <input type="number" className={styles.recordInput} value={skills.wins || ""} onChange={(e) => setSkills((p: any) => ({ ...p, wins: e.target.value }))} placeholder="승" /> 승
+                                <input type="number" className={styles.recordInput} style={{ marginLeft: '4px' }} value={skills.losses || ""} onChange={(e) => setSkills((p: any) => ({ ...p, losses: e.target.value }))} placeholder="패" /> 패
+                            </div>
+                        </div>
 
-            <div className={styles.formSection}>
-                <span className={styles.sectionLabel}>상세 정보 ({sportName})</span>
-                {renderSportFields()}
-            </div>
+                        <input
+                            type="text"
+                            className={styles.specInput}
+                            style={{ textAlign: 'left', width: '100%', fontSize: '1rem', color: '#111827', fontWeight: 600, margin: 0, padding: '0.2rem 0', marginTop: '0.5rem' }}
+                            value={skills.short_intro || ""}
+                            onChange={(e) => setSkills((p: any) => ({ ...p, short_intro: e.target.value }))}
+                            placeholder="한줄 소개 (예: 멈추지 않는 아웃복서)"
+                        />
+                    </div>
+                </div>
+            </header>
 
-            <div className={`${styles.formSection} ${isCaptain ? styles.captainSection : ''}`}>
+            <section className={styles.section}>
+                <h3 className={styles.subTitle}>개인 스펙</h3>
+                <div className={styles.specList}>
+                    <div className={styles.specRow}>
+                        <span className={styles.specRowLabel}>출생</span>
+                        <input
+                            type="number"
+                            className={styles.specInput}
+                            value={skills.birth_year || ""}
+                            onChange={(e) => setSkills((p: any) => ({ ...p, birth_year: e.target.value }))}
+                            placeholder="1990 (입력)"
+                        />
+                    </div>
+                    <div className={styles.specRow}>
+                        <span className={styles.specRowLabel}>신장</span>
+                        <input
+                            type="number"
+                            className={styles.specInput}
+                            style={{ paddingRight: '2px' }}
+                            value={skills.height || ""}
+                            onChange={(e) => setSkills((p: any) => ({ ...p, height: e.target.value }))}
+                            placeholder="175"
+                        />
+                        <span style={{ fontSize: '0.95rem', fontWeight: 700, marginLeft: '2px', color: '#111827' }}>cm</span>
+                    </div>
+                    <div className={styles.specRow}>
+                        <span className={styles.specRowLabel}>리치</span>
+                        <input
+                            type="number"
+                            className={styles.specInput}
+                            style={{ paddingRight: '2px' }}
+                            value={skills.reach || ""}
+                            onChange={(e) => setSkills((p: any) => ({ ...p, reach: e.target.value }))}
+                            placeholder="180"
+                        />
+                        <span style={{ fontSize: '0.95rem', fontWeight: 700, marginLeft: '2px', color: '#111827' }}>cm</span>
+                    </div>
+                    <div className={styles.specRow}>
+                        <span className={styles.specRowLabel}>{['boxing', 'kickboxing', 'judo'].includes(sportId) ? '스탠스' : '포지션'}</span>
+                        <select
+                            className={styles.specSelect}
+                            value={['boxing', 'kickboxing', 'judo'].includes(sportId) ? (skills.stance || "") : (skills.position || "")}
+                            onChange={(e) => setSkills((p: any) => ({ ...p, [['boxing', 'kickboxing', 'judo'].includes(sportId) ? 'stance' : 'position']: e.target.value }))}
+                        >
+                            <option value="">선택</option>
+                            {['boxing', 'kickboxing', 'judo'].includes(sportId) ? (
+                                <>
+                                    <option value="Orthodox">오소독스</option>
+                                    <option value="Southpaw">사우스포</option>
+                                </>
+                            ) : (
+                                <>
+                                    <option value="FW">공격수</option>
+                                    <option value="MF">미드필더</option>
+                                    <option value="DF">수비수</option>
+                                    <option value="GK">골키퍼</option>
+                                </>
+                            )}
+                        </select>
+                    </div>
+                </div>
+            </section>
+
+            <section className={styles.section}>
+                <h3 className={styles.subTitle}>경력 사항</h3>
+                <div style={{ background: '#F9FAFB', padding: '1rem', borderRadius: '0.75rem', border: '1px solid #D1D5DB' }}>
+                    {careerList.map((career, index) => (
+                        <div key={index} className={styles.careerRow}>
+                            <select
+                                className={styles.careerSelect}
+                                value={career.type}
+                                onChange={(e) => {
+                                    const newList = [...careerList];
+                                    newList[index].type = e.target.value;
+                                    setCareerList(newList);
+                                }}
+                            >
+                                <option value="award">🏅 입상/대회</option>
+                                <option value="edu">🎓 학력/자격</option>
+                                <option value="job">💼 전/현직</option>
+                                <option value="other">📌 기타</option>
+                            </select>
+
+                            <input
+                                type="text"
+                                className={styles.careerInput}
+                                value={career.name}
+                                onChange={(e) => {
+                                    const newList = [...careerList];
+                                    newList[index].name = e.target.value;
+                                    setCareerList(newList);
+                                }}
+                                placeholder="대회명/자격증명"
+                            />
+
+                            <input
+                                type="text"
+                                maxLength={4}
+                                className={styles.careerYearInput}
+                                value={career.year}
+                                onChange={(e) => {
+                                    const newList = [...careerList];
+                                    newList[index].year = e.target.value.replace(/[^0-9]/g, '');
+                                    setCareerList(newList);
+                                }}
+                                placeholder="YYYY"
+                            />
+
+                            <button
+                                className={styles.careerDeleteBtn}
+                                onClick={() => {
+                                    const newList = careerList.filter((_, i) => i !== index);
+                                    setCareerList(newList);
+                                }}
+                            >
+                                ❌
+                            </button>
+                        </div>
+                    ))}
+
+                    <button
+                        className={styles.addCareerBtn}
+                        onClick={() => setCareerList([...careerList, { type: 'award', name: '', year: '' }])}
+                    >
+                        + 경력 추가
+                    </button>
+                </div>
+            </section>
+
+            <section className={styles.section}>
                 <div className={styles.captainToggle} onClick={() => setIsCaptain(!isCaptain)}>
                     <input
                         type="checkbox"
@@ -524,11 +577,13 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
                         </div>
                     </div>
                 )}
-            </div>
+            </section>
 
-            <button className={styles.submitButton} onClick={handleSubmit} disabled={loading}>
-                {loading ? '저장 중...' : '수정 완료'}
-            </button>
+            <div className={styles.stickyBottomArea}>
+                <button className={styles.submitButton} onClick={handleSubmit} disabled={loading}>
+                    {loading ? '저장 중...' : '확인(수정 완료)'}
+                </button>
+            </div>
 
             {/* Crop Modal Reuse */}
             {isCropModalOpen && imageSrc && (

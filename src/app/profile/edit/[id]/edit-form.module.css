@@ -1,111 +1,359 @@
 .container {
-    padding: 1.5rem;
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 1rem;
     padding-bottom: 6rem;
+    background-color: #fff;
     min-height: 100vh;
-    background-color: #F9FAFB;
 }
 
-.titleSection {
+.topHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.pageTitle {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #111827;
+}
+
+/* Header UI */
+.header {
+    background-color: transparent;
+    margin-bottom: 2rem;
+    position: relative;
+    padding: 1rem 0;
+}
+
+.headerContent {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.avatarUploadSection {
+    position: relative;
+}
+
+.avatarPreview {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    overflow: hidden;
+    background-color: #E5E7EB;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 3px solid white;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.avatarUploadOverlay {
+    position: absolute;
+    bottom: 0px;
+    right: 0px;
+    background: #3B82F6;
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid white;
+    cursor: pointer;
+    font-size: 1rem;
+}
+
+.teamInfo {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    width: 100%;
+}
+
+.nameInputWrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.nameInput {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #111827;
+    border: none;
+    border-bottom: 2px dashed #D1D5DB;
+    outline: none;
+    width: 100%;
+    max-width: 200px;
+    background: transparent;
+    padding: 0;
+    line-height: 1.2;
+}
+
+.nameInput:focus {
+    border-bottom-color: #3B82F6;
+}
+
+.teamDesc {
+    font-size: 0.95rem;
+    color: #6B7280;
+    margin-bottom: 0.75rem;
+    line-height: 1.4;
+}
+
+.metaInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.metaItem {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: #374151;
+}
+
+.metaLabel {
+    font-weight: 600;
+    color: #4B5563;
+    white-space: nowrap;
+}
+
+.recordInput {
+    width: 3rem;
+    text-align: center;
+    font-size: 0.9rem;
+    font-weight: bold;
+    border: 1px solid #D1D5DB;
+    border-radius: 0.3rem;
+    padding: 0.1rem;
+    outline: none;
+}
+
+.recordInput:focus {
+    border-color: #EF4444;
+}
+
+/* Sections */
+.section {
     margin-bottom: 2rem;
 }
 
-.title {
-    font-size: 1.5rem;
-    font-weight: 800;
+.subTitle {
+    font-size: 1rem;
+    font-weight: 700;
     color: #111827;
     margin-bottom: 0.5rem;
 }
 
-.subtitle {
-    color: #6B7280;
-    font-size: 0.95rem;
-}
-
-.formSection {
-    background-color: white;
-    padding: 1.5rem;
-    border-radius: 1rem;
+/* Spec List */
+.specList {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-top: 0.5rem;
+    background: white;
     border: 1px solid #E5E7EB;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-    margin-bottom: 1.5rem;
+    border-radius: 0.75rem;
+    padding: 0.5rem 0;
 }
 
-.sectionLabel {
-    display: block;
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: #374151;
-    margin-bottom: 1rem;
+.specRow {
+    display: flex;
+    align-items: center;
+    background: transparent;
+    padding: 0.6rem 1rem;
+    border-radius: 0;
+    border: none;
     border-bottom: 1px solid #F3F4F6;
-    padding-bottom: 0.5rem;
 }
 
-.fieldGroup {
-    margin-bottom: 1.25rem;
+.specRow:last-child {
+    border-bottom: none;
 }
 
-.label {
-    display: block;
+.specRowLabel {
+    width: 80px;
     font-size: 0.9rem;
+    color: #6B7280;
     font-weight: 600;
+    flex-shrink: 0;
+}
+
+.specInput {
+    flex-grow: 1;
+    font-size: 0.95rem;
+    color: #111827;
+    font-weight: 700;
+    border: none;
+    background: transparent;
+    outline: none;
+    text-align: right;
+}
+
+.specInput::placeholder {
+    color: #9CA3AF;
+    font-weight: 400;
+}
+
+.specSelect {
+    flex-grow: 1;
+    font-size: 0.95rem;
+    color: #111827;
+    font-weight: 700;
+    border: none;
+    background: transparent;
+    outline: none;
+    text-align: right;
+    direction: rtl;
+    /* Align text right for select */
+}
+
+/* Dynamic Career Array */
+.careerRow {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #E5E7EB;
+}
+
+.careerRow:last-child {
+    border-bottom: none;
+}
+
+.careerSelect {
+    width: 30%;
+    height: 38px;
+    font-size: 0.85rem;
+    padding: 0 0.4rem;
+    border: 1px solid #D1D5DB;
+    border-radius: 0.4rem;
+    background: white;
+    outline: none;
+    flex-shrink: 0;
+    box-sizing: border-box;
+}
+
+.careerInput {
+    flex-grow: 1;
+    height: 38px;
+    font-size: 0.9rem;
+    padding: 0 0.4rem;
+    border: 1px solid #D1D5DB;
+    border-radius: 0.4rem;
+    outline: none;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.careerYearInput {
+    width: 4rem;
+    height: 38px;
+    font-size: 0.9rem;
+    padding: 0 0.4rem;
+    border: 1px solid #D1D5DB;
+    border-radius: 0.4rem;
+    text-align: center;
+    outline: none;
+    flex-shrink: 0;
+    box-sizing: border-box;
+}
+
+.careerDeleteBtn {
+    background: none;
+    border: none;
+    color: #EF4444;
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 0;
+    margin-left: 4px;
+    flex-shrink: 0;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.addCareerBtn {
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    width: 100%;
+    background: white;
+    border: 1px dashed #9CA3AF;
+    border-radius: 0.5rem;
     color: #4B5563;
-    margin-bottom: 0.5rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
 }
 
-.input {
+.addCareerBtn:hover {
+    background: #F9FAFB;
+    border-color: #6B7280;
+}
+
+/* Bio Textarea */
+.bioTextarea {
     width: 100%;
-    padding: 0.75rem;
+    min-height: 5rem;
+    background: #F9FAFB;
+    padding: 1rem;
+    border-radius: 0.75rem;
     border: 1px solid #D1D5DB;
-    border-radius: 0.5rem;
-    font-size: 1rem;
+    font-size: 0.95rem;
+    color: #111827;
+    line-height: 1.6;
+    resize: vertical;
     outline: none;
-    transition: border-color 0.2s;
 }
 
-.input:focus {
+.bioTextarea:focus {
     border-color: #3B82F6;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+    background: white;
 }
 
-.select {
-    width: 100%;
-    padding: 0.75rem;
-    border: 1px solid #D1D5DB;
-    border-radius: 0.5rem;
-    font-size: 1rem;
-    outline: none;
-    background-color: white;
-}
-
-.captainSection {
-    background-color: #EFF6FF;
-    border: 1px solid #BFDBFE;
-}
-
+/* Captain Section */
 .captainToggle {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    margin-bottom: 1rem;
+    padding: 1rem;
+    background-color: #EFF6FF;
+    border: 1px solid #BFDBFE;
+    border-radius: 0.75rem;
     cursor: pointer;
+    margin-bottom: 1rem;
 }
 
 .checkbox {
-    width: 1.5rem;
-    height: 1.5rem;
+    width: 1.25rem;
+    height: 1.25rem;
     cursor: pointer;
 }
 
 .toggleLabel {
     font-weight: 700;
     color: #1E40AF;
-    font-size: 1rem;
+    font-size: 0.95rem;
 }
 
 .expandedForm {
     margin-top: 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid #BFDBFE;
+    padding: 1.5rem;
+    border: 1px solid #BFDBFE;
+    border-radius: 0.75rem;
+    background: white;
     animation: slideDown 0.3s ease-out;
 }
 
@@ -140,6 +388,7 @@
     justify-content: center;
     border: 2px solid white;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
 }
 
 .uploadButton {
@@ -151,61 +400,67 @@
     cursor: pointer;
 }
 
+.fieldGroup {
+    margin-bottom: 1rem;
+}
+
+.label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #4B5563;
+    margin-bottom: 0.5rem;
+}
+
+.input {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #D1D5DB;
+    border-radius: 0.5rem;
+    font-size: 0.95rem;
+    outline: none;
+}
+
+.input:focus {
+    border-color: #3B82F6;
+}
+
+/* Sticky Bottom Button */
+.stickyBottomArea {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 600px;
+    padding: 1rem;
+    background: white;
+    border-top: 1px solid #E5E7EB;
+    z-index: 50;
+    /* Same as team profile edit */
+    display: flex;
+    justify-content: center;
+    box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
 .submitButton {
     width: 100%;
     padding: 1rem;
-    background-color: #2563EB;
+    background: #111827;
     color: white;
-    font-weight: 700;
     font-size: 1.1rem;
-    border-radius: 0.75rem;
-    margin-top: 2rem;
-    cursor: pointer;
-    transition: background 0.2s;
+    font-weight: 700;
     border: none;
-    /* Removed Fixed Positioning */
+    border-radius: 0.75rem;
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+.submitButton:active {
+    transform: scale(0.98);
 }
 
 .submitButton:disabled {
     background-color: #9CA3AF;
     cursor: not-allowed;
-}
-
-/* Profile Avatar Upload Styles */
-.avatarUploadSection {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin-bottom: 2rem;
-}
-
-.avatarPreview {
-    width: 100px;
-    height: 100px;
-    border-radius: 50%;
-    overflow: hidden;
-    background-color: #E5E7EB;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 3px solid white;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    cursor: pointer;
-    margin-bottom: 0.5rem;
-}
-
-.avatarUploadButton {
-    padding: 0.4rem 0.8rem;
-    background-color: white;
-    border: 1px solid #D1D5DB;
-    border-radius: 0.5rem;
-    font-size: 0.85rem;
-    color: #374151;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.avatarUploadButton:hover {
-    background-color: #F9FAFB;
-    border-color: #9CA3AF;
 }
