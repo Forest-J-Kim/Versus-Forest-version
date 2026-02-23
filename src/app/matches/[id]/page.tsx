@@ -62,7 +62,6 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                     *,
                     home_player:players!home_player_id(
                         id,
-                        player_nickname,
                         name,
                         avatar_url,
                         weight_class,
@@ -133,7 +132,6 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                     player:players!applicant_player_id (
                         id, 
                         name, 
-                        player_nickname, 
                         user_id,
                         weight_class, 
                         avatar_url,
@@ -186,7 +184,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                     // Case 1: Captain -> Fetch All Team Members
                     const { data: teamMembers } = await supabase
                         .from('team_members')
-                        .select('player:players!inner(id, player_nickname, name, weight_class, avatar_url, sport_type, record, position)')
+                        .select('player:players!inner(id, name, weight_class, avatar_url, sport_type, record, position)')
                         .eq('team_id', myTeamId);
 
                     if (teamMembers) {
@@ -196,7 +194,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                     // Case 2: Solo/Member -> Fetch My Players Only
                     const { data: myPlayersFull } = await supabase
                         .from('players')
-                        .select('id, player_nickname, name, weight_class, avatar_url, sport_type, record, position')
+                        .select('id, name, weight_class, avatar_url, sport_type, record, position')
                         .eq('user_id', user.id);
 
                     if (myPlayersFull) {
@@ -306,10 +304,10 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                 let hostName = user.user_metadata?.name || '호스트';
                 const { data: myPlayer } = await supabase
                     .from('players')
-                    .select('player_nickname, name')
+                    .select('name')
                     .eq('id', match.home_player_id)
                     .maybeSingle();
-                if (myPlayer) hostName = myPlayer.player_nickname || myPlayer.name;
+                if (myPlayer) hostName = myPlayer.name;
 
                 // Applicant Name (Target)
                 let applicantName = '신청자';
@@ -318,7 +316,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                 // Let's check 'applicants' from state.
                 const targetApp = applicants.find(a => a.applicant_player_id === applicantPlayerId);
                 if (targetApp?.player) {
-                    applicantName = targetApp.player.player_nickname || targetApp.player.name;
+                    applicantName = targetApp.player.name;
                 }
 
                 // 3. Send Notifications
@@ -447,7 +445,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                         VOLLEYBALL: "🏐 배구", PINGPONG: "🏓 탁구"
                     };
                     const displayTitle = SPORT_LABELS[match.sport_type] || match.sport_type || '매치';
-                    let hostName = match.home_player?.player_nickname || match.home_player?.name || '호스트';
+                    let hostName = match.home_player?.name || '호스트';
 
                     if (chatRoomId) {
                         await supabase.from('messages').insert({
@@ -473,7 +471,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                         });
 
                         // [NOTIFICATION] 2. Send Confirmation Notification to Host
-                        let applicantName = applicant.applicant_player?.player_nickname || applicant.applicant_player?.name || '신청자';
+                        let applicantName = applicant.applicant_player?.name || '신청자';
                         await supabase.from('notifications').insert({
                             receiver_id: user.id, // Host
                             type: 'MATCH_ACCEPTED',
@@ -583,7 +581,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                         VOLLEYBALL: "🏐 배구", PINGPONG: "🏓 탁구"
                     };
                     const displayTitle = SPORT_LABELS[match.sport_type] || match.sport_type || '매치';
-                    let hostName = match.home_player?.player_nickname || match.home_player?.name || '호스트';
+                    let hostName = match.home_player?.name || '호스트';
 
                     await supabase.from('notifications').insert({
                         receiver_id: applicant.applicant_user_id,
@@ -615,7 +613,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
             .from('match_applications')
             .select(`
                 match_id,
-                applicant_player:players!applicant_player_id ( name, player_nickname ),
+                applicant_player:players!applicant_player_id ( name ),
                 match:matches!match_id ( host_user_id, sport_type, match_type )
             `)
             .eq('id', appId)
@@ -648,7 +646,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
             // @ts-ignore
             const displayTitle = SPORT_LABELS[sType] || sType || appData.match.match_type || '매치';
             // @ts-ignore
-            const applicantName = appData.applicant_player?.player_nickname || appData.applicant_player?.name || "신청자";
+            const applicantName = appData.applicant_player?.name || "신청자";
 
             await supabase.from('notifications').insert({
                 // @ts-ignore
@@ -939,7 +937,10 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', width: '100%', gap: '8px', alignItems: 'center' }}>
 
                                 {/* Red Corner (Host) */}
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                                <div
+                                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer' }}
+                                    onClick={() => router.push(match.match_mode === 'TEAM' || match.sport_type === 'SOCCER' || match.sport_type === 'FUTSAL' || match.sport_type === 'BASEBALL' || match.sport_type === 'BASKETBALL' && match.home_team_id ? `/team/${match.home_team_id}` : `/player/${match.home_player_id}`)}
+                                >
                                     <div style={{ width: '88px', height: '88px', borderRadius: '50%', border: '3px solid #EF4444', padding: '2px', marginBottom: '12px', boxShadow: '0 0 25px rgba(239, 68, 68, 0.7)' }}>
                                         <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: '#333' }}>
                                             {match.home_player?.avatar_url ? <img src={match.home_player.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : null}
@@ -970,7 +971,10 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                                 </div>
 
                                 {/* Blue Corner (Opponent) */}
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                                <div
+                                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer' }}
+                                    onClick={() => router.push(match.match_mode === 'TEAM' || match.sport_type === 'SOCCER' || match.sport_type === 'FUTSAL' || match.sport_type === 'BASEBALL' || match.sport_type === 'BASKETBALL' && match.away_team_id ? `/team/${match.away_team_id}` : `/player/${match.away_player_id}`)}
+                                >
                                     <div style={{ width: '88px', height: '88px', borderRadius: '50%', border: '3px solid #3B82F6', padding: '2px', marginBottom: '12px', boxShadow: '0 0 25px rgba(59, 130, 246, 0.7)' }}>
                                         <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: '#333' }}>
                                             {acceptedApp?.player?.avatar_url ? <img src={acceptedApp.player.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : null}
@@ -1161,7 +1165,10 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                                         }}>HOST</span>
                                         팀 정보
                                     </h2>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
+                                    <div
+                                        style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px', cursor: 'pointer' }}
+                                        onClick={() => router.push(`/team/${match.home_team_id}`)}
+                                    >
                                         {/* Team Emblem */}
                                         <div style={{
                                             width: '60px', height: '60px', borderRadius: '50%',
@@ -1219,7 +1226,10 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                                         }}>HOST</span>
                                         상대 정보
                                     </h2>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
+                                    <div
+                                        style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px', cursor: 'pointer' }}
+                                        onClick={() => router.push(`/player/${match.home_player_id}`)}
+                                    >
                                         {/* Avatar Placeholder */}
                                         <div style={{
                                             width: '56px', height: '56px', borderRadius: '50%',
@@ -1236,7 +1246,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                                         </div>
                                         <div>
                                             <p style={{ fontSize: '1.125rem', fontWeight: 'bold', color: '#111827', lineHeight: '1.2' }}>
-                                                {match.home_player?.player_nickname || match.home_player?.name || "알 수 없음"}
+                                                {match.home_player?.name || "알 수 없음"}
                                             </p>
                                             <p style={{ fontSize: '0.875rem', color: '#9CA3AF', marginTop: '4px' }}>
                                                 {match.home_player?.team_members?.[0]?.team?.team_name || "소속 없음"}
@@ -1517,6 +1527,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
 }
 
 function ApplicationCard({ app, onChat, onAccept, onReject, onCancel, isPending, isHost, isTeamSport }: { app: any, onChat?: () => void, onAccept?: () => void, onReject?: () => void, onCancel?: () => void, isPending: boolean, isHost: boolean, isTeamSport: boolean }) {
+    const router = useRouter();
     const player = app.player;
     const appTeam = app.applicant_team; // Newly joined team info
 
@@ -1524,8 +1535,8 @@ function ApplicationCard({ app, onChat, onAccept, onReject, onCancel, isPending,
     const displayTeamName = isTeamSport ? (appTeam?.team_name || "팀 정보 없음") : (player?.team_members?.[0]?.team?.team_name || "소속 없음");
     const displayEmblem = isTeamSport ? appTeam?.emblem_url : player?.avatar_url;
     const displayDesc = isTeamSport ? appTeam?.description : "";
-    const displayTitle = isTeamSport ? displayTeamName : (player?.player_nickname || player?.name || "알 수 없음");
-    const captainName = player?.player_nickname || player?.name;
+    const displayTitle = isTeamSport ? displayTeamName : (player?.name || "알 수 없음");
+    const captainName = player?.name;
 
     // Structured Data
     const uniformColor = app.away_uniform_color;
@@ -1543,13 +1554,17 @@ function ApplicationCard({ app, onChat, onAccept, onReject, onCancel, isPending,
     const isWhite = uniformColor === '흰색' || uniformColor === '형광';
 
     return (
-        <div style={{
-            background: 'white',
-            borderRadius: '16px',
-            padding: '20px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-            border: '1px solid #E5E7EB'
-        }}>
+        <div
+            style={{
+                background: 'white',
+                borderRadius: '16px',
+                padding: '20px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                border: '1px solid #E5E7EB',
+                cursor: 'pointer'
+            }}
+            onClick={() => router.push(isTeamSport && app.applicant_team_id ? `/team/${app.applicant_team_id}` : `/player/${app.applicant_player_id}`)}
+        >
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px', marginBottom: '16px' }}>
                 <div style={{
                     width: '80px', height: '80px', borderRadius: '50%',

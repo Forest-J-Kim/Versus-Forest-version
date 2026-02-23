@@ -72,25 +72,25 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
                     id, match_date, match_location, sport_type, sport, status, match_mode,
                     home_player_id, home_team_id,
                     home_player: players!home_player_id(
-                        name, player_nickname, avatar_url, record, position, wins, draws, losses, location
+                        name, avatar_url, record, position, wins, draws, losses, location
                     ),
                     home_team: teams!home_team_id(
-                        team_name, emblem_url, location, wins, draws, losses
+                        id, team_name, emblem_url, location, wins, draws, losses
                     ),
                     away_player_id, away_team_id,
                     away_player: players!away_player_id(
-                        name, player_nickname, avatar_url, record, position, user_id, sport_type
+                        id, name, avatar_url, record, position, user_id, sport_type
                     ),
                     away_team: teams!away_team_id(
-                        team_name
+                        id, team_name
                     ),
                     match_applications(
                         applicant_user_id, applicant_player_id, applicant_team_id,
                         applicant_player: players!applicant_player_id(
-                            name, player_nickname, avatar_url, record, position, user_id, wins, draws, losses, location
+                            id, name, avatar_url, record, position, user_id, wins, draws, losses, location
                         ),
                         applicant_team: teams!applicant_team_id(
-                            team_name, emblem_url, wins, draws, losses, location
+                            id, team_name, emblem_url, wins, draws, losses, location
                         )
                     )
                         `)
@@ -108,7 +108,7 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
                 if (targetSport) {
                     const { data: sportProfile } = await supabase
                         .from('players')
-                        .select('name, player_nickname, avatar_url, user_id, sport_type')
+                        .select('name, avatar_url, user_id, sport_type')
                         .eq('user_id', roomBasic.applicant_user_id)
                         .ilike('sport_type', targetSport) // Fix: Case-insensitive match!
                         .limit(1)
@@ -121,7 +121,7 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
                 if (!fetchedApplicantUser) {
                     const { data: anyProfile } = await supabase
                         .from('players')
-                        .select('name, player_nickname, avatar_url, user_id')
+                        .select('name, avatar_url, user_id')
                         .eq('user_id', roomBasic.applicant_user_id)
                         .limit(1)
                         .maybeSingle();
@@ -180,7 +180,7 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
             if (room.applicant_player_id) {
                 const { data: specificPlayer } = await supabase
                     .from('players')
-                    .select('name, player_nickname, avatar_url, record, position, user_id, wins, draws, losses, location')
+                    .select('name, avatar_url, record, position, user_id, wins, draws, losses, location')
                     .eq('id', room.applicant_player_id)
                     .single();
 
@@ -202,7 +202,7 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
                         .from('match_applications')
                         .select(`
                             applicant_player: players!applicant_player_id(
-                                name, player_nickname, avatar_url, record, position, user_id, wins, draws, losses, location
+                                name, avatar_url, record, position, user_id, wins, draws, losses, location
                             )
                         `)
                         .eq('match_id', room.match_id)
@@ -340,7 +340,7 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
 
         if (isHostSender) {
             return {
-                name: hostPlayer?.name || hostPlayer?.player_nickname || "호스트",
+                name: hostPlayer?.name || "호스트",
                 avatar: hostPlayer?.avatar_url
             };
         } else {
@@ -352,14 +352,14 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
             if (isProxy && applicantUser) {
                 // Return Manager's Profile
                 return {
-                    name: applicantUser.name || applicantUser.player_nickname || "신청자(매니저)",
-                    avatar: applicantUser.avatar_url
+                    name: applicantUser?.name || "신청자(매니저)",
+                    avatar: applicantUser?.avatar_url
                 };
             }
 
             // Fallback / Normal: Applicant Player Profile
             return {
-                name: applicantPlayer?.name || applicantPlayer?.player_nickname || "신청자",
+                name: applicantPlayer?.name || "신청자",
                 avatar: applicantPlayer?.avatar_url
             };
         }
@@ -458,7 +458,10 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
                         opacity: matchInfo?.status === 'DELETED' ? 0.6 : 1
                     }}>
                         {/* Left: Home Team */}
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '35%' }}>
+                        <div
+                            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '35%', cursor: 'pointer' }}
+                            onClick={() => matchInfo?.home_team_id && router.push(`/team/${matchInfo.home_team_id}`)}
+                        >
                             <div style={{ width: '50px', height: '50px', borderRadius: '50%', overflow: 'hidden', background: '#E5E7EB', marginBottom: '4px', border: '2px solid #3B82F6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 {matchInfo?.home_team?.emblem_url ? (
                                     <img src={matchInfo.home_team.emblem_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -470,7 +473,7 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
                                 {matchInfo?.home_team?.team_name || "홈 팀"}
                             </span>
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', fontSize: '0.8rem', color: '#6B7280', marginTop: '4px' }}>
-                                <span>👑 {hostPlayer?.player_nickname || hostPlayer?.name || "미정"}</span>
+                                <span>👑 {hostPlayer?.name || "미정"}</span>
                                 <span>⚔️ {formatTeamRecord(matchInfo?.home_team?.wins, matchInfo?.home_team?.draws, matchInfo?.home_team?.losses)}</span>
                             </div>
                         </div>
@@ -487,7 +490,13 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
                         </div>
 
                         {/* Right: Applicant Team */}
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '35%' }}>
+                        <div
+                            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '35%', cursor: 'pointer' }}
+                            onClick={() => {
+                                const targetTeamId = applicantTeam?.id;
+                                if (targetTeamId) router.push(`/team/${targetTeamId}`);
+                            }}
+                        >
                             <div style={{ width: '50px', height: '50px', borderRadius: '50%', overflow: 'hidden', background: '#E5E7EB', marginBottom: '4px', border: '2px solid #EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 {applicantTeam?.emblem_url ? (
                                     <img src={applicantTeam.emblem_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -499,7 +508,7 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
                                 {applicantTeam?.team_name || "상대 팀"}
                             </span>
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', fontSize: '0.8rem', color: '#6B7280', marginTop: '4px' }}>
-                                <span>👑 {applicantPlayer?.player_nickname || applicantPlayer?.name || "미정"}</span>
+                                <span>👑 {applicantPlayer?.name || "미정"}</span>
                                 <span>⚔️ {formatTeamRecord(applicantTeam?.wins, applicantTeam?.draws, applicantTeam?.losses)}</span>
                             </div>
                         </div>
@@ -512,7 +521,10 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
                         opacity: matchInfo?.status === 'DELETED' ? 0.6 : 1
                     }}>
                         {/* Left: Host */}
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '35%' }}>
+                        <div
+                            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '35%', cursor: 'pointer' }}
+                            onClick={() => matchInfo?.home_player_id && router.push(`/player/${matchInfo.home_player_id}`)}
+                        >
                             <div style={{ width: '40px', height: '40px', borderRadius: '50%', overflow: 'hidden', background: '#E5E7EB', marginBottom: '4px', border: '2px solid #3B82F6' }}>
                                 {hostPlayer?.avatar_url ? (
                                     <img src={hostPlayer.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -520,7 +532,7 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
                                     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>👤</div>
                                 )}
                             </div>
-                            <span style={{ fontWeight: 'bold', fontSize: '0.9rem', color: '#111827' }}>{hostPlayer?.name || hostPlayer?.player_nickname || "호스트"}</span>
+                            <span style={{ fontWeight: 'bold', fontSize: '0.9rem', color: '#111827' }}>{hostPlayer?.name || "호스트"}</span>
 
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', fontSize: '0.8rem', color: '#6B7280', marginTop: '4px', textAlign: 'center', wordBreak: 'keep-all' }}>
                                 <span>🥊 {formatIndividualRecord(hostPlayer?.wins, hostPlayer?.losses)}</span>
@@ -540,7 +552,13 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
                         </div>
 
                         {/* Right: Applicant */}
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '35%' }}>
+                        <div
+                            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '35%', cursor: 'pointer' }}
+                            onClick={() => {
+                                const targetPlayerId = applicantPlayer?.id;
+                                if (targetPlayerId) router.push(`/player/${targetPlayerId}`);
+                            }}
+                        >
                             <div style={{ width: '40px', height: '40px', borderRadius: '50%', overflow: 'hidden', background: '#E5E7EB', marginBottom: '4px', border: '2px solid #EF4444' }}>
                                 {applicantPlayer?.avatar_url ? (
                                     <img src={applicantPlayer.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -549,7 +567,7 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
                                 )}
                             </div>
                             <span style={{ fontWeight: 'bold', fontSize: '0.9rem', color: '#111827' }}>
-                                {applicantPlayer?.name || applicantPlayer?.player_nickname || "신청자"}
+                                {applicantPlayer?.name || "신청자"}
                             </span>
 
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', fontSize: '0.8rem', color: '#6B7280', marginTop: '4px', textAlign: 'center', wordBreak: 'keep-all' }}>
@@ -577,7 +595,7 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
                     <span style={{ fontSize: '1.2rem' }}>📢</span>
                     <div>
                         <div style={{ fontWeight: 'bold', marginBottom: '2px' }}>매치 신청자와 출전 선수가 다릅니다.</div>
-                        <div>현재 대화 상대는 신청자(<strong>{applicantUser?.name || applicantUser?.player_nickname || "매니저"}</strong>)입니다.</div>
+                        <div>현재 대화 상대는 신청자(<strong>{applicantUser?.name || "매니저"}</strong>)입니다.</div>
                     </div>
                 </div>
             )}

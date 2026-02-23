@@ -258,7 +258,12 @@ export default function TeamDetailPage({ params }: PageProps) {
                             {players.map(player => {
                                 const pos = player.skills?.position || '-';
                                 return (
-                                    <div key={player.id} className={styles.memberCard}>
+                                    <div
+                                        key={player.id}
+                                        className={styles.memberCard}
+                                        style={{ cursor: 'pointer' }}
+                                        onClick={() => router.push(`/player/${player.id}`)}
+                                    >
                                         <div className={styles.memberPos}>{pos}</div>
                                         <img
                                             src={player.avatar_url || player.photo_url || 'https://via.placeholder.com/40'}
@@ -337,8 +342,13 @@ export default function TeamDetailPage({ params }: PageProps) {
                                     const player = playerId ? repPlayers.find(p => p.id === playerId) : null;
 
                                     return (
-                                        <div key={idx} className={styles.repCard} style={{ cursor: 'default' }}>
-                                            {/* Cursor default since detail page isn't interactive */}
+                                        <div
+                                            key={idx}
+                                            className={styles.repCard}
+                                            style={player ? { cursor: 'pointer' } : { cursor: 'default' }}
+                                            onClick={() => player && router.push(`/player/${player.id}`)}
+                                        >
+                                            {/* Clicking a representative player navigates to their profile */}
                                             {player ? (
                                                 <>
                                                     <img
@@ -376,7 +386,12 @@ export default function TeamDetailPage({ params }: PageProps) {
                         <h2 className={styles.sectionTitle}>회원 목록 ({players.length})</h2>
                         <div className={styles.membersGrid}>
                             {players.map(player => (
-                                <div key={player.id} className={styles.memberItem}>
+                                <div
+                                    key={player.id}
+                                    className={styles.memberItem}
+                                    style={{ cursor: 'pointer' }}
+                                    onClick={() => router.push(`/player/${player.id}`)}
+                                >
                                     <div className={styles.memberAvatar} style={{ position: 'relative' }}>
                                         {(player.avatar_url || player.photo_url) ? (
                                             <img src={player.avatar_url || player.photo_url} alt={player.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />

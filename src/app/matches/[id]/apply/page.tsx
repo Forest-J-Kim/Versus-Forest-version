@@ -72,7 +72,6 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                     *,
                     home_player:players!home_player_id(
                         id,
-                        player_nickname,
                         name,
                         avatar_url,
                         weight_class,
@@ -139,10 +138,15 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                 .from('match_applications')
                 .select(`
                     *,
+                    applicant_team:teams!applicant_team_id (
+                        id,
+                        team_name,
+                        emblem_url,
+                        description
+                    ),
                     player:players!applicant_player_id (
                         id, 
                         name, 
-                        player_nickname, 
                         weight_class, 
                         avatar_url,
                         position,
@@ -191,7 +195,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                 // 공통 조회 쿼리 ('소속 없음' 버그 방지를 위해 team_name 명시적 Join)
                 // [Modified] team_id 추가 (DB 저장을 위해 필수)
                 const candidateSelectQuery = `
-                    id, player_nickname, name, weight_class, avatar_url, sport_type, record, position,
+                    id, name, weight_class, avatar_url, sport_type, record, position,
                     team_members!team_members_player_id_fkey(
                         team_id,
                         team:teams!team_members_team_id_fkey(team_name, emblem_url)
@@ -318,22 +322,22 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                 // Assuming match.home_player might be joined (it is usually joined in this page load)
                 if ((match as any).home_player) {
                     const hp = (match as any).home_player;
-                    hostName = hp.player_nickname || hp.name;
+                    hostName = hp.name;
                 } else {
                     // Fallback fetch if needed
-                    const { data: hp } = await supabase.from('players').select('player_nickname, name').eq('id', match.home_player_id).maybeSingle();
-                    if (hp) hostName = hp.player_nickname || hp.name || '호스트';
+                    const { data: hp } = await supabase.from('players').select('name').eq('id', match.home_player_id).maybeSingle();
+                    if (hp) hostName = hp.name || '호스트';
                 }
 
                 // Applicant Name (Me)
                 let applicantName = user.user_metadata?.name || '신청자';
                 const { data: myPlayer } = await supabase
                     .from('players')
-                    .select('player_nickname, name')
+                    .select('name')
                     .eq('user_id', user.id)
                     .limit(1)
                     .maybeSingle();
-                if (myPlayer) applicantName = myPlayer.player_nickname || myPlayer.name;
+                if (myPlayer) applicantName = myPlayer.name;
 
                 // 3. Send Notifications
                 const notifications = [
@@ -589,7 +593,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                 const notifications = selectedPlayerIds.map(uniqueKey => {
                     // candidates 목록에서 해당 uniqueKey를 가진 선수의 정보(이름) 찾기
                     const candidateInfo = candidates.find(c => c.uniqueKey === uniqueKey);
-                    const playerName = candidateInfo?.player_nickname || candidateInfo?.name || "선수";
+                    const playerName = candidateInfo?.name || "선수";
                     const teamName = candidateInfo?.displayTeamName;
 
                     const notificationContent = teamName
@@ -789,9 +793,13 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                         <section>
                             <h2 style={{ fontSize: '1rem', fontWeight: 'bold', color: '#6B7280', marginBottom: '16px' }}>거절한 매치 상대</h2>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', opacity: 0.7 }}>
-                                {rejectedApps.map(app => (
-                                    <ApplicationCard key={app.id} app={app} isPending={false} isHost={true} />
-                                ))}
+                                {rejectedApps.map(app => {
+                                    const matchSport = match?.sport_type || '';
+                                    const isTeamSport = ['SOCCER', 'FUTSAL', 'BASEBALL', 'BASKETBALL'].includes(matchSport.toUpperCase());
+                                    return (
+                                        <ApplicationCard key={app.id} app={app} isPending={false} isHost={true} isTeamSport={isTeamSport} />
+                                    );
+                                })}
                             </div>
                         </section>
                     )}
@@ -861,7 +869,10 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                                         }}>HOST</span>
                                         팀 정보
                                     </h2>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
+                                    <div
+                                        style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px', cursor: 'pointer' }}
+                                        onClick={() => router.push(`/team/${match.home_team_id}`)}
+                                    >
                                         {/* Team Emblem */}
                                         <div style={{
                                             width: '60px', height: '60px', borderRadius: '50%',
@@ -919,7 +930,10 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                                         }}>HOST</span>
                                         상대 정보
                                     </h2>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
+                                    <div
+                                        style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px', cursor: 'pointer' }}
+                                        onClick={() => router.push(`/player/${match.home_player_id}`)}
+                                    >
                                         {/* Avatar Placeholder */}
                                         <div style={{
                                             width: '56px', height: '56px', borderRadius: '50%',
@@ -936,7 +950,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                                         </div>
                                         <div>
                                             <p style={{ fontSize: '1.125rem', fontWeight: 'bold', color: '#111827', lineHeight: '1.2' }}>
-                                                {match.home_player?.player_nickname || match.home_player?.name || "알 수 없음"}
+                                                {match.home_player?.name || "알 수 없음"}
                                             </p>
                                             <p style={{ fontSize: '0.875rem', color: '#9CA3AF', marginTop: '4px' }}>
                                                 {match.home_player?.team_members?.[0]?.team?.team_name || "소속 없음"}
@@ -1207,7 +1221,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                                                                     {alreadyApplied && <span style={{ fontSize: '0.7rem', color: '#6B7280', background: '#F3F4F6', padding: '2px 6px', borderRadius: '4px' }}>(완료)</span>}
                                                                 </div>
                                                                 <div style={{ fontSize: '0.8rem', color: '#6B7280' }}>
-                                                                    주장: {p.player_nickname || p.name}
+                                                                    주장: {p.name}
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -1358,7 +1372,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
 
                                                             <div style={{ flex: 1 }}>
                                                                 <div style={{ fontWeight: 'bold', fontSize: '0.95rem', color: '#111827', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                                    {p.player_nickname || p.name}
+                                                                    {p.name}
                                                                     {isHomePlayer ? (
                                                                         <span style={{ fontSize: '0.7rem', color: '#B91C1C', background: '#FEE2E2', padding: '2px 6px', borderRadius: '4px' }}>(매치 주최자)</span>
                                                                     ) : alreadyApplied ? (
@@ -1433,17 +1447,22 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                                     </div>
                                 ) : (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                        {pendingApps.map(app => (
-                                            <ApplicationCard
-                                                key={app.id}
-                                                app={app}
-                                                onChat={() => handleStartChat(app.applicant_user_id)}
-                                                onAccept={() => handleUpdateStatus(app.id, 'ACCEPTED')}
-                                                onReject={() => handleUpdateStatus(app.id, 'REJECTED')}
-                                                isPending={true}
-                                                isHost={isHost}
-                                            />
-                                        ))}
+                                        {pendingApps.map(app => {
+                                            const matchSport = match?.sport_type || '';
+                                            const isTeamSport = ['SOCCER', 'FUTSAL', 'BASEBALL', 'BASKETBALL'].includes(matchSport.toUpperCase());
+                                            return (
+                                                <ApplicationCard
+                                                    key={app.id}
+                                                    app={app}
+                                                    onChat={() => handleStartChat(app.applicant_user_id)}
+                                                    onAccept={() => handleUpdateStatus(app.id, 'ACCEPTED')}
+                                                    onReject={() => handleUpdateStatus(app.id, 'REJECTED')}
+                                                    isPending={true}
+                                                    isHost={isHost}
+                                                    isTeamSport={isTeamSport}
+                                                />
+                                            );
+                                        })}
                                     </div>
                                 )}
                             </section>
@@ -1455,14 +1474,19 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                                     처리된 목록
                                 </h2>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', opacity: 0.8 }}>
-                                    {processedApps.map(app => (
-                                        <ApplicationCard
-                                            key={app.id}
-                                            app={app}
-                                            isPending={false}
-                                            isHost={isHost}
-                                        />
-                                    ))}
+                                    {processedApps.map(app => {
+                                        const matchSport = match?.sport_type || '';
+                                        const isTeamSport = ['SOCCER', 'FUTSAL', 'BASEBALL', 'BASKETBALL'].includes(matchSport.toUpperCase());
+                                        return (
+                                            <ApplicationCard
+                                                key={app.id}
+                                                app={app}
+                                                isPending={false}
+                                                isHost={isHost}
+                                                isTeamSport={isTeamSport}
+                                            />
+                                        );
+                                    })}
                                 </div>
                             </section>
                         )}
@@ -1494,27 +1518,55 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
     );
 }
 
-function ApplicationCard({ app, onChat, onAccept, onReject, isPending, isHost }: { app: any, onChat?: () => void, onAccept?: () => void, onReject?: () => void, isPending: boolean, isHost: boolean }) {
+function ApplicationCard({ app, onChat, onAccept, onReject, onCancel, isPending, isHost, isTeamSport }: { app: any, onChat?: () => void, onAccept?: () => void, onReject?: () => void, onCancel?: () => void, isPending: boolean, isHost: boolean, isTeamSport: boolean }) {
+    const router = useRouter();
     const player = app.player;
-    const teamName = player?.team_members?.[0]?.team?.team_name || "소속 없음";
+    const appTeam = app.applicant_team; // Newly joined team info
+
+    // Display Logic
+    const displayTeamName = isTeamSport ? (appTeam?.team_name || "팀 정보 없음") : (player?.team_members?.[0]?.team?.team_name || "소속 없음");
+    const displayEmblem = isTeamSport ? appTeam?.emblem_url : player?.avatar_url;
+    const displayDesc = isTeamSport ? appTeam?.description : "";
+    const displayTitle = isTeamSport ? displayTeamName : (player?.name || "알 수 없음");
+    const captainName = player?.name;
+
+    // Structured Data
+    const uniformColor = app.away_uniform_color;
+    const memberCount = app.participant_count;
+
+    // Uniform Color Swatch Helper
+    const getUndoColor = (colorName: string) => {
+        const colorCodeMap: Record<string, string> = {
+            '흰색': '#FFFFFF', '검정': '#000000', '빨강': '#EF4444', '파랑': '#3B82F6',
+            '노랑': '#EAB308', '형광': '#CCFF00', '주황': '#F97316', '보라': '#8B5CF6', '초록': '#22C55E'
+        };
+        return colorCodeMap[colorName] || '#9CA3AF';
+    };
+    const uniformHex = getUndoColor(uniformColor);
+    const isWhite = uniformColor === '흰색' || uniformColor === '형광';
 
     return (
-        <div style={{
-            background: 'white',
-            borderRadius: '16px',
-            padding: '20px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-            border: '1px solid #E5E7EB'
-        }}>
+        <div
+            style={{
+                background: 'white',
+                borderRadius: '16px',
+                padding: '20px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                border: '1px solid #E5E7EB',
+                cursor: 'pointer'
+            }}
+            onClick={() => router.push(isTeamSport && app.applicant_team_id ? `/team/${app.applicant_team_id}` : `/player/${app.applicant_player_id}`)}
+        >
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px', marginBottom: '16px' }}>
                 <div style={{
-                    width: '56px', height: '56px', borderRadius: '50%',
-                    background: '#F3F4F6', overflow: 'hidden', flexShrink: 0
+                    width: '80px', height: '80px', borderRadius: '50%',
+                    background: '#F3F4F6', overflow: 'hidden', flexShrink: 0,
+                    border: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'center'
                 }}>
-                    {player?.avatar_url ? (
-                        <img src={player.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    {displayEmblem ? (
+                        <img src={displayEmblem} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
-                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>👤</div>
+                        <div style={{ fontSize: '2rem' }}>{isTeamSport ? '🛡️' : '👤'}</div>
                     )}
                 </div>
 
@@ -1522,27 +1574,76 @@ function ApplicationCard({ app, onChat, onAccept, onReject, isPending, isHost }:
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div>
                             <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#111827', marginBottom: '4px' }}>
-                                {player?.player_nickname || player?.name || "알 수 없음"}
+                                {displayTitle}
                             </h3>
-                            <p style={{ fontSize: '0.9rem', color: '#6B7280' }}>
-                                {teamName}
-                            </p>
+                            {isTeamSport ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                    <p style={{ fontSize: '0.9rem', color: '#4B5563', fontWeight: '500' }}>
+                                        주장: {captainName}
+                                    </p>
+                                    {displayDesc && (
+                                        <p style={{ fontSize: '0.85rem', color: '#6B7280' }}>
+                                            {displayDesc}
+                                        </p>
+                                    )}
+                                </div>
+                            ) : (
+                                <p style={{ fontSize: '0.85rem', color: '#6B7280' }}>
+                                    {displayTeamName}
+                                </p>
+                            )}
                         </div>
-                        {!isPending && (
-                            <span style={{
-                                padding: '4px 10px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 600,
-                                background: app.status === 'ACCEPTED' ? '#ECFDF5' : '#F3F4F6',
-                                color: app.status === 'ACCEPTED' ? '#059669' : '#9CA3AF'
-                            }}>
-                                {app.status === 'ACCEPTED' ? '승인됨' : '거절됨'}
-                            </span>
-                        )}
+
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                            {!isPending && (
+                                <span style={{
+                                    padding: '4px 10px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 600,
+                                    background: app.status === 'ACCEPTED' ? '#ECFDF5' : '#F3F4F6',
+                                    color: app.status === 'ACCEPTED' ? '#059669' : '#9CA3AF'
+                                }}>
+                                    {app.status === 'ACCEPTED' ? '승인됨' : '거절됨'}
+                                </span>
+                            )}
+
+                            {/* Cancel Button (For Applicant) */}
+                            {isPending && onCancel && (
+                                <button
+                                    onClick={onCancel}
+                                    style={{
+                                        border: 'none', background: '#F3F4F6',
+                                        color: '#6B7280', fontSize: '0.75rem', cursor: 'pointer',
+                                        padding: '4px 8px', borderRadius: '6px', fontWeight: '600',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    취소
+                                </button>
+                            )}
+                        </div>
                     </div>
 
-                    <div style={{ marginTop: '12px', display: 'flex', gap: '12px', fontSize: '0.9rem' }}>
-                        <span style={{ background: '#F9FAFB', padding: '4px 8px', borderRadius: '6px', color: '#374151' }}>
-                            체급: {app.application_weight || player?.weight_class || '-'}
-                        </span>
+                    <div style={{ marginTop: '12px', display: 'flex', gap: '12px', fontSize: '0.85rem', flexWrap: 'wrap' }}>
+                        {isTeamSport ? (
+                            <>
+                                {uniformColor && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#F9FAFB', padding: '4px 10px', borderRadius: '6px', color: '#374151', border: '1px solid #F3F4F6' }}>
+                                        <span style={{ color: '#9CA3AF' }}>유니폼:</span>
+                                        <span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '50%', backgroundColor: uniformHex, border: isWhite ? '1px solid #E5E7EB' : 'none' }} />
+                                        <span style={{ fontWeight: 600 }}>{uniformColor}</span>
+                                    </div>
+                                )}
+                                {memberCount > 0 && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#F9FAFB', padding: '4px 10px', borderRadius: '6px', color: '#374151', border: '1px solid #F3F4F6' }}>
+                                        <span style={{ color: '#9CA3AF' }}>참여:</span>
+                                        <span style={{ fontWeight: 600 }}>🏃‍♂️ {memberCount}명</span>
+                                    </div>
+                                )}
+                            </>
+                        ) : (
+                            <span style={{ background: '#F9FAFB', padding: '4px 8px', borderRadius: '6px', color: '#374151' }}>
+                                체급: {app.application_weight || player?.weight_class || '-'}
+                            </span>
+                        )}
                     </div>
                 </div>
             </div>
@@ -1560,7 +1661,7 @@ function ApplicationCard({ app, onChat, onAccept, onReject, isPending, isHost }:
             {isPending && isHost && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: app.message ? 0 : 20 }}>
                     <button
-                        onClick={onChat}
+                        onClick={(e) => { e.stopPropagation(); onChat && onChat(); }}
                         style={{
                             width: '100%', padding: '12px', borderRadius: '10px',
                             background: 'var(--primary)', color: 'white',
@@ -1572,7 +1673,7 @@ function ApplicationCard({ app, onChat, onAccept, onReject, isPending, isHost }:
                     </button>
                     <div style={{ display: 'flex', gap: '8px' }}>
                         <button
-                            onClick={onAccept}
+                            onClick={(e) => { e.stopPropagation(); onAccept && onAccept(); }}
                             style={{
                                 flex: 1, padding: '12px', borderRadius: '10px',
                                 background: 'white', color: '#059669',
@@ -1582,7 +1683,7 @@ function ApplicationCard({ app, onChat, onAccept, onReject, isPending, isHost }:
                             ✅ 수락
                         </button>
                         <button
-                            onClick={onReject}
+                            onClick={(e) => { e.stopPropagation(); onReject && onReject(); }}
                             style={{
                                 flex: 1, padding: '12px', borderRadius: '10px',
                                 background: 'white', color: '#EF4444',
@@ -1594,8 +1695,6 @@ function ApplicationCard({ app, onChat, onAccept, onReject, isPending, isHost }:
                     </div>
                 </div>
             )}
-
-
         </div>
     );
 }

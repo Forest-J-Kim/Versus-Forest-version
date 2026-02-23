@@ -39,10 +39,10 @@ export default function MessageListPage() {
                     *,
                     match:matches!match_id (
                         sport_type, match_location, match_date, home_player_id,
-                        home_player:players!home_player_id(name, player_nickname, avatar_url)
+                        home_player:players!home_player_id(name, avatar_url)
                     ),
                     applicant_player:players!applicant_player_id (
-                        name, player_nickname, avatar_url, user_id
+                        name, avatar_url, user_id
                     ),
                     messages ( content, created_at )
                 `)
@@ -82,7 +82,7 @@ export default function MessageListPage() {
 
                     if (player) {
                         // 1. 기본은 선수 정보 표시
-                        partnerName = player.player_nickname || player.name || "알 수 없음";
+                        partnerName = player.name || "알 수 없음";
                         partnerAvatar = player.avatar_url;
 
                         // 2. 대리 신청 확인 (선수 계정 != 신청자 계정)
@@ -90,17 +90,16 @@ export default function MessageListPage() {
                             let managerName = "매니저";
                             const currentSportType = room.match?.sport_type; // 예: "BOXING"
 
-                            // [Step 1] 해당 종목의 선수 프로필 우선 조회 (가장 정확함)
                             if (currentSportType) {
                                 const { data: managerPlayer } = await supabase
                                     .from('players')
-                                    .select('player_nickname, name')
+                                    .select('name')
                                     .eq('user_id', room.applicant_user_id)
                                     .ilike('sport_type', currentSportType) // ★ 대소문자 무시하고 종목 매칭 (boxing == BOXING)
                                     .maybeSingle();
 
                                 if (managerPlayer) {
-                                    managerName = managerPlayer.player_nickname || managerPlayer.name;
+                                    managerName = managerPlayer.name;
                                 }
                             }
 
@@ -131,7 +130,7 @@ export default function MessageListPage() {
                     // [CASE B] 나는 게스트(선수/매니저) -> 상대방은 '호스트'
                     const hostPlayer = room.match?.home_player;
                     if (hostPlayer) {
-                        partnerName = hostPlayer.player_nickname || hostPlayer.name || "알 수 없음";
+                        partnerName = hostPlayer.name || "알 수 없음";
                         partnerAvatar = hostPlayer.avatar_url;
                     } else {
                         partnerName = "호스트";

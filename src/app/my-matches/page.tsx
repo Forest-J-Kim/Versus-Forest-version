@@ -29,7 +29,7 @@ export default function MyMatchesPage() {
                 .select(`
                     *,
                     home_player:players!home_player_id (
-                        player_nickname, name, avatar_url
+                        name, avatar_url
                     ),
                     home_team:teams!home_team_id (
                         team_name, emblem_url, location
@@ -50,14 +50,14 @@ export default function MyMatchesPage() {
                     match:matches!match_id (
                         *,
                         home_player:players!home_player_id (
-                            player_nickname, name, avatar_url
+                            name, avatar_url
                         ),
                         home_team:teams!home_team_id (
                             team_name, emblem_url, location
                         )
                     ),
                     player:players!applicant_player_id (
-                        player_nickname, name, avatar_url
+                        name, avatar_url
                     ),
                     applicant_team:teams!applicant_team_id (
                         team_name, emblem_url
@@ -153,7 +153,7 @@ export default function MyMatchesPage() {
                         hostedMatches.map(match => {
                             // @ts-ignore
                             const hostPlayer = match.home_player;
-                            const hostName = hostPlayer?.player_nickname || hostPlayer?.name || "내 선수";
+                            const hostName = hostPlayer?.name || "내 선수";
                             const applicantCount = match.match_applications ? match.match_applications.length : 0;
                             const sportLabel = SPORT_LABELS[match.sport_type] || match.sport_type;
 
@@ -271,11 +271,11 @@ export default function MyMatchesPage() {
 
                             // @ts-ignore
                             const hostPlayer = match.home_player;
-                            const hostName = hostPlayer?.player_nickname || hostPlayer?.name || "상대 선수";
+                            const hostName = hostPlayer?.name || "상대 선수";
 
                             // @ts-ignore
                             const applicantPlayer = app.player;
-                            const applicantName = applicantPlayer?.player_nickname || applicantPlayer?.name || "내 선수";
+                            const applicantName = applicantPlayer?.name || "내 선수";
 
                             const sportLabel = SPORT_LABELS[match.sport_type] || match.sport_type;
 

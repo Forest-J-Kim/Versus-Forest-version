@@ -187,7 +187,13 @@ function MatchCardItem({ match, currentUser, isManagerMode, onDelete, handleActi
                 <div style={{ height: '1px', background: '#F3F4F6', margin: '4px 0' }} />
 
                 {/* Main Info: Image + Name + Specs */}
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginTop: '4px' }}>
+                <div
+                  style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginTop: '4px', cursor: 'pointer' }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (match.home_player_id) router.push(`/player/${match.home_player_id}`);
+                  }}
+                >
                   {/* Avatar */}
                   <div style={{
                     width: '60px', height: '60px', borderRadius: '50%', overflow: 'hidden',
@@ -281,7 +287,13 @@ function MatchCardItem({ match, currentUser, isManagerMode, onDelete, handleActi
               <div style={{ height: '1px', background: '#F3F4F6', margin: '4px 0' }} />
 
               {/* [3] Team Profile */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px' }}>
+              <div
+                style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px', cursor: 'pointer' }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (match.home_team_id) router.push(`/team/${match.home_team_id}`);
+                }}
+              >
                 {/* Emblem */}
                 <div style={{
                   width: '80px', height: '80px', borderRadius: '50%', // Circle & Larger

@@ -51,11 +51,10 @@ export default function MatchApplicantsPage({ params }: { params: { id: string }
                     player:players!applicant_player_id (
                         id, 
                         name, 
-                        player_nickname, 
                         weight_class, 
                         avatar_url,
                         team_members!team_members_player_id_fkey (
-                            team:teams!team_members_team_id_fkey ( team_name )
+                            team:teams!team_members_team_id_fkey ( id, team_name )
                         )
                     )
                 `)
@@ -146,6 +145,7 @@ export default function MatchApplicantsPage({ params }: { params: { id: string }
                                     onAccept={() => handleUpdateStatus(app.id, 'ACCEPTED')}
                                     onReject={() => handleUpdateStatus(app.id, 'REJECTED')}
                                     isPending={true}
+                                    isTeamSport={matchInfo?.sport_type && ['SOCCER', 'FUTSAL', 'BASEBALL', 'BASKETBALL'].includes(matchInfo.sport_type.toUpperCase())}
                                 />
                             ))}
                         </div>
@@ -164,6 +164,7 @@ export default function MatchApplicantsPage({ params }: { params: { id: string }
                                     key={app.id}
                                     app={app}
                                     isPending={false}
+                                    isTeamSport={matchInfo?.sport_type && ['SOCCER', 'FUTSAL', 'BASEBALL', 'BASKETBALL'].includes(matchInfo.sport_type.toUpperCase())}
                                 />
                             ))}
                         </div>
@@ -175,18 +176,24 @@ export default function MatchApplicantsPage({ params }: { params: { id: string }
     );
 }
 
-function ApplicationCard({ app, onAccept, onReject, isPending }: { app: any, onAccept?: () => void, onReject?: () => void, isPending: boolean }) {
+function ApplicationCard({ app, onAccept, onReject, isPending, isTeamSport }: { app: any, onAccept?: () => void, onReject?: () => void, isPending: boolean, isTeamSport?: boolean }) {
+    const router = useRouter();
     const player = app.player;
     const teamName = player?.team_members?.[0]?.team?.team_name || "소속 없음";
+    const teamId = player?.team_members?.[0]?.team?.id;
 
     return (
-        <div style={{
-            background: 'white',
-            borderRadius: '16px',
-            padding: '20px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-            border: '1px solid #E5E7EB'
-        }}>
+        <div
+            style={{
+                background: 'white',
+                borderRadius: '16px',
+                padding: '20px',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                border: '1px solid #E5E7EB',
+                cursor: 'pointer'
+            }}
+            onClick={() => router.push(isTeamSport && teamId ? `/team/${teamId}` : `/player/${app.applicant_player_id}`)}
+        >
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px', marginBottom: '16px' }}>
                 {/* Avatar */}
                 <div style={{
@@ -204,7 +211,7 @@ function ApplicationCard({ app, onAccept, onReject, isPending }: { app: any, onA
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div>
                             <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#111827', marginBottom: '4px' }}>
-                                {player?.player_nickname || player?.name || "알 수 없음"}
+                                {player?.name || "알 수 없음"}
                             </h3>
                             <p style={{ fontSize: '0.9rem', color: '#6B7280' }}>
                                 {teamName}
@@ -246,7 +253,7 @@ function ApplicationCard({ app, onAccept, onReject, isPending }: { app: any, onA
             {isPending && (
                 <div style={{ display: 'flex', gap: '12px', marginTop: app.message ? 0 : 20 }}>
                     <button
-                        onClick={onAccept}
+                        onClick={(e) => { e.stopPropagation(); onAccept && onAccept(); }}
                         style={{
                             flex: 1, padding: '12px', borderRadius: '10px',
                             background: 'var(--primary)', color: 'white',
@@ -256,7 +263,7 @@ function ApplicationCard({ app, onAccept, onReject, isPending }: { app: any, onA
                         수락하기
                     </button>
                     <button
-                        onClick={onReject}
+                        onClick={(e) => { e.stopPropagation(); onReject && onReject(); }}
                         style={{
                             flex: 1, padding: '12px', borderRadius: '10px',
                             background: '#F3F4F6', color: '#4B5563',
