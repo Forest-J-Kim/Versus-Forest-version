@@ -23,6 +23,7 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
     // Players Logic
     const [hostPlayer, setHostPlayer] = useState<any>(null);
     const [applicantPlayer, setApplicantPlayer] = useState<any>(null);
+    const [applicantTeam, setApplicantTeam] = useState<any>(null);
     const [applicantUser, setApplicantUser] = useState<any>(null); // For Proxy App Display
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -64,16 +65,17 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
 
             // [Step 2] 매치 정보 및 관련 데이터 별도 조회
             // (status가 DELETED여도 가져오도록 maybeSingle 사용 및 Join 단순화)
+            // @ts-ignore
             const { data: matchData } = await supabase
                 .from('matches')
                 .select(`
-                    id, match_date, match_location, sport_type, sport, status,
+                    id, match_date, match_location, sport_type, sport, status, match_mode,
                     home_player_id, home_team_id,
                     home_player: players!home_player_id(
-                        name, player_nickname, avatar_url, record, position
+                        name, player_nickname, avatar_url, record, position, wins, draws, losses, location
                     ),
                     home_team: teams!home_team_id(
-                        team_name
+                        team_name, emblem_url, location, wins, draws, losses
                     ),
                     away_player_id, away_team_id,
                     away_player: players!away_player_id(
@@ -83,14 +85,17 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
                         team_name
                     ),
                     match_applications(
-                        applicant_user_id, applicant_player_id,
+                        applicant_user_id, applicant_player_id, applicant_team_id,
                         applicant_player: players!applicant_player_id(
-                            name, player_nickname, avatar_url, record, position, user_id
+                            name, player_nickname, avatar_url, record, position, user_id, wins, draws, losses, location
+                        ),
+                        applicant_team: teams!applicant_team_id(
+                            team_name, emblem_url, wins, draws, losses, location
                         )
                     )
                         `)
                 .eq('id', roomBasic.match_id)
-                .maybeSingle(); // match가 없거나 권한 문제로 안 보여도 에러 안 냄 (null 반환)
+                .maybeSingle() as any; // match가 없거나 권한 문제로 안 보여도 에러 안 냄 (null 반환)
 
             // [Step 2.5] Fetch Applicant 'Chat Partner' Profile (Manager)
             // Fix: Filter by Sport Type first!
@@ -149,7 +154,7 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
             if (matchData?.home_team_id && !homeTeamData) {
                 const { data: team } = await supabase
                     .from('teams')
-                    .select('team_name')
+                    .select('team_name, emblem_url, location, wins, draws, losses')
                     .eq('id', matchData.home_team_id)
                     .maybeSingle();
                 homeTeamData = team;
@@ -175,7 +180,7 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
             if (room.applicant_player_id) {
                 const { data: specificPlayer } = await supabase
                     .from('players')
-                    .select('name, player_nickname, avatar_url, record, position, user_id')
+                    .select('name, player_nickname, avatar_url, record, position, user_id, wins, draws, losses, location')
                     .eq('id', room.applicant_player_id)
                     .single();
 
@@ -197,7 +202,7 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
                         .from('match_applications')
                         .select(`
                             applicant_player: players!applicant_player_id(
-                                name, player_nickname, avatar_url, record, position, user_id
+                                name, player_nickname, avatar_url, record, position, user_id, wins, draws, losses, location
                             )
                         `)
                         .eq('match_id', room.match_id)
@@ -207,6 +212,15 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
                     if (appData?.applicant_player) {
                         setApplicantPlayer(appData.applicant_player);
                     }
+                }
+            }
+
+            // Identify Applicant Team (for Team Sports)
+            if (finalMatchInfo?.match_applications) {
+                // @ts-ignore
+                const myApp = finalMatchInfo.match_applications.find((a: any) => a.applicant_user_id === roomBasic.applicant_user_id);
+                if (myApp?.applicant_team) {
+                    setApplicantTeam(myApp.applicant_team);
                 }
             }
 
@@ -351,6 +365,32 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
         }
     };
 
+    // [Helper] Team Sport Check
+    const TEAM_SPORTS = ['SOCCER', 'FUTSAL', 'BASEBALL', 'BASKETBALL'];
+    // @ts-ignore
+    const isTeamSport = TEAM_SPORTS.includes((matchInfo?.sport_type || '').toUpperCase());
+
+    // [Helper] Location & Record Formatters
+    const getSimpleLocation = (loc?: string) => {
+        if (!loc) return '위치 미상';
+        return loc.split(' ').slice(0, 2).join(' ');
+    };
+
+    const formatIndividualRecord = (w = 0, l = 0) => `${(w || 0) + (l || 0)}전 ${w || 0}승 ${l || 0}패`;
+    const formatTeamRecord = (w = 0, d = 0, l = 0) => `${(w || 0) + (d || 0) + (l || 0)}전 ${w || 0}승 ${d || 0}무 ${l || 0}패`;
+
+    const renderLocation = () => {
+        if (matchInfo?.match_mode === 'HOME' && matchInfo?.home_team?.location) {
+            if (isTeamSport) {
+                return `${matchInfo.home_team.location} (${matchInfo.home_team.team_name} 홈 구장)`;
+            } else {
+                const simpleLoc = getSimpleLocation(matchInfo.home_team.location);
+                return `${matchInfo.home_team.team_name} (${simpleLoc})`;
+            }
+        }
+        return matchInfo?.match_location || "장소 미정";
+    };
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#F3F4F6' }}>
             {/* VERSUS Header */}
@@ -405,61 +445,120 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
                         <span>🕒 {matchInfo?.match_date ? new Date(matchInfo.match_date).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false }) : "시간 미정"}</span>
                     </div>
                     <div style={{ fontWeight: '500', color: '#4B5563', opacity: matchInfo?.status === 'DELETED' ? 0.6 : 1 }}>
-                        <span>📍 {matchInfo?.home_team?.team_name ? `${matchInfo.home_team.team_name} ` : ""}{matchInfo?.match_location || "장소 미정"}</span>
+                        <span>📍 {renderLocation()}</span>
                     </div>
                 </div>
 
                 {/* Bottom Row: Versus Card */}
-                <div style={{
-                    padding: '12px 16px',
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    opacity: matchInfo?.status === 'DELETED' ? 0.6 : 1
-                }}>
-                    {/* Left: Host */}
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '35%' }}>
-                        <div style={{ width: '40px', height: '40px', borderRadius: '50%', overflow: 'hidden', background: '#E5E7EB', marginBottom: '4px', border: '2px solid #3B82F6' }}>
-                            {hostPlayer?.avatar_url ? (
-                                <img src={hostPlayer.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            ) : (
-                                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>👤</div>
-                            )}
-                        </div>
-                        <span style={{ fontWeight: 'bold', fontSize: '0.9rem', color: '#111827' }}>{hostPlayer?.name || hostPlayer?.player_nickname || "호스트"}</span>
-
-                        <span style={{ fontSize: '0.75rem', color: '#6B7280' }}>
-                            {hostPlayer?.record || "-전 -승"} / {hostPlayer?.position || "-"}
-                        </span>
-                    </div>
-
-                    {/* Center: VS Badge */}
+                {isTeamSport ? (
+                    // [Team Sport Mode] Team vs Team
                     <div style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: '2rem', fontWeight: '900', fontStyle: 'italic',
-                        background: 'linear-gradient(135deg, #EF4444 0%, #3B82F6 100%)',
-                        WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                        padding: '0 10px'
+                        padding: '12px 16px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        opacity: matchInfo?.status === 'DELETED' ? 0.6 : 1
                     }}>
-                        VS
-                    </div>
-
-                    {/* Right: Applicant */}
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '35%' }}>
-                        <div style={{ width: '40px', height: '40px', borderRadius: '50%', overflow: 'hidden', background: '#E5E7EB', marginBottom: '4px', border: '2px solid #EF4444' }}>
-                            {applicantPlayer?.avatar_url ? (
-                                <img src={applicantPlayer.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            ) : (
-                                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>👤</div>
-                            )}
+                        {/* Left: Home Team */}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '35%' }}>
+                            <div style={{ width: '50px', height: '50px', borderRadius: '50%', overflow: 'hidden', background: '#E5E7EB', marginBottom: '4px', border: '2px solid #3B82F6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                {matchInfo?.home_team?.emblem_url ? (
+                                    <img src={matchInfo.home_team.emblem_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                ) : (
+                                    <span style={{ fontSize: '1.5rem' }}>🛡️</span>
+                                )}
+                            </div>
+                            <span style={{ fontWeight: 'bold', fontSize: '0.9rem', color: '#111827', textAlign: 'center', lineHeight: '1.2' }}>
+                                {matchInfo?.home_team?.team_name || "홈 팀"}
+                            </span>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', fontSize: '0.8rem', color: '#6B7280', marginTop: '4px' }}>
+                                <span>주장: {hostPlayer?.player_nickname || hostPlayer?.name || "미정"}</span>
+                                <span>📍 {getSimpleLocation(matchInfo?.home_team?.location)}</span>
+                                <span>⚔️ {formatTeamRecord(matchInfo?.home_team?.wins, matchInfo?.home_team?.draws, matchInfo?.home_team?.losses)}</span>
+                            </div>
                         </div>
-                        <span style={{ fontWeight: 'bold', fontSize: '0.9rem', color: '#111827' }}>
-                            {applicantPlayer?.name || applicantPlayer?.player_nickname || "신청자"}
-                        </span>
 
-                        <span style={{ fontSize: '0.75rem', color: '#6B7280' }}>
-                            {applicantPlayer?.record || "-전 -승"} / {applicantPlayer?.position || "-"}
-                        </span>
+                        {/* Center: VS Badge */}
+                        <div style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: '2rem', fontWeight: '900', fontStyle: 'italic',
+                            background: 'linear-gradient(135deg, #EF4444 0%, #3B82F6 100%)',
+                            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                            padding: '0 10px'
+                        }}>
+                            VS
+                        </div>
+
+                        {/* Right: Applicant Team */}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '35%' }}>
+                            <div style={{ width: '50px', height: '50px', borderRadius: '50%', overflow: 'hidden', background: '#E5E7EB', marginBottom: '4px', border: '2px solid #EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                {applicantTeam?.emblem_url ? (
+                                    <img src={applicantTeam.emblem_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                ) : (
+                                    <span style={{ fontSize: '1.5rem' }}>🛡️</span>
+                                )}
+                            </div>
+                            <span style={{ fontWeight: 'bold', fontSize: '0.9rem', color: '#111827', textAlign: 'center', lineHeight: '1.2' }}>
+                                {applicantTeam?.team_name || "상대 팀"}
+                            </span>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', fontSize: '0.8rem', color: '#6B7280', marginTop: '4px' }}>
+                                <span>주장: {applicantPlayer?.player_nickname || applicantPlayer?.name || "미정"}</span>
+                                <span>📍 {getSimpleLocation(applicantTeam?.location)}</span>
+                                <span>⚔️ {formatTeamRecord(applicantTeam?.wins, applicantTeam?.draws, applicantTeam?.losses)}</span>
+                            </div>
+                        </div>
                     </div>
-                </div>
+                ) : (
+                    // [Individual Sport Mode] Player vs Player (Original)
+                    <div style={{
+                        padding: '12px 16px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        opacity: matchInfo?.status === 'DELETED' ? 0.6 : 1
+                    }}>
+                        {/* Left: Host */}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '35%' }}>
+                            <div style={{ width: '40px', height: '40px', borderRadius: '50%', overflow: 'hidden', background: '#E5E7EB', marginBottom: '4px', border: '2px solid #3B82F6' }}>
+                                {hostPlayer?.avatar_url ? (
+                                    <img src={hostPlayer.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                ) : (
+                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>👤</div>
+                                )}
+                            </div>
+                            <span style={{ fontWeight: 'bold', fontSize: '0.9rem', color: '#111827' }}>{hostPlayer?.name || hostPlayer?.player_nickname || "호스트"}</span>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', fontSize: '0.8rem', color: '#6B7280', marginTop: '4px' }}>
+                                <span>🥊 {formatIndividualRecord(hostPlayer?.wins, hostPlayer?.losses)} | {hostPlayer?.position || '-'}</span>
+                            </div>
+                        </div>
+
+                        {/* Center: VS Badge */}
+                        <div style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: '2rem', fontWeight: '900', fontStyle: 'italic',
+                            background: 'linear-gradient(135deg, #EF4444 0%, #3B82F6 100%)',
+                            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                            padding: '0 10px'
+                        }}>
+                            VS
+                        </div>
+
+                        {/* Right: Applicant */}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '35%' }}>
+                            <div style={{ width: '40px', height: '40px', borderRadius: '50%', overflow: 'hidden', background: '#E5E7EB', marginBottom: '4px', border: '2px solid #EF4444' }}>
+                                {applicantPlayer?.avatar_url ? (
+                                    <img src={applicantPlayer.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                ) : (
+                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>👤</div>
+                                )}
+                            </div>
+                            <span style={{ fontWeight: 'bold', fontSize: '0.9rem', color: '#111827' }}>
+                                {applicantPlayer?.name || applicantPlayer?.player_nickname || "신청자"}
+                            </span>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', fontSize: '0.8rem', color: '#6B7280', marginTop: '4px' }}>
+                                <span>🥊 {formatIndividualRecord(applicantPlayer?.wins, applicantPlayer?.losses)} | {applicantPlayer?.position || '-'}</span>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </header>
 
             {/* [Proxy Application Alert] */}
