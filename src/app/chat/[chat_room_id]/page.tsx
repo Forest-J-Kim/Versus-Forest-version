@@ -47,10 +47,21 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
             }
             setCurrentUserId(user.id);
 
-            // [Step 1] 채팅방 기본 정보만 먼저 조회 (Join 없이 안전하게)
+            // [Step 1] 채팅방 기본 정보만 먼저 조회 (Join으로 applicant_team 포함)
             const { data: roomBasic, error: roomError } = await supabase
                 .from('chat_rooms')
-                .select('*')
+                .select(`
+                    *,
+                    applicant_team:teams!applicant_team_id(
+                        id,
+                        team_name,
+                        emblem_url,
+                        wins,
+                        draws,
+                        losses,
+                        location
+                    )
+                `)
                 .eq('id', chatRoomId)
                 .single();
 
@@ -72,7 +83,7 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
                     id, match_date, match_location, sport_type, sport, status, match_mode,
                     home_player_id, home_team_id,
                     home_player: players!home_player_id(
-                        name, avatar_url, record, position, wins, draws, losses, location
+                        id, name, avatar_url, record, position, wins, draws, losses, location
                     ),
                     home_team: teams!home_team_id(
                         id, team_name, emblem_url, location, wins, draws, losses
@@ -180,7 +191,7 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
             if (room.applicant_player_id) {
                 const { data: specificPlayer } = await supabase
                     .from('players')
-                    .select('name, avatar_url, record, position, user_id, wins, draws, losses, location')
+                    .select('id, name, avatar_url, record, position, user_id, wins, draws, losses, location')
                     .eq('id', room.applicant_player_id)
                     .single();
 
@@ -216,7 +227,12 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
             }
 
             // Identify Applicant Team (for Team Sports)
-            if (finalMatchInfo?.match_applications) {
+            // @ts-ignore
+            if (roomBasic.applicant_team) {
+                // @ts-ignore
+                setApplicantTeam(roomBasic.applicant_team);
+            } else if (finalMatchInfo?.match_applications) {
+                // Priority 2 (Legacy/Fallback)
                 // @ts-ignore
                 const myApp = finalMatchInfo.match_applications.find((a: any) => a.applicant_user_id === roomBasic.applicant_user_id);
                 if (myApp?.applicant_team) {
@@ -523,7 +539,10 @@ export default function ChatRoomPage({ params }: { params: Promise<{ chat_room_i
                         {/* Left: Host */}
                         <div
                             style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '35%', cursor: 'pointer' }}
-                            onClick={() => matchInfo?.home_player_id && router.push(`/player/${matchInfo.home_player_id}`)}
+                            onClick={() => {
+                                const targetPlayerId = hostPlayer?.id;
+                                if (targetPlayerId) router.push(`/player/${targetPlayerId}`);
+                            }}
                         >
                             <div style={{ width: '40px', height: '40px', borderRadius: '50%', overflow: 'hidden', background: '#E5E7EB', marginBottom: '4px', border: '2px solid #3B82F6' }}>
                                 {hostPlayer?.avatar_url ? (

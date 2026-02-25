@@ -55,6 +55,7 @@ export type Database = {
       match_applications: {
         Row: {
           applicant_player_id: string | null
+          applicant_team_id: string | null
           applicant_user_id: string
           application_weight: string | null
           created_at: string
@@ -65,6 +66,7 @@ export type Database = {
         }
         Insert: {
           applicant_player_id?: string | null
+          applicant_team_id?: string | null
           applicant_user_id: string
           application_weight?: string | null
           created_at?: string
@@ -75,6 +77,7 @@ export type Database = {
         }
         Update: {
           applicant_player_id?: string | null
+          applicant_team_id?: string | null
           applicant_user_id?: string
           application_weight?: string | null
           created_at?: string

@@ -56,7 +56,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
             // 1. Fetch Match Info
             console.log('Fetching Match ID:', matchId);
 
-            const { data: matchData, error: matchError } = await supabase
+            const { data: rawMatchData, error: matchError } = await supabase
                 .from('matches')
                 .select(`
                     *,
@@ -95,6 +95,8 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                 `)
                 .eq('id', matchId)
                 .single();
+
+            const matchData = rawMatchData as any;
 
             // 디버깅을 위해 결과값 로그 출력
             console.log("🔥 Fetched Match Data:", matchData);
@@ -224,55 +226,115 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        // Find room where I am Host OR Applicant
-        const { data: myRoom, error } = await supabase
-            .from('chat_rooms')
-            .select('id')
-            .eq('match_id', matchId)
-            .or(`host_id.eq.${user.id},applicant_user_id.eq.${user.id}`)
-            .maybeSingle();
-
-        if (myRoom) {
-            router.push(`/chat/${myRoom.id}`);
-        } else {
-            // If I am Host, maybe create it? But usually created on Accept.
-            // If I am Applicant, I can't create.
+        try {
             if (isHost) {
-                // Try create with accepted applicant?
-                // For now, just alert
-                alert("채팅방을 찾을 수 없습니다. (생성되지 않음)");
+                // 호스트는 수락된 신청자와의 채팅방을 찾아야 함
+                const acceptedApp = applicants.find(a => a.status === 'ACCEPTED');
+                if (!acceptedApp) {
+                    alert("수락된 신청자가 없어 채팅방을 찾을 수 없습니다.");
+                    return;
+                }
+
+                const TEAM_SPORTS = ['SOCCER', 'FUTSAL', 'BASEBALL', 'BASKETBALL'];
+                const isTeamSport = TEAM_SPORTS.includes((match?.sport_type || '').toUpperCase());
+
+                let query = supabase
+                    .from('chat_rooms')
+                    .select('id')
+                    .eq('match_id', matchId)
+                    .eq('host_id', user.id)
+                    .eq('applicant_user_id', acceptedApp.applicant_user_id);
+
+                if (isTeamSport && acceptedApp.applicant_team_id) {
+                    query = query.eq('applicant_team_id', acceptedApp.applicant_team_id);
+                } else if (!isTeamSport && acceptedApp.applicant_player_id) {
+                    query = query.eq('applicant_player_id', acceptedApp.applicant_player_id);
+                }
+
+                const { data: myRoom, error } = await query.maybeSingle();
+
+                if (myRoom) {
+                    router.push(`/chat/${myRoom.id}`);
+                } else {
+                    alert("채팅방을 찾을 수 없습니다.");
+                }
             } else {
-                alert("채팅방이 존재하지 않습니다.");
+                // 신청자는 본인이 만든 채팅방을 찾으면 됨
+                const acceptedApp = applicants.find(a => a.applicant_user_id === user.id && a.status === 'ACCEPTED')
+                    || applicants.find(a => a.applicant_user_id === user.id);
+
+                let query = supabase
+                    .from('chat_rooms')
+                    .select('id')
+                    .eq('match_id', matchId)
+                    .eq('applicant_user_id', user.id);
+
+                const TEAM_SPORTS = ['SOCCER', 'FUTSAL', 'BASEBALL', 'BASKETBALL'];
+                const isTeamSport = TEAM_SPORTS.includes((match?.sport_type || '').toUpperCase());
+
+                if (acceptedApp) {
+                    if (isTeamSport && acceptedApp.applicant_team_id) {
+                        query = query.eq('applicant_team_id', acceptedApp.applicant_team_id);
+                    } else if (!isTeamSport && acceptedApp.applicant_player_id) {
+                        query = query.eq('applicant_player_id', acceptedApp.applicant_player_id);
+                    }
+                }
+
+                const { data: myRoom, error } = await query.maybeSingle();
+
+                if (myRoom) {
+                    router.push(`/chat/${myRoom.id}`);
+                } else {
+                    alert("채팅방이 존재하지 않습니다.");
+                }
             }
+        } catch (e: any) {
+            console.error("Enter Chat Error:", e);
+            alert("채팅방 이동 중 오류가 발생했습니다.");
         }
     };
 
-    const handleStartChat = async (applicantUserId: string, applicantPlayerId: string) => {
+    const handleStartChat = async (applicantUserId: string, applicantPlayerId: string, applicantTeamId?: string) => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
+        const TEAM_SPORTS = ['SOCCER', 'FUTSAL', 'BASEBALL', 'BASKETBALL'];
+        const isTeamSport = TEAM_SPORTS.includes((match?.sport_type || '').toUpperCase());
+
         // A. Check for existing chat room
-        const { data: existingRoom, error: fetchError } = await supabase
+        let query = supabase
             .from('chat_rooms')
             .select('id')
             .eq('match_id', matchId)
             .eq('host_id', user.id)
-            .eq('applicant_user_id', applicantUserId)
-            .eq('applicant_player_id', applicantPlayerId)
-            .maybeSingle();
+            .eq('applicant_user_id', applicantUserId);
+
+        if (isTeamSport && applicantTeamId) {
+            query = query.eq('applicant_team_id', applicantTeamId);
+        } else {
+            // For individual sports or missing team info, try player_id
+            if (applicantPlayerId) query = query.eq('applicant_player_id', applicantPlayerId);
+        }
+
+        const { data: existingRoom, error: fetchError } = await query.maybeSingle();
 
         let chatRoomId = existingRoom?.id;
 
         if (!chatRoomId) {
             // B. Create new chat room if not exists
+            const insertPayload: any = {
+                match_id: matchId,
+                host_id: user.id,
+                applicant_user_id: applicantUserId
+            };
+            if (applicantPlayerId) insertPayload.applicant_player_id = applicantPlayerId;
+            if (isTeamSport && applicantTeamId) {
+                insertPayload.applicant_team_id = applicantTeamId;
+            }
+
             const { data: newRoom, error: createError } = await supabase
                 .from('chat_rooms')
-                .insert({
-                    match_id: matchId,
-                    host_id: user.id,
-                    applicant_user_id: applicantUserId,
-                    applicant_player_id: applicantPlayerId
-                })
+                .insert(insertPayload)
                 .select()
                 .single();
 
@@ -411,14 +473,23 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                     let chatRoomId = null;
 
                     // 1. Try to find existing room for this specific applicant
-                    const { data: targetRoom } = await supabase
+                    let targetRoomQuery = supabase
                         .from('chat_rooms')
                         .select('id')
                         .eq('match_id', matchId)
                         .eq('host_id', user.id)
-                        .eq('applicant_user_id', applicant.applicant_user_id)
-                        .eq('applicant_player_id', applicant.applicant_player_id)
-                        .maybeSingle();
+                        .eq('applicant_user_id', applicant.applicant_user_id);
+
+                    const TEAM_SPORTS = ['SOCCER', 'FUTSAL', 'BASEBALL', 'BASKETBALL'];
+                    const isTeamSport = TEAM_SPORTS.includes((match?.sport_type || '').toUpperCase());
+
+                    if (isTeamSport && applicant.applicant_team_id) {
+                        targetRoomQuery = targetRoomQuery.eq('applicant_team_id', applicant.applicant_team_id);
+                    } else if (applicant.applicant_player_id) {
+                        targetRoomQuery = targetRoomQuery.eq('applicant_player_id', applicant.applicant_player_id);
+                    }
+
+                    const { data: targetRoom } = await targetRoomQuery.maybeSingle();
 
                     if (targetRoom) {
                         chatRoomId = targetRoom.id;
@@ -430,7 +501,8 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                                 match_id: matchId,
                                 host_id: user.id,
                                 applicant_user_id: applicant.applicant_user_id,
-                                applicant_player_id: applicant.applicant_player_id
+                                applicant_player_id: applicant.applicant_player_id,
+                                ...(isTeamSport && applicant.applicant_team_id ? { applicant_team_id: applicant.applicant_team_id } : {})
                             })
                             .select()
                             .single();
@@ -471,7 +543,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                         });
 
                         // [NOTIFICATION] 2. Send Confirmation Notification to Host
-                        let applicantName = applicant.applicant_player?.name || '신청자';
+                        let applicantName = applicant.player?.name || '신청자';
                         await supabase.from('notifications').insert({
                             receiver_id: user.id, // Host
                             type: 'MATCH_ACCEPTED',
@@ -493,7 +565,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                     // [NOTIFICATION] Send Rejected Notification to Auto-Rejected Applicants
                     const { data: rejectTargets } = await supabase
                         .from('match_applications')
-                        .select('applicant_user_id')
+                        .select('id, applicant_user_id, applicant_player_id, applicant_team_id')
                         .eq('match_id', matchId)
                         .neq('id', appId) // Exclude the accepted application ID
                         .eq('status', 'PENDING');
@@ -524,22 +596,34 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                         .neq('id', appId) // Exclude the accepted application ID
                         .eq('status', 'PENDING');
 
-                    if (!rejectError) {
-                        // Send System Message to Auto-Rejected Applicants
-                        const { data: rejectedRooms } = await supabase
-                            .from('chat_rooms')
-                            .select('id')
-                            .eq('match_id', matchId)
-                            .neq('applicant_user_id', applicant.applicant_user_id)
-                            .eq('host_id', user.id);
+                    if (!rejectError && rejectTargets && rejectTargets.length > 0) {
+                        // Send System Message to each Auto-Rejected Applicant's specific Chat Room
+                        const TEAM_SPORTS = ['SOCCER', 'FUTSAL', 'BASEBALL', 'BASKETBALL'];
+                        const isTeamSport = TEAM_SPORTS.includes((match?.sport_type || '').toUpperCase());
 
-                        if (rejectedRooms && rejectedRooms.length > 0) {
-                            const messages = rejectedRooms.map(room => ({
-                                chat_room_id: room.id,
-                                sender_id: user.id,
-                                content: "system:::match_rejected"
-                            }));
-                            await supabase.from('messages').insert(messages);
+                        for (const target of rejectTargets) {
+                            let query = supabase
+                                .from('chat_rooms')
+                                .select('id')
+                                .eq('match_id', matchId)
+                                .eq('host_id', user.id)
+                                .eq('applicant_user_id', target.applicant_user_id);
+
+                            if (isTeamSport && target.applicant_team_id) {
+                                query = query.eq('applicant_team_id', target.applicant_team_id);
+                            } else if (target.applicant_player_id) {
+                                query = query.eq('applicant_player_id', target.applicant_player_id);
+                            }
+
+                            const { data: rejectedRoom } = await query.maybeSingle();
+
+                            if (rejectedRoom) {
+                                await supabase.from('messages').insert({
+                                    chat_room_id: rejectedRoom.id,
+                                    sender_id: user.id,
+                                    content: "system:::match_rejected"
+                                });
+                            }
                         }
                     }
 
@@ -556,13 +640,23 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
             if (applicant) {
                 const { data: { user } } = await supabase.auth.getUser();
                 if (user) {
-                    const { data: existingRoom } = await supabase
+                    let query = supabase
                         .from('chat_rooms')
                         .select('id')
                         .eq('match_id', matchId)
                         .eq('host_id', user.id)
-                        .eq('applicant_user_id', applicant.applicant_user_id)
-                        .maybeSingle();
+                        .eq('applicant_user_id', applicant.applicant_user_id);
+
+                    const TEAM_SPORTS = ['SOCCER', 'FUTSAL', 'BASEBALL', 'BASKETBALL'];
+                    const isTeamSport = TEAM_SPORTS.includes((match?.sport_type || '').toUpperCase());
+
+                    if (isTeamSport && applicant.applicant_team_id) {
+                        query = query.eq('applicant_team_id', applicant.applicant_team_id);
+                    } else if (applicant.applicant_player_id) {
+                        query = query.eq('applicant_player_id', applicant.applicant_player_id);
+                    }
+
+                    const { data: existingRoom } = await query.maybeSingle();
 
                     if (existingRoom) {
                         await supabase.from('messages').insert({
@@ -858,9 +952,10 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
         const acceptedApp = applicants.find(a => a.status === 'ACCEPTED');
         const rejectedApps = applicants.filter(a => a.status === 'REJECTED');
         const chatRoomId = match.chat_rooms?.[0]?.id;
+        const isTeamSport = ['SOCCER', 'FUTSAL', 'BASEBALL', 'BASKETBALL'].includes((match.sport_type || '').toUpperCase());
 
         return (
-            <div style={{ background: 'var(--background)', minHeight: '100vh', paddingBottom: '40px' }}>
+            <div style={{ background: isTeamSport ? '#F3F4F6' : 'var(--background)', minHeight: '100vh', paddingBottom: '40px' }}>
                 <header style={{
                     background: 'white', borderBottom: '1px solid #E5E7EB', padding: '12px 16px',
                     display: 'flex', alignItems: 'center', position: 'sticky', top: 0, zIndex: 100
@@ -876,10 +971,12 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                     {/* VS Match Card (New Design: Intense Fighting Arena with Webtoon Bg) */}
                     <section style={{
                         padding: '4px',
-                        background: 'radial-gradient(ellipse at center, #7f1d1d 0%, #1a0505 70%, #000000 100%)',
+                        /* [수정1] 바닥 배경색: 축구면 하얗게, 복싱이면 원래대로 시커멓게 */
+                        background: isTeamSport ? '#FFFFFF' : 'radial-gradient(ellipse at center, #7f1d1d 0%, #1a0505 70%, #000000 100%)',
                         borderRadius: '18px',
-                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 30px rgba(239, 68, 68, 0.3)',
-                        border: '1px solid #333',
+                        /* [수정2] 빨간색 그림자/테두리: 축구면 연한 회색으로 깔끔하게 제거 */
+                        boxShadow: isTeamSport ? '0 10px 25px rgba(0,0,0,0.1)' : '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 30px rgba(239, 68, 68, 0.3)',
+                        border: isTeamSport ? '1px solid #E5E7EB' : '1px solid #333',
                         position: 'relative',
                         overflow: 'hidden',
                         minHeight: '600px', // 세로로 더 길게 (인스타 스토리 비율 고려)
@@ -891,104 +988,182 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                         <div style={{
                             position: 'absolute',
                             top: 0, left: 0, right: 0, bottom: 0,
-                            backgroundImage: 'url("/images/match_bg.png")',
+                            backgroundImage: isTeamSport ? 'url("/images/stadium_bg.jpg")' : 'url("/images/match_bg.png")',
                             backgroundSize: 'cover',
                             backgroundPosition: 'center',
-                            opacity: 0.5, // 배경 이미지 밝기 증가 (0.2 -> 0.)
-                            filter: 'grayscale(100%) contrast(120%)', // 웹툰 느낌 유지
+                            /* [수정3] 투명도를 1(100%)로 올려서 쨍하게 */
+                            opacity: isTeamSport ? 1 : 0.5,
+                            /* [수정4] 🌟가장 핵심🌟 밝기(brightness) 깎아먹던 필터 없앰! */
+                            filter: isTeamSport ? 'brightness(1.2) contrast(100%)' : 'grayscale(100%) contrast(120%)',
                             zIndex: 0
                         }}></div>
 
                         <div style={{
-                            background: 'rgba(20, 20, 20, 0.3)', // 내부 박스 투명도 증가 (0.7 -> 0.3)
+                            background: isTeamSport ? 'rgba(255, 255, 255, 0.7)' : 'rgba(20, 20, 20, 0.3)',
                             backdropFilter: 'blur(3px)',
                             borderRadius: '14px',
                             padding: '40px 20px',
                             display: 'flex', flexDirection: 'column', alignItems: 'center',
-                            border: '1px solid rgba(255, 255, 255, 0.1)',
-                            boxShadow: 'inset 0 0 20px rgba(0,0,0,0.5)',
+                            border: isTeamSport ? '1px solid rgba(0, 0, 0, 0.05)' : '1px solid rgba(255, 255, 255, 0.1)',
+                            boxShadow: isTeamSport ? 'none' : 'inset 0 0 20px rgba(0,0,0,0.5)',
                             position: 'relative',
                             zIndex: 1,
                             margin: '10px'
                         }}>
 
-                            {/* Top: Emblem (Size Doubled: 60px -> 120px) */}
-                            <div style={{ width: '120px', height: '120px', marginBottom: '24px', borderRadius: '50%', overflow: 'hidden', border: '2px solid #555', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000', boxShadow: '0 0 15px rgba(0,0,0,0.8)' }}>
-                                {match.home_team?.emblem_url ? <img src={match.home_team.emblem_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '🏆'}
-                            </div>
+                            {/* Top Layer: Emblem OR MATCHDAY */}
+                            {isTeamSport ? (
+                                <div style={{ marginBottom: '32px', marginTop: '12px' }}>
+                                    <h2 style={{ fontSize: '2.5rem', fontWeight: '900', fontStyle: 'italic', letterSpacing: '4px', color: '#111827', margin: 0, textTransform: 'uppercase' }}>
+                                        MATCHDAY
+                                    </h2>
+                                </div>
+                            ) : (
+                                <div style={{ width: '120px', height: '120px', marginBottom: '24px', borderRadius: '50%', overflow: 'hidden', border: '2px solid #555', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000', boxShadow: '0 0 15px rgba(0,0,0,0.8)' }}>
+                                    {match.home_team?.emblem_url ? <img src={match.home_team.emblem_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '🏆'}
+                                </div>
+                            )}
 
                             {/* Date & Location */}
                             <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-                                <h3 style={{ fontSize: '1.4rem', fontWeight: '800', color: '#FFFFFF', marginBottom: '8px', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>
-                                    {new Date(match.match_date).toLocaleDateString()}
-                                </h3>
-                                <h3 style={{ fontSize: '1.2rem', fontWeight: '800', color: '#E5E7EB', marginBottom: '12px', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>
-                                    {new Date(match.match_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
-                                </h3>
-                                <div style={{ fontSize: '1.5rem', fontWeight: '900', color: '#F3F4F6', marginBottom: '6px', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>
-                                    {match.home_team?.team_name || "장소 정보 없음"}
-                                </div>
-                                <div style={{ fontSize: '1rem', color: '#9CA3AF' }}>
-                                    {match.home_team?.location || match.match_location}
-                                </div>
+                                {isTeamSport ? (
+                                    <>
+                                        <h3 style={{ fontSize: '1.2rem', fontWeight: '800', color: '#111827', marginBottom: '16px' }}>
+                                            {new Date(match.match_date).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' })} | {new Date(match.match_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
+                                        </h3>
+                                        <div style={{ fontSize: '1rem', color: '#374151', fontWeight: '600' }}>
+                                            📍 {match.home_team?.location || match.match_location}
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <h3 style={{ fontSize: '1.4rem', fontWeight: '800', color: '#FFFFFF', marginBottom: '8px', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>
+                                            {new Date(match.match_date).toLocaleDateString()}
+                                        </h3>
+                                        <h3 style={{ fontSize: '1.2rem', fontWeight: '800', color: '#E5E7EB', marginBottom: '12px', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>
+                                            {new Date(match.match_date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}
+                                        </h3>
+                                        <div style={{ fontSize: '1.5rem', fontWeight: '900', color: '#F3F4F6', marginBottom: '6px', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>
+                                            {match.home_team?.team_name || "장소 정보 없음"}
+                                        </div>
+                                        <p style={{ fontSize: '0.9rem', color: '#E5E7EB', fontWeight: '500', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>📍 {match.home_team?.location || match.match_location || "장소 미정"}</p>
+                                    </>
+                                )}
                             </div>
 
                             {/* VS Section */}
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', width: '100%', gap: '8px', alignItems: 'center' }}>
 
-                                {/* Red Corner (Host) */}
-                                <div
-                                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer' }}
-                                    onClick={() => router.push(match.match_mode === 'TEAM' || match.sport_type === 'SOCCER' || match.sport_type === 'FUTSAL' || match.sport_type === 'BASEBALL' || match.sport_type === 'BASKETBALL' && match.home_team_id ? `/team/${match.home_team_id}` : `/player/${match.home_player_id}`)}
-                                >
-                                    <div style={{ width: '88px', height: '88px', borderRadius: '50%', border: '3px solid #EF4444', padding: '2px', marginBottom: '12px', boxShadow: '0 0 25px rgba(239, 68, 68, 0.7)' }}>
-                                        <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: '#333' }}>
-                                            {match.home_player?.avatar_url ? <img src={match.home_player.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : null}
+                                {isTeamSport ? (
+                                    <>
+                                        {/* Home Team */}
+                                        <div
+                                            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer' }}
+                                            onClick={() => match.home_team_id && router.push(`/team/${match.home_team_id}`)}
+                                        >
+                                            <div style={{ width: '130px', height: '130px', borderRadius: '50%', border: '4px solid #EF4444', padding: '2px', marginBottom: '12px', boxShadow: '0 0 25px rgba(239, 68, 68, 0.7)' }}>
+                                                <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    {match.home_team?.emblem_url ? <img src={match.home_team.emblem_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '🛡️'}
+                                                </div>
+                                            </div>
+                                            <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: '#111827', marginBottom: '6px' }}>
+                                                {match.home_team?.team_name || "Home Team"}
+                                            </span>
+                                            <div style={{ fontSize: '0.8rem', color: '#4B5563', display: 'flex', flexDirection: 'column', gap: '2px', fontWeight: '600' }}>
+                                                <span>{match.home_team?.recent_wins || match.home_team?.wins || 0}승 {match.home_team?.recent_losses || match.home_team?.losses || 0}패</span>
+                                                <span style={{ opacity: 0.8 }}>👑 {match.home_player?.name || "주장"}</span>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'white', marginBottom: '6px', textShadow: '0 1px 3px rgba(0,0,0,0.9)' }}>
-                                        {match.home_player?.name || "Host"}
-                                    </span>
-                                    <div style={{ fontSize: '0.8rem', color: '#D1D5DB', display: 'flex', flexDirection: 'column', gap: '2px', fontWeight: '500' }}>
-                                        <span>{match.home_player?.weight_class ? `${match.home_player.weight_class}kg` : '-'}</span>
-                                        <span>{match.home_player?.position || '-'}</span>
-                                        <span>{match.home_player?.record || '-'}</span>
-                                    </div>
-                                </div>
 
-                                {/* VS Text (The Impact) */}
-                                <div style={{
-                                    fontSize: '4.5rem',
-                                    fontStyle: 'italic',
-                                    fontWeight: '900',
-                                    color: '#FFD700',
-                                    textShadow: '0 0 10px #FF4500, 0 0 20px #FF4500, 0 0 40px #EF4444, 4px 4px 4px rgba(0,0,0,0.9)',
-                                    transform: 'skew(-10deg) rotate(-5deg)',
-                                    zIndex: 10,
-                                    margin: '0 -10px' // 간격 좁히기
-                                }}>
-                                    VS
-                                </div>
-
-                                {/* Blue Corner (Opponent) */}
-                                <div
-                                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer' }}
-                                    onClick={() => router.push(match.match_mode === 'TEAM' || match.sport_type === 'SOCCER' || match.sport_type === 'FUTSAL' || match.sport_type === 'BASEBALL' || match.sport_type === 'BASKETBALL' && match.away_team_id ? `/team/${match.away_team_id}` : `/player/${match.away_player_id}`)}
-                                >
-                                    <div style={{ width: '88px', height: '88px', borderRadius: '50%', border: '3px solid #3B82F6', padding: '2px', marginBottom: '12px', boxShadow: '0 0 25px rgba(59, 130, 246, 0.7)' }}>
-                                        <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: '#333' }}>
-                                            {acceptedApp?.player?.avatar_url ? <img src={acceptedApp.player.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : null}
+                                        {/* VS Text (The Impact) */}
+                                        <div style={{
+                                            fontSize: '4.5rem',
+                                            fontStyle: 'italic',
+                                            fontWeight: '900',
+                                            color: '#DC2626',
+                                            textShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                                            transform: 'skew(-10deg) rotate(-5deg)',
+                                            zIndex: 10, marginLeft: '-20px'
+                                        }}>
+                                            VS
                                         </div>
-                                    </div>
-                                    <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'white', marginBottom: '6px', textShadow: '0 1px 3px rgba(0,0,0,0.9)' }}>
-                                        {acceptedApp?.player?.name || "Opponent"}
-                                    </span>
-                                    <div style={{ fontSize: '0.8rem', color: '#D1D5DB', display: 'flex', flexDirection: 'column', gap: '2px', fontWeight: '500' }}>
-                                        <span>{acceptedApp?.player?.weight_class ? `${acceptedApp.player.weight_class}kg` : '-'}</span>
-                                        <span>{acceptedApp?.player?.position || '-'}</span>
-                                        <span>{acceptedApp?.player?.record || '-'}</span>
-                                    </div>
-                                </div>
+
+                                        {/* Away Team */}
+                                        <div
+                                            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer' }}
+                                            onClick={() => acceptedApp?.applicant_team_id && router.push(`/team/${acceptedApp.applicant_team_id}`)}
+                                        >
+                                            <div style={{ width: '130px', height: '130px', borderRadius: '50%', border: '4px solid #3B82F6', padding: '2px', marginBottom: '12px', boxShadow: '0 0 25px rgba(59, 130, 246, 0.7)' }}>
+                                                <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    {acceptedApp?.applicant_team?.emblem_url ? <img src={acceptedApp.applicant_team.emblem_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '🛡️'}
+                                                </div>
+                                            </div>
+                                            <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: '#111827', marginBottom: '6px' }}>
+                                                {acceptedApp?.applicant_team?.team_name || "Away Team"}
+                                            </span>
+                                            <div style={{ fontSize: '0.8rem', color: '#4B5563', display: 'flex', flexDirection: 'column', gap: '2px', fontWeight: '600' }}>
+                                                <span>{acceptedApp?.applicant_team?.recent_wins || acceptedApp?.applicant_team?.wins || 0}승 {acceptedApp?.applicant_team?.recent_losses || acceptedApp?.applicant_team?.losses || 0}패</span>
+                                                <span style={{ opacity: 0.8 }}>👑 {acceptedApp?.player?.name || "주장"}</span>
+                                            </div>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        {/* Red Corner (Host) */}
+                                        <div
+                                            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer' }}
+                                            onClick={() => router.push(match.match_mode === 'TEAM' || match.sport_type === 'SOCCER' || match.sport_type === 'FUTSAL' || match.sport_type === 'BASEBALL' || match.sport_type === 'BASKETBALL' && match.home_team_id ? `/team/${match.home_team_id}` : `/player/${match.home_player_id}`)}
+                                        >
+                                            <div style={{ width: '88px', height: '88px', borderRadius: '50%', border: '3px solid #EF4444', padding: '2px', marginBottom: '12px', boxShadow: '0 0 25px rgba(239, 68, 68, 0.7)' }}>
+                                                <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: '#333' }}>
+                                                    {match.home_player?.avatar_url ? <img src={match.home_player.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : null}
+                                                </div>
+                                            </div>
+                                            <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'white', marginBottom: '6px', textShadow: '0 1px 3px rgba(0,0,0,0.9)' }}>
+                                                {match.home_player?.name || "Host"}
+                                            </span>
+                                            <div style={{ fontSize: '0.8rem', color: '#D1D5DB', display: 'flex', flexDirection: 'column', gap: '2px', fontWeight: '500' }}>
+                                                <span>{match.home_player?.weight_class ? `${match.home_player.weight_class}kg` : '-'}</span>
+                                                <span>{match.home_player?.position || '-'}</span>
+                                                <span>{match.home_player?.record || '-'}</span>
+                                            </div>
+                                        </div>
+
+                                        {/* VS Text (The Impact) */}
+                                        <div style={{
+                                            fontSize: '4.5rem',
+                                            fontStyle: 'italic',
+                                            fontWeight: '900',
+                                            color: '#FFD700',
+                                            textShadow: '0 0 10px #FF4500, 0 0 20px #FF4500, 0 0 40px #EF4444, 4px 4px 4px rgba(0,0,0,0.9)',
+                                            transform: 'skew(-10deg) rotate(-5deg)',
+                                            zIndex: 10,
+                                            margin: '0 -10px' // 간격 좁히기
+                                        }}>
+                                            VS
+                                        </div>
+
+                                        {/* Blue Corner (Opponent) */}
+                                        <div
+                                            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', cursor: 'pointer' }}
+                                            onClick={() => router.push(match.match_mode === 'TEAM' || match.sport_type === 'SOCCER' || match.sport_type === 'FUTSAL' || match.sport_type === 'BASEBALL' || match.sport_type === 'BASKETBALL' && match.away_team_id ? `/team/${match.away_team_id}` : `/player/${match.away_player_id}`)}
+                                        >
+                                            <div style={{ width: '88px', height: '88px', borderRadius: '50%', border: '3px solid #3B82F6', padding: '2px', marginBottom: '12px', boxShadow: '0 0 25px rgba(59, 130, 246, 0.7)' }}>
+                                                <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: '#333' }}>
+                                                    {acceptedApp?.player?.avatar_url ? <img src={acceptedApp.player.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : null}
+                                                </div>
+                                            </div>
+                                            <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'white', marginBottom: '6px', textShadow: '0 1px 3px rgba(0,0,0,0.9)' }}>
+                                                {acceptedApp?.player?.name || "Opponent"}
+                                            </span>
+                                            <div style={{ fontSize: '0.8rem', color: '#D1D5DB', display: 'flex', flexDirection: 'column', gap: '2px', fontWeight: '500' }}>
+                                                <span>{acceptedApp?.player?.weight_class ? `${acceptedApp.player.weight_class}kg` : '-'}</span>
+                                                <span>{acceptedApp?.player?.position || '-'}</span>
+                                                <span>{acceptedApp?.player?.record || '-'}</span>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
 
                             </div>
                         </div>
@@ -1000,22 +1175,93 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
 
                         {/* Specs Grid */}
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <span style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>체급</span>
-                                <span style={{ fontSize: '1rem', fontWeight: 'bold', color: '#1F2937' }}>{match.match_weight ? `${match.match_weight}kg` : '-'}</span>
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <span style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>스파링</span>
-                                <span style={{ fontSize: '1rem', fontWeight: 'bold', color: '#1F2937' }}>{match.match_type || '-'}</span>
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <span style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>라운드</span>
-                                <span style={{ fontSize: '1rem', fontWeight: 'bold', color: '#1F2937' }}>{match.rounds ? `${match.rounds}R` : '-'}</span>
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <span style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>보호구</span>
-                                <span style={{ fontSize: '1rem', fontWeight: 'bold', color: '#1F2937' }}>{match.gear || '-'}</span>
-                            </div>
+                            {isTeamSport ? (
+                                (() => {
+                                    const LEVEL_MAP: Record<number, string> = {
+                                        1: "🐣 Lv.1 갓 태어난 병아리",
+                                        2: "🏃 Lv.2 동네 에이스",
+                                        3: "🎖️ Lv.3 지역구 강자",
+                                        4: "🏆 Lv.4 전국구 고수",
+                                        5: "👽 Lv.5 우주 방위대"
+                                    };
+                                    const levelText = match.team_level ? LEVEL_MAP[match.team_level] : '-';
+                                    const genderMap: Record<string, string> = { 'MALE': '남성', 'FEMALE': '여성', 'MIXED': '성별 무관' };
+
+                                    const getColorIcon = (colorLabel: string) => {
+                                        const colorCodeMap: Record<string, string> = {
+                                            '흰색': '#FFFFFF', '검정': '#000000', '빨강': '#EF4444',
+                                            '파랑': '#3B82F6', '노랑': '#EAB308', '형광': '#CCFF00',
+                                            '주황': '#F97316', '보라': '#8B5CF6', '초록': '#22C55E'
+                                        };
+                                        const hex = colorCodeMap[colorLabel];
+                                        if (!hex) return null;
+                                        return (
+                                            <span style={{
+                                                display: 'inline-block', width: '12px', height: '12px',
+                                                borderRadius: '50%', backgroundColor: hex,
+                                                border: (colorLabel === '흰색' || colorLabel === '형광') ? '1px solid #D1D5DB' : 'none',
+                                                marginRight: '6px'
+                                            }} />
+                                        );
+                                    };
+
+                                    return (
+                                        <>
+                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                <span style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>경기 방식</span>
+                                                <span style={{ fontSize: '1rem', fontWeight: 'bold', color: '#1F2937' }}>{match.match_format || '-'}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                <span style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>구장 확보</span>
+                                                <span style={{ fontSize: '1rem', fontWeight: 'bold', color: '#1F2937' }}>{match.has_pitch ? '확보 완료' : '미확보'}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                <span style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>참가비 (팀당)</span>
+                                                <span style={{ fontSize: '1rem', fontWeight: 'bold', color: '#1F2937' }}>{match.cost === 0 ? '무료' : match.cost ? `${match.cost.toLocaleString()}원` : '-'}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                <span style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>성별 및 수준</span>
+                                                <span style={{ fontSize: '0.95rem', fontWeight: 'bold', color: '#1F2937' }}>
+                                                    {genderMap[match.match_gender] || match.match_gender || '-'} / {levelText}
+                                                </span>
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                <span style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>홈 유니폼</span>
+                                                <span style={{ fontSize: '1rem', fontWeight: 'bold', color: '#1F2937', display: 'flex', alignItems: 'center' }}>
+                                                    {getColorIcon(match.uniform_color)}
+                                                    {match.uniform_color || '-'}
+                                                </span>
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                <span style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>어웨이 유니폼</span>
+                                                <span style={{ fontSize: '1rem', fontWeight: 'bold', color: '#1F2937', display: 'flex', alignItems: 'center' }}>
+                                                    {getColorIcon(acceptedApp?.away_uniform_color)}
+                                                    {acceptedApp?.away_uniform_color || '-'}
+                                                </span>
+                                            </div>
+                                        </>
+                                    );
+                                })()
+                            ) : (
+                                <>
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        <span style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>체급</span>
+                                        <span style={{ fontSize: '1rem', fontWeight: 'bold', color: '#1F2937' }}>{match.match_weight ? `${match.match_weight}kg` : '-'}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        <span style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>스파링</span>
+                                        <span style={{ fontSize: '1rem', fontWeight: 'bold', color: '#1F2937' }}>{match.match_type || '-'}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        <span style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>라운드</span>
+                                        <span style={{ fontSize: '1rem', fontWeight: 'bold', color: '#1F2937' }}>{match.rounds ? `${match.rounds}R` : '-'}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        <span style={{ fontSize: '0.8rem', color: '#9CA3AF' }}>보호구</span>
+                                        <span style={{ fontSize: '1rem', fontWeight: 'bold', color: '#1F2937' }}>{match.gear || '-'}</span>
+                                    </div>
+                                </>
+                            )}
                         </div>
 
                         {/* Tags */}
@@ -1103,7 +1349,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                     )}
 
                 </main>
-            </div>
+            </div >
         );
     }
     // --- END SCHEDULED VIEW ---
@@ -1458,7 +1704,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                                     <ApplicationCard
                                         key={app.id}
                                         app={app}
-                                        onChat={() => handleStartChat(app.applicant_user_id, app.applicant_player_id)}
+                                        onChat={() => handleStartChat(app.applicant_user_id, app.applicant_player_id, app.applicant_team_id)}
                                         onAccept={() => handleUpdateStatus(app.id, 'ACCEPTED')}
                                         onReject={() => handleUpdateStatus(app.id, 'REJECTED')}
                                         onCancel={(currentUser?.id === app.applicant_user_id || currentUser?.id === app.player?.user_id) ? () => handleCancelApplication(app.id) : undefined}
@@ -1669,7 +1915,7 @@ function ApplicationCard({ app, onChat, onAccept, onReject, onCancel, isPending,
             {isPending && isHost && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: app.message ? 0 : 20 }}>
                     <button
-                        onClick={onChat}
+                        onClick={(e) => { e.stopPropagation(); onChat && onChat(); }}
                         style={{
                             width: '100%', padding: '12px', borderRadius: '10px',
                             background: 'var(--primary)', color: 'white',
@@ -1681,7 +1927,7 @@ function ApplicationCard({ app, onChat, onAccept, onReject, onCancel, isPending,
                     </button>
                     <div style={{ display: 'flex', gap: '8px' }}>
                         <button
-                            onClick={onAccept}
+                            onClick={(e) => { e.stopPropagation(); onAccept && onAccept(); }}
                             style={{
                                 flex: 1, padding: '12px', borderRadius: '10px',
                                 background: 'white', color: '#059669',
@@ -1691,7 +1937,7 @@ function ApplicationCard({ app, onChat, onAccept, onReject, onCancel, isPending,
                             ✅ 수락
                         </button>
                         <button
-                            onClick={onReject}
+                            onClick={(e) => { e.stopPropagation(); onReject && onReject(); }}
                             style={{
                                 flex: 1, padding: '12px', borderRadius: '10px',
                                 background: 'white', color: '#EF4444',

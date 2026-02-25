@@ -44,6 +44,9 @@ export default function MessageListPage() {
                     applicant_player:players!applicant_player_id (
                         name, avatar_url, user_id
                     ),
+                    applicant_team:teams!applicant_team_id (
+                        team_name, emblem_url
+                    ),
                     messages ( content, created_at )
                 `)
                 .or(`host_id.eq.${user.id},applicant_user_id.eq.${user.id}`)
@@ -75,6 +78,14 @@ export default function MessageListPage() {
                 let partnerName = "알 수 없음";
                 let partnerAvatar = null;
                 let sportType = room.match?.sport_type;
+                let partnerTeam = null;
+
+                const TEAM_SPORTS = ['SOCCER', 'FUTSAL', 'BASEBALL', 'BASKETBALL'];
+                const isTeamSport = TEAM_SPORTS.includes((sportType || '').toUpperCase());
+
+                if (isTeamSport && room.applicant_team) {
+                    partnerTeam = room.applicant_team;
+                }
 
                 if (isHost) {
                     // [CASE A] 나는 호스트 -> 상대방은 '신청 선수' (또는 매니저)
@@ -147,6 +158,7 @@ export default function MessageListPage() {
                     id: room.id,
                     partnerName,
                     partnerAvatar,
+                    partnerTeam,
                     lastMessage: lastMsg,
                     time: lastTime,
                     sportType
@@ -205,15 +217,41 @@ export default function MessageListPage() {
                             </div>
                             <div className={styles.content}>
                                 <div className={styles.topRow}>
-                                    <span className={styles.name}>
-                                        {conv.partnerName}
-                                    </span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span className={styles.name}>
+                                            {conv.partnerName}
+                                        </span>
+                                        {conv.partnerTeam && (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#F3F4F6', padding: '2px 6px', borderRadius: '12px' }}>
+                                                {conv.partnerTeam.emblem_url ? (
+                                                    <img src={conv.partnerTeam.emblem_url} alt="team emblem" style={{ width: '16px', height: '16px', borderRadius: '50%', objectFit: 'cover' }} />
+                                                ) : (
+                                                    <span style={{ fontSize: '12px' }}>🛡️</span>
+                                                )}
+                                                <span style={{ fontSize: '0.75rem', fontWeight: '500', color: '#4B5563' }}>{conv.partnerTeam.team_name}</span>
+                                            </div>
+                                        )}
+                                    </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         {conv.sportType && <span style={{ fontSize: '0.85em', color: '#6B7280', fontWeight: 'normal' }}>{SPORT_MAP[(conv.sportType as string).toUpperCase()] || conv.sportType}</span>}
                                         <span className={styles.time}>{formatTime(conv.time)}</span>
                                     </div>
                                 </div>
-                                <div className={styles.messagePreview}>{conv.lastMessage}</div>
+                                <div className={styles.messagePreview}>
+                                    {(() => {
+                                        const msg = String(conv.lastMessage || "");
+                                        if (msg === "system:::match_deleted") {
+                                            return <span style={{ color: '#EF4444', fontWeight: '500' }}>호스트가 매치를 삭제했습니다</span>;
+                                        } else if (msg === "system:::match_scheduled") {
+                                            return <span style={{ color: '#22C55E', fontWeight: '500' }}>매치가 성사되었습니다!</span>;
+                                        } else if (msg === "system:::match_rejected") {
+                                            return <span style={{ color: '#4B5563', fontWeight: '500' }}>매치 신청이 거절되었습니다</span>;
+                                        } else if (msg === "system:::user_left") {
+                                            return <span style={{ color: '#6B7280', fontStyle: 'italic' }}>상대방이 채팅방을 나갔습니다</span>;
+                                        }
+                                        return msg;
+                                    })()}
+                                </div>
                             </div>
                         </div>
                     ))
