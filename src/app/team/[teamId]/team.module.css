@@ -205,6 +205,78 @@
     border-bottom: none;
 }
 
+/* Basketball Half Court Visualizer (NBA Finals Style) */
+.basketballCourtContainer {
+    width: 100%;
+    aspect-ratio: 0.9;
+    /* Darker, premium brown hardwood color - lighter variant */
+    background-color: #B57F4A;
+    border: 3px solid white;
+    /* White borders */
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+}
+
+.basketballPaintArea {
+    position: absolute;
+    bottom: 0;
+    left: 35%;
+    width: 30%;
+    height: 45%;
+    background-color: transparent;
+    /* Remove blue paint, keep same flooring */
+    border: 2px solid white;
+    /* White lines */
+    border-bottom: none;
+}
+
+.basketballFreeThrowCircle {
+    position: absolute;
+    bottom: 45%;
+    left: 50%;
+    transform: translate(-50%, 50%);
+    width: 30%;
+    aspect-ratio: 1/1;
+    border: 2px solid white;
+    /* White lines */
+    border-radius: 50%;
+    /* The reference shows wood inside the top half of the free throw circle */
+}
+
+.basketballThreePointLine {
+    position: absolute;
+    bottom: 0;
+    left: 10%;
+    width: 80%;
+    height: 75%;
+    border: 2px solid white;
+    /* White lines */
+    border-bottom: none;
+    border-radius: 50% 50% 0 0;
+}
+
+/* Basketball Node Modifiers */
+.basketballNode {
+    width: 80px !important;
+}
+
+.basketballNode .nodeAvatar {
+    width: 56px !important;
+    height: 56px !important;
+}
+
+.basketballNode .nodeEmpty {
+    width: 56px !important;
+    height: 56px !important;
+}
+
+.basketballNode .nodeName {
+    font-size: 0.8rem !important;
+    margin-top: 6px !important;
+}
+
 .formationNode {
     position: absolute;
     transform: translate(-50%, -50%);

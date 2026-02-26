@@ -42,7 +42,7 @@ export default function RegisterSportPage() {
     const router = useRouter();
 
     const handleSportSelect = (sportName: string, sportId: string) => {
-        router.push(`/profile/register/${sportId.toLowerCase()}`);
+        router.push(`/profile/register/${sportId.toUpperCase()}`);
     };
 
     return (

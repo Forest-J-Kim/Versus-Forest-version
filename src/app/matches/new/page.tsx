@@ -31,7 +31,7 @@ function MatchRegisterForm() {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // [New] Sport Type Logic
-    const teamSports = ['SOCCER', 'FUTSAL', 'BASEBALL'];
+    const teamSports = ['SOCCER', 'FUTSAL', 'BASEBALL', 'BASKETBALL'];
     const isTeamSport = teamSports.includes(sportId.toUpperCase()) || mode === 'TEAM';
 
     // --- Independent Date State ---
@@ -112,7 +112,7 @@ function MatchRegisterForm() {
                     .from('players' as any) as any)
                     .select('id, name, avatar_url, weight_class, position, record, team_id')
                     .eq('user_id', user.id)
-                    .eq('sport_type', sportId.toLowerCase()) // Ensure case match
+                    .eq('sport_type', sportId.toUpperCase()) // Ensure case match
                     .maybeSingle();
 
                 if (!me) {
@@ -141,7 +141,7 @@ function MatchRegisterForm() {
                     .from('teams' as any) as any)
                     .select('id, team_name, location')
                     .eq('captain_id', me.id)
-                    .eq('sport_type', sportId.toLowerCase())
+                    .eq('sport_type', sportId.toUpperCase())
                     .maybeSingle();
 
                 let finalCandidates: any[] = [];
@@ -756,7 +756,7 @@ function MatchRegisterForm() {
                                 경기 방식
                             </label>
                             <div className={styles.chips}>
-                                {(['5vs5', '6vs6', '11vs11']).map(opt => (
+                                {(sportDef?.fields.find(f => f.key === 'format')?.options || []).map((opt: any) => (
                                     <button
                                         key={opt}
                                         className={`${styles.chip} ${formData.format === opt ? styles.active : ""}`}

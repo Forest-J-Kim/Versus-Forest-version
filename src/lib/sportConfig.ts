@@ -97,6 +97,39 @@ export const sportConfig: Record<string, Record<string, SportDef>> = {
                     tags: ['#선출환영', '#매너필수', '#자체심판', '#유니폼착용', '#음료지원']
                 }
             ]
+        },
+        BASKETBALL: {
+            id: 'BASKETBALL',
+            name: '농구',
+            icon: '🏀',
+            color: '#FFF7ED', // 농구 코트 톤 (연한 오렌지)
+            border: '#FED7AA',
+            fields: [
+                {
+                    key: 'format',
+                    label: '경기 방식',
+                    type: 'chips',
+                    options: ['3vs3 (반코트)', '5vs5 (풀코트)']
+                },
+                {
+                    key: 'location',
+                    label: '코트 확보 여부',
+                    type: 'toggle',
+                    options: ['코트확보 (초청)', '원정가능']
+                },
+                {
+                    key: 'level',
+                    label: '팀 수준',
+                    type: 'chips',
+                    options: ['선수출신 다수', '아마추어 중수', '친목/초보']
+                },
+                {
+                    key: 'tags',
+                    label: '매너/규칙',
+                    type: 'tags',
+                    tags: ['#게스트환영', '#매너필수', '#자체심판', '#음료지원', '#초보가능']
+                }
+            ]
         }
     }
 };

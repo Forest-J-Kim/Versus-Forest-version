@@ -46,7 +46,7 @@ export default function SportDashboard({ params }: PageProps) {
 
                     if (profile?.avatar_url) setUserAvatarUrl(profile.avatar_url);
 
-                    if (profile?.roles && profile.roles[sportId.toLowerCase()] === 'captain') {
+                    if (profile?.roles && (profile.roles as any)[sportId.toUpperCase()] === 'captain') {
                         setHasRole(true);
                         setIsManagerMode(true);
                     }
@@ -56,7 +56,7 @@ export default function SportDashboard({ params }: PageProps) {
                         .from('players')
                         .select('*')
                         .eq('user_id', user.id)
-                        .eq('sport_type', sportId.toLowerCase())
+                        .eq('sport_type', sportId.toUpperCase())
                         .maybeSingle();
 
                     if (playerData) {
@@ -125,7 +125,7 @@ export default function SportDashboard({ params }: PageProps) {
                 {loading ? (
                     <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>정보 불러오는 중...</div>
                 ) : !playerProfile ? (
-                    <EmptyProfileCard sportName={sport.name} onClick={() => router.push(`/profile/register/${sportId.toLowerCase()}`)} />
+                    <EmptyProfileCard sportName={sport.name} onClick={() => router.push(`/profile/register/${sportId.toUpperCase()}`)} />
                 ) : (
                     <>
                         <MySportSummaryCard
@@ -135,8 +135,8 @@ export default function SportDashboard({ params }: PageProps) {
                             teamList={teamList} // Updated prop
                             userAvatarUrl={playerProfile?.avatar_url || userAvatarUrl}
                             hideHeader={true}
-                            onRegisterTeam={() => router.push(`/profile/register/${sportId.toLowerCase()}`)}
-                            onEditProfile={() => router.push(`/profile/edit/${sportId.toLowerCase()}`)}
+                            onRegisterTeam={() => router.push(`/profile/register/${sportId.toUpperCase()}`)}
+                            onEditProfile={() => router.push(`/profile/edit/${sportId.toUpperCase()}`)}
                         />
                     </>
                 )}

@@ -21,6 +21,7 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import JoinTeamModal from "./JoinTeamModal";
+import { SKILL_LEVELS, TEAM_SPORTS } from "@/constants/skills";
 
 export default function MySportSummaryCard({
     sportName,
@@ -127,7 +128,7 @@ export default function MySportSummaryCard({
             const { teamId, isCaptain } = leaveModal;
 
             // Derive target sport code for RPC (if captain)
-            const targetCode = SPORT_MAPPING[sportName] || playerData.sport_type || 'soccer';
+            const targetCode = SPORT_MAPPING[sportName] || playerData.sport_type || 'SOCCER';
 
             if (isCaptain) {
                 // [Captain Logic] Standard team deletion (DB Triggers handle the rest)
@@ -174,29 +175,29 @@ export default function MySportSummaryCard({
 
     // Mapping for consistent sport codes (Korean -> English keys)
     const SPORT_MAPPING: { [key: string]: string } = {
-        '축구/풋살': 'soccer',
-        '축구': 'soccer',
-        '풋살': 'soccer',
-        '야구': 'baseball',
-        '농구': 'basketball',
-        '복싱': 'boxing',
-        '헬스': 'health',
-        '크로스핏': 'health',
-        '격투기': 'boxing',
-        '배드민턴/테니스': 'racket',
-        '배드민턴': 'racket',
-        '테니스': 'racket',
-        '킥복싱/MMA': 'kickboxing',
-        '킥복싱': 'kickboxing',
-        'MMA': 'kickboxing',
-        '유도/주짓수': 'judo',
-        '유도': 'judo',
-        '주짓수': 'judo'
+        '축구/풋살': 'SOCCER',
+        '축구': 'SOCCER',
+        '풋살': 'SOCCER',
+        '야구': 'BASEBALL',
+        '농구': 'BASKETBALL',
+        '복싱': 'BOXING',
+        '헬스': 'HEALTH',
+        '크로스핏': 'HEALTH',
+        '격투기': 'BOXING',
+        '배드민턴/테니스': 'RACKET',
+        '배드민턴': 'RACKET',
+        '테니스': 'RACKET',
+        '킥복싱/MMA': 'KICKBOXING',
+        '킥복싱': 'KICKBOXING',
+        'MMA': 'KICKBOXING',
+        '유도/주짓수': 'JUDO',
+        '유도': 'JUDO',
+        '주짓수': 'JUDO'
     };
 
     const handleDeleteProfile = async () => {
         // Derive target sport code from sportName (Korean) or fallback to playerData
-        const targetCode = SPORT_MAPPING[sportName] || playerData.sport_type || 'soccer';
+        const targetCode = SPORT_MAPPING[sportName] || playerData.sport_type || 'SOCCER';
 
         // 1. Check Captaincy
         // If I am captain of ANY team in this sport, I must delete that team FIRST.
@@ -252,37 +253,43 @@ export default function MySportSummaryCard({
 
 
     // Normalized Column Rendering via Tags (Badges)
-    const sportType = playerData.sport_type?.toLowerCase() || '';
+    const sportType = playerData.sport_type?.toUpperCase() || '';
     const tags: string[] = [];
 
     // Boxing / Combat
-    if (['boxing', 'kickboxing', 'judo', 'mma'].includes(sportType)) {
+    if (['BOXING', 'KICKBOXING', 'JUDO', 'MMA'].includes(sportType)) {
         if (playerData.weight_class) tags.push(`${playerData.weight_class}kg`);
         if (playerData.position) tags.push(playerData.position);
         if (playerData.record) tags.push(playerData.record);
     }
     // Soccer
-    else if (['soccer', 'futsal'].includes(sportType)) {
+    else if (['SOCCER', 'FUTSAL'].includes(sportType)) {
         if (playerData.position) tags.push(playerData.position);
         if (playerData.main_foot) tags.push(`주발: ${playerData.main_foot}`);
-        if (playerData.skill_level) {
-            const levelMap: { [key: string]: string } = { 'High': '실력: 상', 'Mid': '실력: 중', 'Low': '실력: 하' };
-            tags.push(levelMap[playerData.skill_level] || playerData.skill_level);
-        }
     }
     // Baseball
-    else if (sportType === 'baseball') {
+    else if (sportType === 'BASEBALL') {
         if (playerData.position) tags.push(playerData.position);
         if (playerData.main_foot) tags.push(playerData.main_foot);
     }
+    // Basketball
+    else if (sportType === 'BASKETBALL') {
+        if (playerData.position) tags.push(playerData.position);
+        if (playerData.main_foot) tags.push(`주손: ${playerData.main_foot}`);
+    }
     // Health (Fallback)
-    else if (['health', 'fitness', 'gym'].includes(sportType)) {
+    else if (['HEALTH', 'FITNESS', 'GYM'].includes(sportType)) {
         if (playerData.weight_class) tags.push(playerData.weight_class);
     }
     // Fallback
     else {
         if (playerData.position) tags.push(playerData.position);
         if (playerData.weight_class) tags.push(playerData.weight_class);
+    }
+
+    if (TEAM_SPORTS.includes(sportType) && playerData.skill_level) {
+        const levelData = SKILL_LEVELS[playerData.skill_level as number];
+        if (levelData) tags.push(levelData.short);
     }
 
     if (tags.length === 0) tags.push("-");

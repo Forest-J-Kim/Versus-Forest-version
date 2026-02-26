@@ -461,10 +461,18 @@ export default function TeamEditPage({ params }: PageProps) {
 
     if (loading) return <div className={teamStyles.container}>로딩 중...</div>;
     // ... [existing isTeamSport] check
-    const isTeamSport = ['soccer', 'foot', 'futsal', 'base', 'basket', 'volley', 'jokgu'].some(k => team.sport_type?.toLowerCase().includes(k));
+    const isTeamSport = ['SOCCER', 'FOOT', 'FUTSAL', 'BASE', 'BASKET', 'VOLLEY', 'JOKGU'].some(k => team.sport_type?.toUpperCase().includes(k));
 
-    // Formation Slots Definition (4-3-3 Standard)
-    const formationSlots = [
+    const isBasketball = team.sport_type?.toUpperCase() === 'BASKETBALL';
+
+    // Formation Slots Definition
+    const formationSlots = isBasketball ? [
+        { id: 'pg', label: 'PG', top: '15%', left: '50%' },
+        { id: 'sg', label: 'SG', top: '40%', left: '85%' },
+        { id: 'sf', label: 'SF', top: '40%', left: '15%' },
+        { id: 'pf', label: 'PF', top: '75%', left: '35%' },
+        { id: 'c', label: 'C', top: '75%', left: '65%' }
+    ] : [
         { id: 'gk', label: 'GK', top: '90%', left: '50%' },
         { id: 'lb', label: 'LB', top: '75%', left: '15%' },
         { id: 'lcb', label: 'CB', top: '80%', left: '38%' },
@@ -640,16 +648,26 @@ export default function TeamEditPage({ params }: PageProps) {
             {isTeamSport && (
                 <section className={teamStyles.section}>
                     {/* ... [existing formation logic] ... */}
-                    <h2 className={teamStyles.sectionTitle}>Best 11 포메이션 설정</h2>
+                    <h2 className={teamStyles.sectionTitle}>{isBasketball ? 'Starting 5 포메이션 설정' : 'Best 11 포메이션 설정'}</h2>
                     <p style={{ fontSize: '0.8rem', color: '#666', marginBottom: '0.5rem' }}>
                         원을 클릭하여 선수를 배치하세요.
                     </p>
-                    <div className={teamStyles.pitchContainer}>
-                        {/* Pitch Lines */}
-                        <div className={teamStyles.pitchLineMid}></div>
-                        <div className={teamStyles.pitchCircle}></div>
-                        <div className={teamStyles.pitchBoxTop}></div>
-                        <div className={teamStyles.pitchBoxBottom}></div>
+                    <div className={isBasketball ? teamStyles.basketballCourtContainer : teamStyles.pitchContainer}>
+                        {isBasketball ? (
+                            <>
+                                <div className={teamStyles.basketballThreePointLine}></div>
+                                <div className={teamStyles.basketballPaintArea}></div>
+                                <div className={teamStyles.basketballFreeThrowCircle}></div>
+                            </>
+                        ) : (
+                            <>
+                                {/* Pitch Lines */}
+                                <div className={teamStyles.pitchLineMid}></div>
+                                <div className={teamStyles.pitchCircle}></div>
+                                <div className={teamStyles.pitchBoxTop}></div>
+                                <div className={teamStyles.pitchBoxBottom}></div>
+                            </>
+                        )}
 
                         {/* Interactive Slots */}
                         {formationSlots.map(slot => {
@@ -659,7 +677,7 @@ export default function TeamEditPage({ params }: PageProps) {
                             return (
                                 <div
                                     key={slot.id}
-                                    className={`${teamStyles.formationNode} ${styles.interactiveNode}`}
+                                    className={`${teamStyles.formationNode} ${isBasketball ? teamStyles.basketballNode : ''} ${styles.interactiveNode}`}
                                     style={{ top: slot.top, left: slot.left }}
                                     onClick={() => handleFormationSlotClick(slot.id)}
                                 >

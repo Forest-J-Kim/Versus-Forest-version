@@ -8,35 +8,35 @@ import Link from 'next/link';
 
 // Helper to keep sport names consistent - ideal to move to shared utils
 const SPORT_NAMES: { [key: string]: string } = {
-    soccer: '축구/풋살',
-    boxing: '복싱',
-    basketball: '농구',
-    baseball: '야구',
-    racket: '배드민턴/테니스',
-    kickboxing: '킥복싱/MMA',
-    judo: '유도/주짓수',
-    health: '헬스',
+    SOCCER: '축구/풋살',
+    BOXING: '복싱',
+    BASKETBALL: '농구',
+    BASEBALL: '야구',
+    RACKET: '배드민턴/테니스',
+    KICKBOXING: '킥복싱/MMA',
+    JUDO: '유도/주짓수',
+    HEALTH: '헬스',
 };
 
 // Mapping for URL param (Korean) to DB value (English)
 const SPORT_MAPPING: Record<string, string> = {
-    '축구/풋살': 'soccer',
-    '축구': 'soccer',
-    '풋살': 'soccer',
-    '야구': 'baseball',
-    '농구': 'basketball',
-    '복싱': 'boxing',
-    '헬스': 'health',
-    '격투기': 'boxing',
-    '배드민턴/테니스': 'racket',
-    '배드민턴': 'racket',
-    '테니스': 'racket',
-    '킥복싱/MMA': 'kickboxing',
-    '킥복싱': 'kickboxing',
-    'MMA': 'kickboxing',
-    '유도/주짓수': 'judo',
-    '유도': 'judo',
-    '주짓수': 'judo'
+    '축구/풋살': 'SOCCER',
+    '축구': 'SOCCER',
+    '풋살': 'FUTSAL',
+    '야구': 'BASEBALL',
+    '농구': 'BASKETBALL',
+    '복싱': 'BOXING',
+    '헬스': 'HEALTH',
+    '격투기': 'BOXING',
+    '배드민턴/테니스': 'RACKET',
+    '배드민턴': 'RACKET',
+    '테니스': 'TENNIS',
+    '킥복싱/MMA': 'KICKBOXING',
+    '킥복싱': 'KICKBOXING',
+    'MMA': 'MMA',
+    '유도/주짓수': 'JUDO',
+    '유도': 'JUDO',
+    '주짓수': 'JIUJITSU'
 };
 
 export default async function TeamCreatePage({ searchParams }: { searchParams: Promise<{ sport: string }> }) {
@@ -49,7 +49,7 @@ export default async function TeamCreatePage({ searchParams }: { searchParams: P
     const decodedSport = decodeURIComponent(sport || '');
 
     // 3. Map to DB Sport Type
-    const targetSportType = SPORT_MAPPING[decodedSport] || decodedSport.toLowerCase();
+    const targetSportType = SPORT_MAPPING[decodedSport] || decodedSport.toUpperCase();
 
     console.log(`🎯 [Mapping] "${decodedSport}" -> "${targetSportType}" 로 변환하여 검색합니다.`);
 

@@ -171,13 +171,13 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
 
             if (!isOwner && matchData.status !== 'SCHEDULED') {
                 // B. Guest Logic: Fetch Candidates
-                const targetSport = (matchData.sport_type || '').toLowerCase();
-                const TEAM_SPORTS = ['soccer', 'futsal', 'baseball', 'basketball'];
+                const targetSport = (matchData.sport_type || '').toUpperCase();
+                const TEAM_SPORTS = ['SOCCER', 'FUTSAL', 'BASEBALL', 'BASKETBALL'];
                 const isTeamSport = TEAM_SPORTS.includes(targetSport);
 
                 // 1. Get My Players (모든 프로필이 아닌, 해당 종목 프로필 ID만 추출)
                 const { data: myPlayersRaw } = await supabase.from('players').select('id, sport_type').eq('user_id', user.id);
-                const mySportPlayerIds = myPlayersRaw?.filter(p => (p.sport_type || '').toLowerCase() === targetSport).map(p => p.id) || [];
+                const mySportPlayerIds = myPlayersRaw?.filter(p => (p.sport_type || '').toUpperCase() === targetSport).map(p => p.id) || [];
 
                 // 2. Check Leadership (해당 종목의 프로필 ID로만 검사)
                 let myTeamId = null;
@@ -227,7 +227,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                 }
 
                 // 3. Filter by Sport Type & Flatten (Split by team_members)
-                const filtered = finalCandidates.filter((p: any) => (p.sport_type || '').toLowerCase() === targetSport);
+                const filtered = finalCandidates.filter((p: any) => (p.sport_type || '').toUpperCase() === targetSport);
 
                 let flattenedCandidates: any[] = [];
                 filtered.forEach((p: any) => {
@@ -732,7 +732,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                             <div style={{
                                 position: 'absolute',
                                 top: 0, left: 0, right: 0, bottom: 0,
-                                backgroundImage: 'url("/images/stadium_bg.jpg")',
+                                backgroundImage: (match.sport_type || '').toUpperCase() === 'BASKETBALL' ? 'url("/images/basketball_bg.jpg")' : 'url("/images/stadium_bg.jpg")',
                                 backgroundSize: 'cover',
                                 backgroundPosition: 'center',
                                 opacity: 0.7,
@@ -1447,11 +1447,13 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                                                                 {(isSelected || isDisabled) ? '✓' : ''}
                                                             </div>
 
-                                                            <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#F3F4F6', overflow: 'hidden', flexShrink: 0 }}>
+                                                            <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#F3F4F6', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                                 {/* 🚨 3. 올바른 엠블럼 매핑 */}
-                                                                {emblem ? (
-                                                                    <img src={emblem} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                                ) : (p.avatar_url ? <img src={p.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '🛡️')}
+                                                                {isTeamSport ? (
+                                                                    emblem ? <img src={emblem} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ fontSize: '1.5rem' }}>🛡️</div>
+                                                                ) : (
+                                                                    p.avatar_url ? <img src={p.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ fontSize: '1.5rem' }}>👤</div>
+                                                                )}
                                                             </div>
 
                                                             <div style={{ flex: 1 }}>

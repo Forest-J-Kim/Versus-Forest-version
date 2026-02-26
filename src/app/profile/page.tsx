@@ -60,7 +60,8 @@ export default function ProfilePage() {
             const { data: playersData, error: playersError } = await supabase
                 .from('players')
                 .select('*')
-                .eq('user_id', user.id);
+                .eq('user_id', user.id)
+                .order('updated_at', { ascending: false });
 
             if (playersError) throw playersError;
             const players = playersData || [];
@@ -327,15 +328,15 @@ export default function ProfilePage() {
                             {captainBadges.map(sportKey => {
                                 // Specific Emoji Mapping as requested
                                 let emoji = '🏅';
-                                const key = sportKey.toLowerCase();
-                                if (key.includes('soccer') || key.includes('futsal')) emoji = '⚽';
-                                else if (key.includes('boxing')) emoji = '🥊';
-                                else if (key.includes('health') || key.includes('gym')) emoji = '🏋️';
-                                else if (key.includes('baseball')) emoji = '⚾';
-                                else if (key.includes('basketball')) emoji = '🏀';
-                                else if (key.includes('racket') || key.includes('badminton') || key.includes('tennis')) emoji = '🏸';
-                                else if (key.includes('martial') || key.includes('judo') || key.includes('jujitsu')) emoji = '🥋';
-                                else if (key.includes('kick')) emoji = '🦶'; // Kickboxing
+                                const key = sportKey.toUpperCase();
+                                if (key.includes('SOCCER') || key.includes('FUTSAL')) emoji = '⚽';
+                                else if (key.includes('BOXING')) emoji = '🥊';
+                                else if (key.includes('HEALTH') || key.includes('GYM')) emoji = '🏋️';
+                                else if (key.includes('BASEBALL')) emoji = '⚾';
+                                else if (key.includes('BASKETBALL')) emoji = '🏀';
+                                else if (key.includes('RACKET') || key.includes('BADMINTON') || key.includes('TENNIS')) emoji = '🏸';
+                                else if (key.includes('MARTIAL') || key.includes('JUDO') || key.includes('JIUJITSU')) emoji = '🥋';
+                                else if (key.includes('KICK')) emoji = '🦶'; // Kickboxing
 
                                 return (
                                     <span key={sportKey} style={{ fontSize: '1.2rem', marginLeft: '2px' }}>
@@ -390,7 +391,7 @@ export default function ProfilePage() {
                             {(() => {
                                 const grouped: { [key: string]: { player?: any; teams: any[] } } = {};
                                 mySports.forEach(item => {
-                                    const key = item.sport_type.toLowerCase();
+                                    const key = item.sport_type.toUpperCase();
                                     if (!grouped[key]) grouped[key] = { teams: [] };
 
                                     if (item.type === 'PLAYER') {

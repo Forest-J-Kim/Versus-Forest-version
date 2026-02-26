@@ -58,6 +58,14 @@ interface Match {
   match_applications?: { count: number; applicant_user_id?: string; applicant_player_id?: string; status?: string }[];
 }
 
+const SPORT_LABELS: Record<string, string> = {
+  BOXING: "복싱", SOCCER: "축구/풋살", BASEBALL: "야구",
+  BASKETBALL: "농구", BADMINTON: "배드민턴", TENNIS: "테니스",
+  VOLLEYBALL: "배구", PINGPONG: "탁구",
+  MMA: "MMA", JIUJITSU: "주짓수", KICKBOXING: "킥복싱", WRESTLING: "레슬링", MUAYTHAI: "무에타이",
+  FUTSAL: "풋살"
+};
+
 // Sub-component for Swipe logic
 function MatchCardItem({ match, currentUser, isManagerMode, onDelete, handleAction, sportDef }: {
   match: Match;
@@ -500,11 +508,7 @@ function MatchesContent() {
   const mode = searchParams.get('mode') || 'SOLO';
 
   const getSportName = (s: string) => {
-    if (s === 'BOXING') return '복싱';
-    if (s === 'SOCCER') return '축구/풋살';
-    if (s === 'JIUJITSU') return '주짓수';
-    // ... others
-    return s;
+    return SPORT_LABELS[s.toUpperCase()] || s;
   };
   const sportName = getSportName(sport);
   const sportDef = sportConfig[mode]?.[sport];
@@ -579,16 +583,9 @@ function MatchesContent() {
       // 리스트에서 매치 정보 찾기
       const targetMatch = matches?.find(m => m.id === matchId);
 
-      // 1. 종목명 한글 매핑
-      const SPORT_LABELS: Record<string, string> = {
-        BOXING: "🥊 복싱", SOCCER: "⚽ 축구", BASEBALL: "⚾ 야구",
-        BASKETBALL: "🏀 농구", BADMINTON: "🏸 배드민턴", TENNIS: "🎾 테니스",
-        VOLLEYBALL: "🏐 배구", PINGPONG: "🏓 탁구",
-        MMA: "🤼 MMA", JIUJITSU: "🥋 주짓수", KICKBOXING: "🦵 킥복싱", WRESTLING: "🤼 레슬링", MUAYTHAI: "🥊 무에타이",
-        FUTSAL: "⚽ 풋살"
-      };
+      // 1. 종목명 한글 매핑 사용
       const sType = targetMatch?.sport_type || '';
-      const displayTitle = SPORT_LABELS[sType] || sType || '매치';
+      const displayTitle = SPORT_LABELS[sType.toUpperCase()] || sType || '매치';
 
       // 2. 호스트 닉네임 추출 (Player 정보 우선)
       const hostNickname = targetMatch?.home_player?.name

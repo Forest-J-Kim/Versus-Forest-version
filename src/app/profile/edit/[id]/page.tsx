@@ -10,17 +10,18 @@ import Cropper from 'react-easy-crop';
 import getCroppedImg from '@/utils/canvasUtils';
 
 import { SPORTS } from "@/constants/sports";
+import { SKILL_LEVELS, TEAM_SPORTS } from "@/constants/skills";
 
 // Sport ID Map for display
 const SPORT_NAMES: { [key: string]: string } = {
-    soccer: '축구/풋살',
-    boxing: '복싱',
-    basketball: '농구',
-    baseball: '야구',
-    racket: '배드민턴/테니스',
-    kickboxing: '킥복싱/MMA',
-    judo: '유도/주짓수',
-    health: '헬스',
+    SOCCER: '축구/풋살',
+    BOXING: '복싱',
+    BASKETBALL: '농구',
+    BASEBALL: '야구',
+    RACKET: '배드민턴/테니스',
+    KICKBOXING: '킥복싱/MMA',
+    JUDO: '유도/주짓수',
+    HEALTH: '헬스',
 };
 
 export default function SportEditPage({ params }: { params: Promise<{ id: string }> }) {
@@ -103,10 +104,10 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
 
                 // Map 'position' column based on sport
                 if (playerData.position) {
-                    if (['boxing', 'kickboxing', 'judo'].includes(sportId)) {
+                    if (['BOXING', 'KICKBOXING', 'JUDO'].includes(sportId.toUpperCase())) {
                         loadedSkills.stance = playerData.position; // Boxing Stance
                     } else {
-                        loadedSkills.position = playerData.position; // Soccer Position
+                        loadedSkills.position = playerData.position; // Soccer/Basketball Position
                     }
                 }
 
@@ -253,11 +254,11 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
             const total = wins + draws + losses;
             const recordStr = (wins > 0 || draws > 0 || losses > 0) ? `${total}전 ${wins}승 ${draws > 0 ? draws + '무 ' : ''}${losses}패` : null;
 
-            // Mapping for Position/Stance
+            // Handle Position/Stance Mapping
             let positionVal = null;
-            if (['boxing', 'kickboxing', 'judo'].includes(sportId)) {
+            if (['BOXING', 'KICKBOXING', 'JUDO'].includes(sportId.toUpperCase())) {
                 positionVal = skills.stance;
-            } else if (sportId === 'soccer') {
+            } else if (TEAM_SPORTS.includes(sportId.toUpperCase())) {
                 positionVal = skills.position;
             }
             // Add other sports if needed
@@ -286,15 +287,16 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
                     draws: draws,
                     losses: losses,
                     main_foot: foot,       // Mapped from skills.foot
-                    skill_level: level,    // Mapped from skills.level
+                    skill_level: level ? parseInt(level, 10) : null,    // Mapped from skills.level with fallback
 
                     // Remaining skills
                     skills: restSkills, // Squeaky clean? Or just pass 'skills'? User said "skills is empty or misc".
                     // I'll pass 'restSkills' which strips the migrated ones to satisfy "normalization".
-                    avatar_url: avatarUrl
+                    avatar_url: avatarUrl,
+                    updated_at: new Date().toISOString()
                 })
                 .eq('user_id', userId)
-                .eq('sport_type', sportId)
+                .eq('sport_type', sportId.toUpperCase())
                 .select().single();
 
             if (playerError) throw playerError;
@@ -319,7 +321,7 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
 
                     const { data: newTeam, error: teamError } = await supabase.from('teams').insert({
                         captain_id: updatedPlayer.id,
-                        sport_type: sportId,
+                        sport_type: sportId.toUpperCase(),
                         team_name: teamName,
                         description: teamDesc,
                         emblem_url: emblemUrl
@@ -342,7 +344,7 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
                         const { error: assignError } = await supabase.from('players')
                             .update({ team_id: newTeam.id })
                             .eq('user_id', userId)
-                            .eq('sport_type', sportId);
+                            .eq('sport_type', sportId.toUpperCase());
 
                         if (assignError) {
                             console.error("Failed to auto-assign team to player:", assignError);
@@ -400,7 +402,7 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
                             />
                             <span style={{ fontSize: '1rem', color: '#9CA3AF' }}>✏️</span>
                         </div>
-                        {!['soccer', 'futsal'].includes(sportId) && (
+                        {!TEAM_SPORTS.includes(sportId.toUpperCase()) && (
                             <div className={styles.metaInfo} style={{ marginBottom: '0.5rem' }}>
                                 <div className={styles.metaItem}>
                                     <span className={styles.metaLabel}>전적: 🥊</span>
@@ -435,7 +437,7 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
                             placeholder="1990 (입력)"
                         />
                     </div>
-                    {!['soccer', 'futsal'].includes(sportId) && (
+                    {!TEAM_SPORTS.includes(sportId.toUpperCase()) && (
                         <div className={styles.specRow}>
                             <span className={styles.specRowLabel}>체급</span>
                             <input
@@ -461,7 +463,7 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
                         />
                         <span style={{ fontSize: '0.95rem', fontWeight: 700, marginLeft: '2px', color: '#111827' }}>cm</span>
                     </div>
-                    {!['soccer', 'futsal'].includes(sportId) && (
+                    {!TEAM_SPORTS.includes(sportId.toUpperCase()) && (
                         <div className={styles.specRow}>
                             <span className={styles.specRowLabel}>리치</span>
                             <input
@@ -476,17 +478,30 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
                         </div>
                     )}
                     <div className={styles.specRow}>
-                        <span className={styles.specRowLabel}>{['soccer', 'futsal'].includes(sportId) ? '포지션' : '스탠스'}</span>
+                        <span className={styles.specRowLabel}>{TEAM_SPORTS.includes(sportId.toUpperCase()) ? '포지션' : '스탠스'}</span>
                         <select
                             className={styles.specSelect}
-                            value={['boxing', 'kickboxing', 'judo'].includes(sportId) ? (skills.stance || "") : (skills.position || "")}
-                            onChange={(e) => setSkills((p: any) => ({ ...p, [['boxing', 'kickboxing', 'judo'].includes(sportId) ? 'stance' : 'position']: e.target.value }))}
+                            value={['BOXING', 'KICKBOXING', 'JUDO'].includes(sportId.toUpperCase()) ? (skills.stance || "") : (skills.position || "")}
+                            onChange={(e) => setSkills((p: any) => ({ ...p, [['BOXING', 'KICKBOXING', 'JUDO'].includes(sportId.toUpperCase()) ? 'stance' : 'position']: e.target.value }))}
                         >
                             <option value="">선택</option>
-                            {['boxing', 'kickboxing', 'judo'].includes(sportId) ? (
+                            {['BOXING', 'KICKBOXING', 'JUDO'].includes(sportId.toUpperCase()) ? (
                                 <>
                                     <option value="Orthodox">오소독스</option>
                                     <option value="Southpaw">사우스포</option>
+                                </>
+                            ) : sportId.toUpperCase() === 'BASKETBALL' ? (
+                                <>
+                                    <option value="PG">가드 (PG/SG)</option>
+                                    <option value="SF">포워드 (SF/PF)</option>
+                                    <option value="C">센터 (C)</option>
+                                </>
+                            ) : sportId.toUpperCase() === 'BASEBALL' ? (
+                                <>
+                                    <option value="투수">투수</option>
+                                    <option value="포수">포수</option>
+                                    <option value="내야수">내야수</option>
+                                    <option value="외야수">외야수</option>
                                 </>
                             ) : (
                                 <>
@@ -498,18 +513,31 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
                             )}
                         </select>
                     </div>
-                    {['soccer', 'futsal'].includes(sportId) && (
+                    {TEAM_SPORTS.includes(sportId.toUpperCase()) && (
                         <div className={styles.specRow}>
-                            <span className={styles.specRowLabel}>주발</span>
+                            <span className={styles.specRowLabel}>{sportId.toUpperCase() === 'BASKETBALL' ? '주 사용 손' : sportId.toUpperCase() === 'BASEBALL' ? '주손/주타' : '주발'}</span>
                             <select
                                 className={styles.specSelect}
                                 value={skills.foot || ""}
                                 onChange={(e) => setSkills((p: any) => ({ ...p, foot: e.target.value }))}
                             >
                                 <option value="">선택</option>
-                                <option value="Right">오른발</option>
-                                <option value="Left">왼발</option>
-                                <option value="Both">양발</option>
+                                {sportId.toUpperCase() === 'BASEBALL' ? (
+                                    <>
+                                        <option value="우투우타">우투우타</option>
+                                        <option value="우투좌타">우투좌타</option>
+                                        <option value="좌투좌타">좌투좌타</option>
+                                        <option value="좌투우타">좌투우타</option>
+                                        <option value="우투양타">우투양타</option>
+                                        <option value="좌투양타">좌투양타</option>
+                                    </>
+                                ) : (
+                                    <>
+                                        <option value="Right">{sportId.toUpperCase() === 'BASKETBALL' ? '오른손' : '오른발'}</option>
+                                        <option value="Left">{sportId.toUpperCase() === 'BASKETBALL' ? '왼손' : '왼발'}</option>
+                                        <option value="Both">{sportId.toUpperCase() === 'BASKETBALL' ? '양손' : '양발'}</option>
+                                    </>
+                                )}
                             </select>
                         </div>
                     )}
@@ -523,6 +551,21 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
                             placeholder="서울시 강남구"
                         />
                     </div>
+                    {(TEAM_SPORTS.includes(sportId.toUpperCase()) || ['BOXING', 'KICKBOXING', 'JUDO'].includes(sportId.toUpperCase())) && (
+                        <div className={styles.specRow}>
+                            <span className={styles.specRowLabel}>본인 실력</span>
+                            <select
+                                className={styles.specSelect}
+                                value={skills.level || ""}
+                                onChange={(e) => setSkills((p: any) => ({ ...p, level: e.target.value }))}
+                            >
+                                <option value="">선택</option>
+                                {Object.entries(SKILL_LEVELS).map(([val, labelObj]) => (
+                                    <option key={val} value={val}>{labelObj.full}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
                 </div>
             </section>
 

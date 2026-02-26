@@ -6,20 +6,21 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import styles from "./player.module.css";
 import MyTeamCard from "@/components/features/sport/MyTeamCard";
+import { SKILL_LEVELS, TEAM_SPORTS } from "@/constants/skills";
 
 interface PageProps {
     params: Promise<{ id: string }>;
 }
 
 const SPORT_NAMES: { [key: string]: string } = {
-    soccer: '⚽ 축구/풋살',
-    boxing: '🥊 복싱',
-    basketball: '🏀 농구',
-    baseball: '⚾ 야구',
-    racket: '🏸 배드민턴/테니스',
-    kickboxing: '🦵 킥복싱/MMA',
-    judo: '🥋 유도/주짓수',
-    health: '🏋️ 헬스',
+    SOCCER: '⚽ 축구/풋살',
+    BOXING: '🥊 복싱',
+    BASKETBALL: '🏀 농구',
+    BASEBALL: '⚾ 야구',
+    RACKET: '🏸 배드민턴/테니스',
+    KICKBOXING: '🦵 킥복싱/MMA',
+    JUDO: '🥋 유도/주짓수',
+    HEALTH: '🏋️ 헬스',
 };
 
 export default function PlayerProfilePage({ params }: PageProps) {
@@ -68,7 +69,7 @@ export default function PlayerProfilePage({ params }: PageProps) {
     if (!player) return <div className={styles.container} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>프로필 정보를 찾을 수 없습니다.</div>;
 
     const isMyProfile = currentUserId === player.user_id;
-    const sportCode = (player.sport_type || '').toLowerCase();
+    const sportCode = (player.sport_type || '').toUpperCase();
     const sportName = SPORT_NAMES[sportCode] || player.sport_type || '종목 미상';
 
     let recordDisplay = "전적 없음";
@@ -83,9 +84,12 @@ export default function PlayerProfilePage({ params }: PageProps) {
     }
 
     const tags: string[] = [];
-    if (player.skill_level) tags.push(`실력: ${player.skill_level}`);
-    if (player.main_foot) tags.push(`주발: ${player.main_foot}`);
-    if (!['boxing', 'kickboxing', 'judo', 'health'].includes(sportCode) && player.position) tags.push(player.position);
+    if (player.skill_level) {
+        const levelData = SKILL_LEVELS[player.skill_level as number];
+        tags.push(`실력: ${levelData ? levelData.short : player.skill_level}`);
+    }
+    if (player.main_foot) tags.push(`주발/주손: ${player.main_foot}`);
+    if (!['BOXING', 'KICKBOXING', 'JUDO', 'HEALTH'].includes(sportCode) && player.position) tags.push(player.position);
 
     if (player.skills) {
         try {
@@ -147,11 +151,11 @@ export default function PlayerProfilePage({ params }: PageProps) {
                     <div className={styles.teamInfo}>
                         <h1 className={styles.teamName}>{player.name}</h1>
                         <div className={styles.metaInfo} style={{ marginBottom: '0.5rem' }}>
-                            {['soccer', 'futsal'].includes(sportCode) ? (
+                            {TEAM_SPORTS.includes(sportCode) ? (
                                 <div className={styles.metaItem}>
-                                    <span className={styles.metaLabel}>⚽ {player.position || '포지션 미입력'}</span>
+                                    <span className={styles.metaLabel}>{sportCode === 'BASKETBALL' ? '🏀' : sportCode === 'BASEBALL' ? '⚾' : '⚽'} {player.position || '포지션 미입력'}</span>
                                     <span className={styles.metaValue} style={{ fontWeight: 'bold', color: '#3B82F6', marginLeft: '4px' }}>
-                                        | 👟 {player.main_foot === 'Both' ? '양발' : player.main_foot === 'Right' ? '오른발' : player.main_foot === 'Left' ? '왼발' : '주발 미입력'}
+                                        | {sportCode === 'BASKETBALL' ? '✋' : sportCode === 'BASEBALL' ? '⚾' : '👟'} {player.main_foot === 'Both' ? (sportCode === 'BASKETBALL' ? '양손' : sportCode === 'BASEBALL' ? '양타' : '양발') : player.main_foot === 'Right' ? (sportCode === 'BASKETBALL' ? '오른손' : sportCode === 'BASEBALL' ? '우타' : '오른발') : player.main_foot === 'Left' ? (sportCode === 'BASKETBALL' ? '왼손' : sportCode === 'BASEBALL' ? '좌타' : '왼발') : '미입력'}
                                     </span>
                                 </div>
                             ) : (
@@ -179,7 +183,7 @@ export default function PlayerProfilePage({ params }: PageProps) {
                         <span className={styles.specRowLabel}>출생</span>
                         <span className={styles.specRowValue}>{player.birth_year ? `${player.birth_year}년생` : '-'}</span>
                     </div>
-                    {!['soccer', 'futsal'].includes(sportCode) && (
+                    {!TEAM_SPORTS.includes(sportCode) && (
                         <div className={styles.specRow}>
                             <span className={styles.specRowLabel}>체급</span>
                             <span className={styles.specRowValue}>{player.weight_class ? `${player.weight_class} kg` : '-'}</span>
@@ -189,26 +193,36 @@ export default function PlayerProfilePage({ params }: PageProps) {
                         <span className={styles.specRowLabel}>신장</span>
                         <span className={styles.specRowValue}>{player.height ? `${player.height} cm` : '-'}</span>
                     </div>
-                    {!['soccer', 'futsal'].includes(sportCode) && (
+                    {!TEAM_SPORTS.includes(sportCode) && (
                         <div className={styles.specRow}>
                             <span className={styles.specRowLabel}>리치</span>
                             <span className={styles.specRowValue}>{player.reach ? `${player.reach} cm` : '-'}</span>
                         </div>
                     )}
                     <div className={styles.specRow}>
-                        <span className={styles.specRowLabel}>{['soccer', 'futsal'].includes(sportCode) ? '포지션' : '스탠스'}</span>
+                        <span className={styles.specRowLabel}>{TEAM_SPORTS.includes(sportCode) ? '포지션' : '스탠스'}</span>
                         <span className={styles.specRowValue}>{player.position || player.stance || '-'}</span>
                     </div>
                     <div className={styles.specRow}>
                         <span className={styles.specRowLabel}>주 활동지</span>
                         <span className={styles.specRowValue}>{player.location || '-'}</span>
                     </div>
+                    {(TEAM_SPORTS.includes(sportCode) || ['BOXING', 'KICKBOXING', 'JUDO'].includes(sportCode)) && (
+                        <div className={styles.specRow}>
+                            <span className={styles.specRowLabel}>실력</span>
+                            <span className={styles.specRowValue}>
+                                {player.skill_level && SKILL_LEVELS[player.skill_level as number]
+                                    ? SKILL_LEVELS[player.skill_level as number].full
+                                    : '미입력'}
+                            </span>
+                        </div>
+                    )}
                 </div>
             </section>
 
             {team && (
                 <section className={styles.section}>
-                    <h3 className={styles.subTitle}>{['soccer', 'futsal'].includes(sportCode) ? '소속 팀' : '소속 체육관'}</h3>
+                    <h3 className={styles.subTitle}>{TEAM_SPORTS.includes(sportCode) ? '소속 팀' : '소속 체육관'}</h3>
                     <div style={{ marginTop: '0.5rem' }}>
                         <MyTeamCard
                             teamId={team.id}

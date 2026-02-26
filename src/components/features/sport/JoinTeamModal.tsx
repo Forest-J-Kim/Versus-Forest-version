@@ -83,7 +83,7 @@ export default function JoinTeamModal({ isOpen, onClose, sportType, playerId, on
         }
     };
 
-    const isGym = sportType.includes('boxing') || sportType.includes('judo') || sportType.includes('mma');
+    const isGym = ['BOXING', 'JUDO', 'MMA', 'KICKBOXING'].includes(sportType.toUpperCase());
 
     return (
         <div className={styles.overlay}>

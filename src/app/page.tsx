@@ -51,12 +51,12 @@ export default function Home() {
                     .single();
 
                 // Fallback to email prefix if username/nickname is missing
-                const displayName = profile?.nickname || profile?.username || profile?.full_name || user.email?.split('@')[0] || "회원";
+                const displayName = profile?.nickname || (profile as any)?.username || (profile as any)?.full_name || user.email?.split('@')[0] || "회원";
                 setUserName(displayName);
 
                 // Parse Roles for Captain Status
                 if (profile?.roles) {
-                    const badges = Object.keys(profile.roles).filter(key => profile.roles[key] === 'captain');
+                    const badges = Object.keys(profile.roles as object).filter(key => (profile.roles as any)[key] === 'captain');
                     console.log('Captain Roles found:', badges);
                     setCaptainSports(badges);
                 }

@@ -53,19 +53,19 @@ function TeamJoinContent() {
                     return;
                 }
 
-                setSportId(matchedSport.id.toLowerCase());
+                setSportId(matchedSport.id.toUpperCase());
 
                 // Fetch Player Profile
                 const { data: playerData, error } = await supabase
                     .from('players')
                     .select('id')
                     .eq('user_id', user.id)
-                    .eq('sport_type', matchedSport.id.toLowerCase())
+                    .eq('sport_type', matchedSport.id.toUpperCase())
                     .maybeSingle();
 
                 if (error || !playerData) {
                     alert("선수 프로필이 필요합니다. 먼저 프로필을 생성해주세요.");
-                    router.replace(`/profile/register/${matchedSport.id.toLowerCase()}`);
+                    router.replace(`/profile/register/${matchedSport.id.toUpperCase()}`);
                     return;
                 }
 
@@ -205,7 +205,7 @@ function TeamJoinContent() {
 
     if (loading) return <div className={styles.container}>로딩 중...</div>;
 
-    const isGym = sportId ? ['boxing', 'judo', 'mma', 'kickboxing'].some(k => sportId.includes(k)) : false;
+    const isGym = sportId ? ['BOXING', 'JUDO', 'MMA', 'KICKBOXING'].includes(sportId.toUpperCase()) : false;
 
     return (
         <main className={styles.container}>

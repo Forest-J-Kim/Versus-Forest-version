@@ -103,8 +103,8 @@ export default function TeamDetailPage({ params }: PageProps) {
     const isCaptain = currentUserId && team.captain && currentUserId === team.captain.user_id;
 
     // Determine Type
-    const isTeamSport = ['soccer', 'foot', 'futsal', 'base', 'basket', 'volley', 'jokgu'].some(k => team.sport_type?.toLowerCase().includes(k));
-    const isCombatSport = ['boxing', 'kickboxing', 'judo', 'mma'].some(k => team.sport_type?.toLowerCase().includes(k));
+    const isTeamSport = ['SOCCER', 'FOOT', 'FUTSAL', 'BASE', 'BASKET', 'VOLLEY', 'JOKGU'].some(k => team.sport_type?.toUpperCase().includes(k));
+    const isCombatSport = ['BOXING', 'KICKBOXING', 'JUDO', 'MMA'].some(k => team.sport_type?.toUpperCase().includes(k));
 
     // Parse JSONB fields (defensively)
     const matchHistory = Array.isArray(team.match_history) ? team.match_history : [];
@@ -215,37 +215,60 @@ export default function TeamDetailPage({ params }: PageProps) {
                 /* TYPE A: Team Sport */
                 <>
                     <section className={styles.section}>
-                        <h2 className={styles.sectionTitle}>Best 11</h2>
+                        <h2 className={styles.sectionTitle}>
+                            {team.sport_type?.toUpperCase() === 'BASKETBALL' ? 'Starting 5' : 'Best 11'}
+                        </h2>
 
-                        {/* Soccer Pitch Visualizer */}
-                        <div className={styles.pitchContainer}>
-                            <div className={styles.pitchLineMid}></div>
-                            <div className={styles.pitchCircle}></div>
-                            <div className={styles.pitchBoxTop}></div>
-                            <div className={styles.pitchBoxBottom}></div>
+                        {team.sport_type?.toUpperCase() === 'BASKETBALL' ? (
+                            /* Basketball Half Court Visualizer */
+                            <div className={styles.basketballCourtContainer}>
+                                <div className={styles.basketballThreePointLine}></div>
+                                <div className={styles.basketballPaintArea}></div>
+                                <div className={styles.basketballFreeThrowCircle}></div>
 
-                            {/* Formation Nodes (4-3-3 Mockup) - Using Saved Formation Data */}
-                            {/* Formation keys: gk, lb, lcb, rcb, rb, lcm, cdm, rcm, lw, st, rw */}
+                                {/* Formation Nodes (1-2-2 Mockup) */}
+                                {/* PG (Top) */}
+                                <FormationNode top="15%" left="50%" label="PG" player={players.find(p => p.id === (team.formation?.pg))} isBasketball={true} />
+                                {/* SG (Right Wing) */}
+                                <FormationNode top="40%" left="85%" label="SG" player={players.find(p => p.id === (team.formation?.sg))} isBasketball={true} />
+                                {/* SF (Left Wing) */}
+                                <FormationNode top="40%" left="15%" label="SF" player={players.find(p => p.id === (team.formation?.sf))} isBasketball={true} />
+                                {/* PF (Left Post) */}
+                                <FormationNode top="75%" left="35%" label="PF" player={players.find(p => p.id === (team.formation?.pf))} isBasketball={true} />
+                                {/* C (Right Post) */}
+                                <FormationNode top="75%" left="65%" label="C" player={players.find(p => p.id === (team.formation?.c))} isBasketball={true} />
+                            </div>
+                        ) : (
+                            /* Soccer Pitch Visualizer */
+                            <div className={styles.pitchContainer}>
+                                <div className={styles.pitchLineMid}></div>
+                                <div className={styles.pitchCircle}></div>
+                                <div className={styles.pitchBoxTop}></div>
+                                <div className={styles.pitchBoxBottom}></div>
 
-                            {/* GK */}
-                            <FormationNode top="90%" left="50%" label="GK" player={players.find(p => p.id === (team.formation?.gk))} />
+                                {/* Formation Nodes (4-3-3 Mockup) - Using Saved Formation Data */}
+                                {/* Formation keys: gk, lb, lcb, rcb, rb, lcm, cdm, rcm, lw, st, rw */}
 
-                            {/* DF */}
-                            <FormationNode top="75%" left="15%" label="LB" player={players.find(p => p.id === (team.formation?.lb))} />
-                            <FormationNode top="80%" left="38%" label="CB" player={players.find(p => p.id === (team.formation?.lcb))} />
-                            <FormationNode top="80%" left="62%" label="CB" player={players.find(p => p.id === (team.formation?.rcb))} />
-                            <FormationNode top="75%" left="85%" label="RB" player={players.find(p => p.id === (team.formation?.rb))} />
+                                {/* GK */}
+                                <FormationNode top="90%" left="50%" label="GK" player={players.find(p => p.id === (team.formation?.gk))} />
 
-                            {/* MF */}
-                            <FormationNode top="55%" left="30%" label="LCM" player={players.find(p => p.id === (team.formation?.lcm))} />
-                            <FormationNode top="60%" left="50%" label="CDM" player={players.find(p => p.id === (team.formation?.cdm))} />
-                            <FormationNode top="55%" left="70%" label="RCM" player={players.find(p => p.id === (team.formation?.rcm))} />
+                                {/* DF */}
+                                <FormationNode top="75%" left="15%" label="LB" player={players.find(p => p.id === (team.formation?.lb))} />
+                                <FormationNode top="80%" left="38%" label="CB" player={players.find(p => p.id === (team.formation?.lcb))} />
+                                <FormationNode top="80%" left="62%" label="CB" player={players.find(p => p.id === (team.formation?.rcb))} />
+                                <FormationNode top="75%" left="85%" label="RB" player={players.find(p => p.id === (team.formation?.rb))} />
 
-                            {/* FW */}
-                            <FormationNode top="25%" left="20%" label="LW" player={players.find(p => p.id === (team.formation?.lw))} />
-                            <FormationNode top="15%" left="50%" label="ST" player={players.find(p => p.id === (team.formation?.st))} />
-                            <FormationNode top="25%" left="80%" label="RW" player={players.find(p => p.id === (team.formation?.rw))} />
-                        </div>
+                                {/* MF */}
+                                <FormationNode top="55%" left="30%" label="LCM" player={players.find(p => p.id === (team.formation?.lcm))} />
+                                <FormationNode top="60%" left="50%" label="CDM" player={players.find(p => p.id === (team.formation?.cdm))} />
+                                <FormationNode top="55%" left="70%" label="RCM" player={players.find(p => p.id === (team.formation?.rcm))} />
+
+                                {/* FW */}
+                                <FormationNode top="25%" left="20%" label="LW" player={players.find(p => p.id === (team.formation?.lw))} />
+                                <FormationNode top="15%" left="50%" label="ST" player={players.find(p => p.id === (team.formation?.st))} />
+                                <FormationNode top="25%" left="80%" label="RW" player={players.find(p => p.id === (team.formation?.rw))} />
+                            </div>
+                        )}
                     </section>
 
                     <section className={styles.section}>
@@ -425,9 +448,9 @@ export default function TeamDetailPage({ params }: PageProps) {
 
 // Helper Components & Functions
 
-function FormationNode({ top, left, label, player }: { top: string, left: string, label: string, player: any }) {
+function FormationNode({ top, left, label, player, isBasketball }: { top: string, left: string, label: string, player: any, isBasketball?: boolean }) {
     return (
-        <div className={styles.formationNode} style={{ top, left }}>
+        <div className={`${styles.formationNode} ${isBasketball ? styles.basketballNode : ''}`} style={{ top, left }}>
             {player ? (
                 <>
                     <img

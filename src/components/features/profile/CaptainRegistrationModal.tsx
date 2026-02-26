@@ -40,7 +40,7 @@ export default function CaptainRegistrationModal({ isOpen, onClose, onSuccess, u
             .single();
 
         const currentRoles = profile?.roles || {};
-        const newRoles = { ...currentRoles, [selectedSport.toLowerCase()]: 'captain' };
+        const newRoles = { ...currentRoles, [selectedSport.toUpperCase()]: 'captain' };
 
         const { error } = await supabase
             .from('profiles')

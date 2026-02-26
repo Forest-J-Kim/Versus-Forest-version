@@ -45,7 +45,7 @@ export default function MyTeamCard({
     // Determine Layout Mode
     // Group A (Team Sports): soccer, baseball, basketball, volleyball, futsal, etc.
     // Group B (Gym/Individual): boxing, mma, judo, gym, tennis, badminton, etc.
-    const isTeamSport = ['soccer', 'foot', 'futsal', 'base', 'basket', 'volley', 'jokgu'].some(k => sportType.toLowerCase().includes(k));
+    const isTeamSport = ['SOCCER', 'FOOT', 'FUTSAL', 'BASE', 'BASKET', 'VOLLEY', 'JOKGU'].some(k => sportType.toUpperCase().includes(k));
 
     useEffect(() => {
         const fetchMembers = async () => {

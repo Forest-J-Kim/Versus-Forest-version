@@ -205,9 +205,9 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                 }
 
                 // 3. Filter by Sport Type (Case Insensitive) & Unique
-                const targetSport = (matchData.sport_type || '').toLowerCase();
+                const targetSport = (matchData.sport_type || '').toUpperCase();
                 const filtered = finalCandidates.filter((p: any) =>
-                    (p.sport_type || '').toLowerCase() === targetSport
+                    (p.sport_type || '').toUpperCase() === targetSport
                 );
 
                 // Deduplicate (map by id)
@@ -988,7 +988,7 @@ export default function ApplyMatchPage({ params }: { params: Promise<{ id: strin
                         <div style={{
                             position: 'absolute',
                             top: 0, left: 0, right: 0, bottom: 0,
-                            backgroundImage: isTeamSport ? 'url("/images/stadium_bg.jpg")' : 'url("/images/match_bg.png")',
+                            backgroundImage: currentSport === 'BASKETBALL' ? 'url("/images/basketball_bg.jpg")' : (isTeamSport ? 'url("/images/stadium_bg.jpg")' : 'url("/images/match_bg.png")'),
                             backgroundSize: 'cover',
                             backgroundPosition: 'center',
                             /* [수정3] 투명도를 1(100%)로 올려서 쨍하게 */

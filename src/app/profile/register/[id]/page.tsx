@@ -8,17 +8,18 @@ import Cropper from 'react-easy-crop';
 import getCroppedImg from '@/utils/canvasUtils';
 
 import { SPORTS } from "@/constants/sports";
+import { SKILL_LEVELS, TEAM_SPORTS } from "@/constants/skills";
 
 // Sport ID Map for display
 const SPORT_NAMES: { [key: string]: string } = {
-    soccer: '축구/풋살',
-    boxing: '복싱',
-    basketball: '농구',
-    baseball: '야구',
-    racket: '배드민턴/테니스',
-    kickboxing: '킥복싱/MMA',
-    judo: '유도/주짓수',
-    health: '헬스',
+    SOCCER: '축구/풋살',
+    BOXING: '복싱',
+    BASKETBALL: '농구',
+    BASEBALL: '야구',
+    RACKET: '배드민턴/테니스',
+    KICKBOXING: '킥복싱/MMA',
+    JUDO: '유도/주짓수',
+    HEALTH: '헬스',
 };
 
 export default function SportRegisterPage({ params }: { params: Promise<{ id: string }> }) {
@@ -89,8 +90,9 @@ export default function SportRegisterPage({ params }: { params: Promise<{ id: st
 
     // --- Dynamic Field Renders ---
     const renderSportFields = () => {
-        switch (sportId) {
-            case 'soccer':
+        switch (sportId.toUpperCase()) {
+            case 'SOCCER':
+            case 'FUTSAL':
                 return (
                     <>
                         <div className={styles.fieldGroup}>
@@ -112,20 +114,11 @@ export default function SportRegisterPage({ params }: { params: Promise<{ id: st
                                 <option value="Both">양발</option>
                             </select>
                         </div>
-                        <div className={styles.fieldGroup}>
-                            <label className={styles.label}>실력</label>
-                            <select className={styles.select} onChange={(e) => setSkills({ ...skills, level: e.target.value })}>
-                                <option value="">선택하세요</option>
-                                <option value="High">상 (선수출신)</option>
-                                <option value="Mid">중 (동호회)</option>
-                                <option value="Low">하 (초보)</option>
-                            </select>
-                        </div>
                     </>
                 );
-            case 'boxing':
-            case 'kickboxing':
-            case 'judo':
+            case 'BOXING':
+            case 'KICKBOXING':
+            case 'JUDO':
                 return (
                     <>
                         <div className={styles.fieldGroup}>
@@ -141,7 +134,7 @@ export default function SportRegisterPage({ params }: { params: Promise<{ id: st
                                 <span style={{ position: 'absolute', right: '1rem', color: '#6B7280', fontSize: '0.9rem' }}>kg</span>
                             </div>
                         </div>
-                        {(sportId === 'boxing' || sportId === 'kickboxing') && (
+                        {(sportId.toUpperCase() === 'BOXING' || sportId.toUpperCase() === 'KICKBOXING') && (
                             <div className={styles.fieldGroup}>
                                 <label className={styles.label}>스탠스</label>
                                 <select className={styles.select} onChange={(e) => setSkills({ ...skills, stance: e.target.value })}>
@@ -160,7 +153,7 @@ export default function SportRegisterPage({ params }: { params: Promise<{ id: st
                         </div>
                     </>
                 );
-            case 'health':
+            case 'HEALTH':
                 return (
                     <>
                         <div className={styles.fieldGroup}>
@@ -179,7 +172,7 @@ export default function SportRegisterPage({ params }: { params: Promise<{ id: st
                         </div>
                     </>
                 );
-            case 'racket':
+            case 'RACKET':
                 return (
                     <>
                         <div className={styles.fieldGroup}>
@@ -189,6 +182,95 @@ export default function SportRegisterPage({ params }: { params: Promise<{ id: st
                         <div className={styles.fieldGroup}>
                             <label className={styles.label}>급수 (NTRP / A~D조)</label>
                             <input type="text" className={styles.input} placeholder="예: A조, NTRP 4.0" onChange={(e) => setSkills({ ...skills, level: e.target.value })} />
+                        </div>
+                    </>
+                );
+            case 'BASKETBALL':
+                return (
+                    <>
+                        <div className={styles.fieldGroup}>
+                            <label className={styles.label}>신장 (cm)</label>
+                            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                <input
+                                    type="number"
+                                    className={styles.input}
+                                    placeholder="예: 185"
+                                    onChange={(e) => setSkills({ ...skills, height: e.target.value })}
+                                    style={{ paddingRight: '2.5rem' }}
+                                />
+                                <span style={{ position: 'absolute', right: '1rem', color: '#6B7280', fontSize: '0.9rem' }}>cm</span>
+                            </div>
+                        </div>
+                        <div className={styles.fieldGroup}>
+                            <label className={styles.label}>포지션</label>
+                            <select className={styles.select} onChange={(e) => setSkills({ ...skills, position: e.target.value })}>
+                                <option value="">선택하세요</option>
+                                <option value="PG">가드 (PG/SG)</option>
+                                <option value="SF">포워드 (SF/PF)</option>
+                                <option value="C">센터 (C)</option>
+                            </select>
+                        </div>
+                        <div className={styles.fieldGroup}>
+                            <label className={styles.label}>주 사용 손</label>
+                            <select className={styles.select} onChange={(e) => setSkills({ ...skills, foot: e.target.value })}>
+                                <option value="">선택하세요</option>
+                                <option value="Right">오른손</option>
+                                <option value="Left">왼손</option>
+                                <option value="Both">양손</option>
+                            </select>
+                        </div>
+                        <div className={styles.fieldGroup}>
+                            <label className={styles.label}>출생년도</label>
+                            <input
+                                type="number"
+                                className={styles.input}
+                                placeholder="예: 1990"
+                                onChange={(e) => setSkills({ ...skills, birth_year: e.target.value })}
+                            />
+                        </div>
+                        <div className={styles.fieldGroup}>
+                            <label className={styles.label}>상세 소개</label>
+                            <textarea
+                                className={styles.input}
+                                style={{
+                                    width: '100%',
+                                    minHeight: '120px',
+                                    padding: '12px 16px',
+                                    resize: 'vertical',
+                                    lineHeight: '1.5',
+                                    textAlign: 'left',
+                                    verticalAlign: 'top'
+                                }}
+                                placeholder="본인에 대해 자유롭게 소개해주세요! (스타일, 장점 등)"
+                                onChange={(e) => setSkills({ ...skills, description: e.target.value })}
+                            />
+                        </div>
+                    </>
+                );
+            case 'BASEBALL':
+                return (
+                    <>
+                        <div className={styles.fieldGroup}>
+                            <label className={styles.label}>포지션</label>
+                            <select className={styles.select} onChange={(e) => setSkills({ ...skills, position: e.target.value })}>
+                                <option value="">선택하세요</option>
+                                <option value="투수">투수</option>
+                                <option value="포수">포수</option>
+                                <option value="내야수">내야수</option>
+                                <option value="외야수">외야수</option>
+                            </select>
+                        </div>
+                        <div className={styles.fieldGroup}>
+                            <label className={styles.label}>주손/주타</label>
+                            <select className={styles.select} onChange={(e) => setSkills({ ...skills, foot: e.target.value })}>
+                                <option value="">선택하세요</option>
+                                <option value="우투우타">우투우타</option>
+                                <option value="우투좌타">우투좌타</option>
+                                <option value="좌투좌타">좌투좌타</option>
+                                <option value="좌투우타">좌투우타</option>
+                                <option value="우투양타">우투양타</option>
+                                <option value="좌투양타">좌투양타</option>
+                            </select>
                         </div>
                     </>
                 );
@@ -250,9 +332,9 @@ export default function SportRegisterPage({ params }: { params: Promise<{ id: st
 
             // Mapping for Position/Stance
             let positionVal = null;
-            if (['boxing', 'kickboxing', 'judo'].includes(sportId)) {
+            if (['BOXING', 'KICKBOXING', 'JUDO'].includes(sportId.toUpperCase())) {
                 positionVal = skills.stance;
-            } else if (sportId === 'soccer') {
+            } else if (TEAM_SPORTS.includes(sportId.toUpperCase())) {
                 positionVal = skills.position;
             }
 
@@ -262,7 +344,7 @@ export default function SportRegisterPage({ params }: { params: Promise<{ id: st
             // 1. Insert Player Profile
             const { data: newPlayer, error: playerError } = await (supabase.from('players' as any) as any).insert({
                 user_id: userId,
-                sport_type: sportId,
+                sport_type: sportId.toUpperCase(),
                 name: nickname,
                 location: region,
                 // Normalized Columns
@@ -273,10 +355,16 @@ export default function SportRegisterPage({ params }: { params: Promise<{ id: st
                 draws: draws,
                 losses: losses,
                 main_foot: foot,       // Mapped from skills.foot
-                skill_level: level,    // Mapped from skills.level
+                skill_level: level ? parseInt(level, 10) : null,    // Mapped from skills.level with fallback
+
+                // Added for Basketball (and others using these directly)
+                height: skills.height ? parseInt(skills.height, 10) : null,
+                birth_year: skills.birth_year ? parseInt(skills.birth_year, 10) : null,
+                description: skills.description || null,
 
                 skills: restSkills,
-                avatar_url: avatarUrl // Insert Avatar URL
+                avatar_url: avatarUrl, // Insert Avatar URL
+                updated_at: new Date().toISOString()
             }).select().single();
             if (playerError) throw playerError;
 
@@ -287,7 +375,7 @@ export default function SportRegisterPage({ params }: { params: Promise<{ id: st
 
                 const { data: newTeam, error: teamError } = await (supabase.from('teams' as any) as any).insert({
                     captain_id: newPlayer.id,
-                    sport_type: sportId,
+                    sport_type: sportId.toUpperCase(),
                     team_name: teamName,
                     description: teamDesc,
                     emblem_url: emblemUrl
@@ -389,6 +477,17 @@ export default function SportRegisterPage({ params }: { params: Promise<{ id: st
             <div className={styles.formSection}>
                 <span className={styles.sectionLabel}>상세 정보 ({sportName})</span>
                 {renderSportFields()}
+                {(TEAM_SPORTS.includes(sportId.toUpperCase()) || ['BOXING', 'KICKBOXING', 'JUDO'].includes(sportId.toUpperCase())) && (
+                    <div className={styles.fieldGroup}>
+                        <label className={styles.label}>본인 실력</label>
+                        <select className={styles.select} onChange={(e) => setSkills({ ...skills, level: e.target.value })} value={skills.level || ""}>
+                            <option value="">선택하세요</option>
+                            {Object.entries(SKILL_LEVELS).map(([val, labelObj]) => (
+                                <option key={val} value={val}>{labelObj.full}</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
             </div>
 
             <div className={`${styles.formSection} ${isCaptain ? styles.captainSection : ''}`}>
