@@ -133,6 +133,9 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
                 if (playerData.height) loadedSkills.height = playerData.height;
                 if (playerData.reach) loadedSkills.reach = playerData.reach;
 
+                // Fetch direct description column
+                if (playerData.description !== undefined) loadedSkills.real_description = playerData.description;
+
                 // Parse Career History JSONB
                 if (playerData.career_history) {
                     try {
@@ -261,7 +264,7 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
 
             // Clean skills (Remove migrated fields if desired, or keep for safety? User said "skills: {} or misc")
             // To be safe and compliant:
-            const { weightClass, stance, wins: _w, losses: _l, position: _p, foot, level, short_intro: _si, birth_year: _by, height: _h, reach: _r, career_history: _ch, ...restSkills } = skills;
+            const { weightClass, stance, wins: _w, losses: _l, position: _p, foot, level, real_description: _rd, short_intro: _si, birth_year: _by, height: _h, reach: _r, career_history: _ch, ...restSkills } = skills;
             // Actually, keep other fields. 
 
             // 1. Update Player Profile
@@ -269,7 +272,7 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
                 .update({
                     name: nickname,
                     location: region,
-                    description: skills.description || null,
+                    description: skills.real_description || null,
                     short_intro: skills.short_intro || null,
                     birth_year: skills.birth_year ? parseInt(skills.birth_year, 10) : null,
                     height: skills.height ? parseInt(skills.height, 10) : null,
@@ -397,13 +400,15 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
                             />
                             <span style={{ fontSize: '1rem', color: '#9CA3AF' }}>✏️</span>
                         </div>
-                        <div className={styles.metaInfo} style={{ marginBottom: '0.5rem' }}>
-                            <div className={styles.metaItem}>
-                                <span className={styles.metaLabel}>전적: 🥊</span>
-                                <input type="number" className={styles.recordInput} value={skills.wins || ""} onChange={(e) => setSkills((p: any) => ({ ...p, wins: e.target.value }))} placeholder="승" /> 승
-                                <input type="number" className={styles.recordInput} style={{ marginLeft: '4px' }} value={skills.losses || ""} onChange={(e) => setSkills((p: any) => ({ ...p, losses: e.target.value }))} placeholder="패" /> 패
+                        {!['soccer', 'futsal'].includes(sportId) && (
+                            <div className={styles.metaInfo} style={{ marginBottom: '0.5rem' }}>
+                                <div className={styles.metaItem}>
+                                    <span className={styles.metaLabel}>전적: 🥊</span>
+                                    <input type="number" className={styles.recordInput} value={skills.wins || ""} onChange={(e) => setSkills((p: any) => ({ ...p, wins: e.target.value }))} placeholder="승" /> 승
+                                    <input type="number" className={styles.recordInput} style={{ marginLeft: '4px' }} value={skills.losses || ""} onChange={(e) => setSkills((p: any) => ({ ...p, losses: e.target.value }))} placeholder="패" /> 패
+                                </div>
                             </div>
-                        </div>
+                        )}
 
                         <input
                             type="text"
@@ -430,6 +435,20 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
                             placeholder="1990 (입력)"
                         />
                     </div>
+                    {!['soccer', 'futsal'].includes(sportId) && (
+                        <div className={styles.specRow}>
+                            <span className={styles.specRowLabel}>체급</span>
+                            <input
+                                type="number"
+                                className={styles.specInput}
+                                style={{ paddingRight: '2px' }}
+                                value={skills.weightClass || ""}
+                                onChange={(e) => setSkills((p: any) => ({ ...p, weightClass: e.target.value }))}
+                                placeholder="65"
+                            />
+                            <span style={{ fontSize: '0.95rem', fontWeight: 700, marginLeft: '2px', color: '#111827' }}>kg</span>
+                        </div>
+                    )}
                     <div className={styles.specRow}>
                         <span className={styles.specRowLabel}>신장</span>
                         <input
@@ -442,20 +461,22 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
                         />
                         <span style={{ fontSize: '0.95rem', fontWeight: 700, marginLeft: '2px', color: '#111827' }}>cm</span>
                     </div>
+                    {!['soccer', 'futsal'].includes(sportId) && (
+                        <div className={styles.specRow}>
+                            <span className={styles.specRowLabel}>리치</span>
+                            <input
+                                type="number"
+                                className={styles.specInput}
+                                style={{ paddingRight: '2px' }}
+                                value={skills.reach || ""}
+                                onChange={(e) => setSkills((p: any) => ({ ...p, reach: e.target.value }))}
+                                placeholder="180"
+                            />
+                            <span style={{ fontSize: '0.95rem', fontWeight: 700, marginLeft: '2px', color: '#111827' }}>cm</span>
+                        </div>
+                    )}
                     <div className={styles.specRow}>
-                        <span className={styles.specRowLabel}>리치</span>
-                        <input
-                            type="number"
-                            className={styles.specInput}
-                            style={{ paddingRight: '2px' }}
-                            value={skills.reach || ""}
-                            onChange={(e) => setSkills((p: any) => ({ ...p, reach: e.target.value }))}
-                            placeholder="180"
-                        />
-                        <span style={{ fontSize: '0.95rem', fontWeight: 700, marginLeft: '2px', color: '#111827' }}>cm</span>
-                    </div>
-                    <div className={styles.specRow}>
-                        <span className={styles.specRowLabel}>{['boxing', 'kickboxing', 'judo'].includes(sportId) ? '스탠스' : '포지션'}</span>
+                        <span className={styles.specRowLabel}>{['soccer', 'futsal'].includes(sportId) ? '포지션' : '스탠스'}</span>
                         <select
                             className={styles.specSelect}
                             value={['boxing', 'kickboxing', 'judo'].includes(sportId) ? (skills.stance || "") : (skills.position || "")}
@@ -476,6 +497,31 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
                                 </>
                             )}
                         </select>
+                    </div>
+                    {['soccer', 'futsal'].includes(sportId) && (
+                        <div className={styles.specRow}>
+                            <span className={styles.specRowLabel}>주발</span>
+                            <select
+                                className={styles.specSelect}
+                                value={skills.foot || ""}
+                                onChange={(e) => setSkills((p: any) => ({ ...p, foot: e.target.value }))}
+                            >
+                                <option value="">선택</option>
+                                <option value="Right">오른발</option>
+                                <option value="Left">왼발</option>
+                                <option value="Both">양발</option>
+                            </select>
+                        </div>
+                    )}
+                    <div className={styles.specRow}>
+                        <span className={styles.specRowLabel}>주 활동지</span>
+                        <input
+                            type="text"
+                            className={styles.specInput}
+                            value={region}
+                            onChange={(e) => setRegion(e.target.value)}
+                            placeholder="서울시 강남구"
+                        />
                     </div>
                 </div>
             </section>
@@ -544,6 +590,28 @@ export default function SportEditPage({ params }: { params: Promise<{ id: string
                         + 경력 추가
                     </button>
                 </div>
+            </section>
+
+            <section className={styles.section}>
+                <h3 className={styles.subTitle}>상세 소개</h3>
+                <textarea
+                    className={styles.specInput}
+                    style={{
+                        width: '100%',
+                        minHeight: '120px',
+                        padding: '12px 16px',
+                        fontSize: '1rem',
+                        resize: 'vertical',
+                        lineHeight: '1.5',
+                        borderRadius: '0.75rem',
+                        border: '1px solid #D1D5DB',
+                        textAlign: 'left',
+                        verticalAlign: 'top'
+                    }}
+                    value={skills.real_description || ""}
+                    onChange={(e) => setSkills((p: any) => ({ ...p, real_description: e.target.value }))}
+                    placeholder="본인에 대해 자유롭게 소개해주세요! (스타일, 좋아하는 것 등)"
+                />
             </section>
 
             <section className={styles.section}>

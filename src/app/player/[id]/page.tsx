@@ -85,7 +85,7 @@ export default function PlayerProfilePage({ params }: PageProps) {
     const tags: string[] = [];
     if (player.skill_level) tags.push(`실력: ${player.skill_level}`);
     if (player.main_foot) tags.push(`주발: ${player.main_foot}`);
-    if (!['boxing', 'judo', 'kickboxing', 'health'].includes(sportCode) && player.position) tags.push(player.position);
+    if (!['boxing', 'kickboxing', 'judo', 'health'].includes(sportCode) && player.position) tags.push(player.position);
 
     if (player.skills) {
         try {
@@ -147,12 +147,21 @@ export default function PlayerProfilePage({ params }: PageProps) {
                     <div className={styles.teamInfo}>
                         <h1 className={styles.teamName}>{player.name}</h1>
                         <div className={styles.metaInfo} style={{ marginBottom: '0.5rem' }}>
-                            <div className={styles.metaItem}>
-                                <span className={styles.metaLabel}>전적:</span>
-                                <span className={styles.metaValue} style={{ fontWeight: 'bold', color: '#EF4444' }}>
-                                    🥊 {recordDisplay}
-                                </span>
-                            </div>
+                            {['soccer', 'futsal'].includes(sportCode) ? (
+                                <div className={styles.metaItem}>
+                                    <span className={styles.metaLabel}>⚽ {player.position || '포지션 미입력'}</span>
+                                    <span className={styles.metaValue} style={{ fontWeight: 'bold', color: '#3B82F6', marginLeft: '4px' }}>
+                                        | 👟 {player.main_foot === 'Both' ? '양발' : player.main_foot === 'Right' ? '오른발' : player.main_foot === 'Left' ? '왼발' : '주발 미입력'}
+                                    </span>
+                                </div>
+                            ) : (
+                                <div className={styles.metaItem}>
+                                    <span className={styles.metaLabel}>전적:</span>
+                                    <span className={styles.metaValue} style={{ fontWeight: 'bold', color: '#EF4444' }}>
+                                        🥊 {recordDisplay}
+                                    </span>
+                                </div>
+                            )}
                         </div>
                         {player.short_intro && (
                             <p className={styles.teamDesc} style={{ fontSize: '1rem', color: '#111827', fontWeight: 600, marginTop: '0.5rem' }}>
@@ -170,24 +179,36 @@ export default function PlayerProfilePage({ params }: PageProps) {
                         <span className={styles.specRowLabel}>출생</span>
                         <span className={styles.specRowValue}>{player.birth_year ? `${player.birth_year}년생` : '-'}</span>
                     </div>
+                    {!['soccer', 'futsal'].includes(sportCode) && (
+                        <div className={styles.specRow}>
+                            <span className={styles.specRowLabel}>체급</span>
+                            <span className={styles.specRowValue}>{player.weight_class ? `${player.weight_class} kg` : '-'}</span>
+                        </div>
+                    )}
                     <div className={styles.specRow}>
                         <span className={styles.specRowLabel}>신장</span>
                         <span className={styles.specRowValue}>{player.height ? `${player.height} cm` : '-'}</span>
                     </div>
+                    {!['soccer', 'futsal'].includes(sportCode) && (
+                        <div className={styles.specRow}>
+                            <span className={styles.specRowLabel}>리치</span>
+                            <span className={styles.specRowValue}>{player.reach ? `${player.reach} cm` : '-'}</span>
+                        </div>
+                    )}
                     <div className={styles.specRow}>
-                        <span className={styles.specRowLabel}>리치</span>
-                        <span className={styles.specRowValue}>{player.reach ? `${player.reach} cm` : '-'}</span>
+                        <span className={styles.specRowLabel}>{['soccer', 'futsal'].includes(sportCode) ? '포지션' : '스탠스'}</span>
+                        <span className={styles.specRowValue}>{player.position || player.stance || '-'}</span>
                     </div>
                     <div className={styles.specRow}>
-                        <span className={styles.specRowLabel}>스탠스</span>
-                        <span className={styles.specRowValue}>{player.position || player.stance || '-'}</span>
+                        <span className={styles.specRowLabel}>주 활동지</span>
+                        <span className={styles.specRowValue}>{player.location || '-'}</span>
                     </div>
                 </div>
             </section>
 
             {team && (
                 <section className={styles.section}>
-                    <h3 className={styles.subTitle}>소속 체육관</h3>
+                    <h3 className={styles.subTitle}>{['soccer', 'futsal'].includes(sportCode) ? '소속 팀' : '소속 체육관'}</h3>
                     <div style={{ marginTop: '0.5rem' }}>
                         <MyTeamCard
                             teamId={team.id}
@@ -226,7 +247,18 @@ export default function PlayerProfilePage({ params }: PageProps) {
             </section>
 
             <section className={styles.section}>
-                <h2 className={styles.sectionTitle}>최근 전적 (예시)</h2>
+                <h3 className={styles.subTitle}>상세 소개</h3>
+                <div style={{ background: '#F9FAFB', padding: '1rem', borderRadius: '0.75rem', border: '1px solid #E5E7EB', whiteSpace: 'pre-wrap', color: '#374151', lineHeight: '1.6' }}>
+                    {player.description ? player.description : (
+                        <span style={{ color: '#9CA3AF', fontStyle: 'italic' }}>
+                            {isMyProfile ? "상세한 소개를 작성해 보세요!" : "상세 소개가 없습니다."}
+                        </span>
+                    )}
+                </div>
+            </section>
+
+            <section className={styles.section}>
+                <h2 className={styles.sectionTitle}>최근 매치 히스토리</h2>
                 <div className={styles.matchList}>
                     {matchHistory.map((match: any, idx: number) => (
                         <div key={idx} className={styles.matchCard}>

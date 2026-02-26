@@ -32,7 +32,7 @@ export default function BottomNav() {
 
             {/* 3. 내 매치 (새로 추가됨!) */}
             <Link href="/my-matches" className={`${styles.item} ${pathname.startsWith("/my-matches") ? styles.active : ""}`}>
-                <span className={styles.icon}>🥊</span>
+                <span className={styles.icon} style={{ fontWeight: 600, fontSize: "1.1rem", fontStyle: "italic", letterSpacing: "-1px" }}>VS</span>
                 <span className={styles.label}>내 매치</span>
             </Link>
 
